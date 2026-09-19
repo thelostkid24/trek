@@ -1,6 +1,12 @@
 spring:
   application:
     name: sahyatri
+  config:
+    # Local dev: read the repo-root .env whether the app starts from the repo root or backend/.
+    # Real environment variables still win over these values.
+    import:
+      - optional:file:.env[.properties]
+      - optional:file:../.env[.properties]
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5433/sahyatri}
     username: ${DB_USER:sahyatri}
@@ -14,13 +20,57 @@ spring:
     locations: classpath:db/migration
   jackson:
     property-naming-strategy: SNAKE_CASE
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
 
 server:
   port: ${PORT:8081}
 
 app:
+  # Base URL the API is reachable at from browsers (builds avatar_url).
+  public-base-url: ${PUBLIC_BASE_URL:http://localhost:8081}
+  # Where email links point.
+  frontend-base-url: ${FRONTEND_BASE_URL:http://localhost:5173}
+  storage:
+    local-dir: ${UPLOAD_DIR:./data/uploads}
+  mail:
+    from: ${MAIL_FROM:Sahyatri <no-reply@sahyatri.local>}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+  auth:
+    # Dev default only — set JWT_SECRET (>= 32 bytes) in every real environment.
+    jwt-secret: ${JWT_SECRET:dev-only-insecure-jwt-secret-change-me-0123456789}
+    access-ttl: 15m
+    refresh-ttl: 30d
+    refresh-reuse-grace: 30s
+    cookie-secure: ${AUTH_COOKIE_SECURE:false}
+    google-client-id: ${GOOGLE_CLIENT_ID:}
+  admin:
+    # Existing accounts promoted to ADMIN at startup (comma-separated).
+    emails: ${ADMIN_EMAILS:}
+  catalog:
+    # Guide's share of booking revenue, frozen on each departure at publish. Placeholder until the business sets it.
+    guide-share-bps: ${GUIDE_SHARE_BPS:7000}
+    booking-cutoff-days: 1
+    zone: Asia/Kolkata
+  bookings:
+    hold-ttl: ${BOOKING_HOLD_TTL:10m}
+    # Trekker cancellation refund by days before the start date (IST). Frozen onto each booking when paid.
+    refund-tiers:
+      - min-days-before: 15
+        refund-bps: 9000
+      - min-days-before: 7
+        refund-bps: 5000
+      - min-days-before: 0
+        refund-bps: 0
+  payments:
+    # Razorpay test-mode keys in dev (rzp_test_…). Blank = payments off.
+    key-id: ${RAZORPAY_KEY_ID:}
+    key-secret: ${RAZORPAY_KEY_SECRET:}
+    webhook-secret: ${RAZORPAY_WEBHOOK_SECRET:}
+    api-base-url: https://api.razorpay.com/v1
 
 management:
   endpoints:
