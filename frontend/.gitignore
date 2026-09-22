@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local-only dev mock backend (see src/devMock.ts)
+src/devMock.ts
