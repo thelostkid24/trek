@@ -6,8 +6,9 @@ import { GUEST_SIGN_OUT_WARNING } from '../../components/booking/GuestNotice.tsx
 import { maskPhone } from '../../lib/format.ts'
 
 const NAV = [
-  { to: '/account/bookings', label: 'My trips' },
+  { to: '/account/bookings', label: 'My treks' },
   { to: PROFILE_PATH, label: 'My profile' },
+  { to: '/account/gear', label: 'Gear' },
 ]
 
 const joinedFormat = new Intl.DateTimeFormat('en-IN', { month: 'long', year: 'numeric' })
@@ -26,10 +27,11 @@ export function AccountLayout() {
   }
 
   return (
-    <div className="account-area bg-paper-100 md:flex md:min-h-[calc(100dvh-4rem)]">
-      <aside className="bg-ink-900 text-stone-300 md:sticky md:top-16 md:flex md:h-[calc(100dvh-4rem)] md:w-60 md:shrink-0 md:flex-col">
+    <div className="account-area bg-paper-100 md:min-h-[calc(100dvh-4rem)]">
+      {/* Fixed, not sticky: a sticky rail rides up with its container once the footer scrolls in. Layout offsets the footer (route handle `accountSidebar`). */}
+      <aside className="bg-ink-900 text-stone-300 md:fixed md:top-16 md:bottom-0 md:left-0 md:flex md:w-60 md:flex-col">
         <div className="hidden px-6 pt-8 pb-6 md:block">
-          <p className="font-display text-xl text-stone-100">Your account</p>
+          <p className="font-display text-xl text-stone-100">Sahyātri</p>
           <p className="mt-1 text-xs text-ink-400">Trekker since {joinedFormat.format(new Date(user.created_at))}</p>
         </div>
 
@@ -75,7 +77,7 @@ export function AccountLayout() {
         </div>
       </aside>
 
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 md:ml-60">
         <Outlet />
       </div>
     </div>

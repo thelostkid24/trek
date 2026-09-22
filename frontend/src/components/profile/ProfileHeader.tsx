@@ -2,27 +2,12 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRef, useState, type ChangeEvent } from 'react'
 import { AVATAR_TYPES, MAX_AVATAR_BYTES, removeAvatar, uploadAvatar } from '../../api/account.ts'
 import type { User } from '../../api/auth.ts'
-import type { CompletionItem, TrekkerProfile } from '../../api/profile.ts'
+import type { TrekkerProfile } from '../../api/profile.ts'
 import { messageFor } from '../../auth/errorMessages.ts'
 import { useAuth } from '../../auth/useAuth.ts'
 import { Avatar } from '../Avatar.tsx'
 import { FormError } from '../auth/AuthCard.tsx'
 import { SecondaryButton } from './ProfileSection.tsx'
-
-const ITEM_LABELS: Record<CompletionItem, string> = {
-  full_name: 'Your name',
-  avatar: 'Photo',
-  date_of_birth: 'Date of birth',
-  gender: 'Gender',
-  home_city: 'Home city',
-  experience_level: 'Trek experience',
-  emergency_contact: 'Emergency contact',
-  blood_group: 'Blood group',
-  height_weight: 'Height & weight',
-  diet: 'Diet',
-  phone_verified: 'Verified mobile',
-  email_verified: 'Verified email',
-}
 
 /** Photo and how complete the profile is. The page title and name live elsewhere. */
 export function ProfileHeader({ user, profile }: { user: User; profile: TrekkerProfile }) {
@@ -61,10 +46,10 @@ export function ProfileHeader({ user, profile }: { user: User; profile: TrekkerP
     }
   }
 
-  const { percent, missing } = profile.completion
+  const { percent } = profile.completion
 
   return (
-    <section aria-label="Photo and profile completion" className="border-t border-paper-300 pt-8">
+    <section id="photo" aria-label="Photo and profile completion" className="profile-card scroll-mt-24 rounded-(--field-radius) border border-paper-300 bg-paper-50 px-5 py-6 sm:px-7">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
         <div className="relative w-fit">
           <Avatar url={user.avatar_url} name={user.full_name} size="md" className="ring-paper-50!" />
@@ -77,7 +62,7 @@ export function ProfileHeader({ user, profile }: { user: User; profile: TrekkerP
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-stone-800">Profile photo</p>
-          <p className="text-xs text-stone-500">Helps your guide spot you at the meeting point. JPEG or PNG, up to 5 MB.</p>
+          <p className="text-xs text-stone-500">JPEG or PNG, up to 5 MB.</p>
         </div>
         <div className="flex gap-2">
           <input
@@ -128,13 +113,8 @@ export function ProfileHeader({ user, profile }: { user: User; profile: TrekkerP
           aria-valuemax={100}
           aria-label="Profile completion"
         >
-          <div className="h-full rounded-full bg-pine-600 transition-[width]" style={{ width: `${percent}%` }} />
+          <div className="bar-grow h-full rounded-full bg-pine-600 transition-[width] duration-500" style={{ width: `${percent}%` }} />
         </div>
-        {missing.length > 0 && (
-          <p className="mt-2 text-xs text-stone-500">
-            Still to add: {missing.map((item) => ITEM_LABELS[item]).join(' · ')}
-          </p>
-        )}
       </div>
     </section>
   )

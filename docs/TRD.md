@@ -15,6 +15,7 @@
 | Frontend | React 19, TypeScript, Vite, Tailwind CSS v4, React Router, TanStack Query |
 | Auth (planned) | Email + password, phone OTP, Google OAuth — all issue the same JWT |
 | Payments (planned) | Razorpay Standard Checkout — UPI, cards, netbanking, wallets (test mode in dev); design in §7.4 |
+| Hosting | AWS ap-south-1: CloudFront (+WAF) → S3 (SPA) and ALB → ECS Fargate (backend container), RDS PostgreSQL 16, S3 uploads, SES email, MSG91 SMS. Runbook: `docs/DEPLOY.md` |
 | Background work | Spring `@Scheduled` only (`@EnableScheduling` on `BackendApplication`) — no job-queue service in V1. Jobs take row locks and run one transaction per row. |
 
 ## 2. Repo layout
@@ -33,7 +34,8 @@ trek/
 │       │   ├── util/         # stateless helpers (HashingUtils)
 │       │   ├── storage/      # FileStorage (local disk in dev), public file serving
 │       │   ├── audit/        # AuditLog (append-only audit_events)
-│       │   ├── web/          # shared response wrappers (ItemsResponse)
+│       │   ├── web/          # shared response wrappers (ItemsResponse), RateLimitFilter
+│       │   ├── mail/         # MailTransport: log (dev) or SES (prod)
 │       │   └── health/
 │       └── <feature>/        # e.g. auth/
 │           ├── controller/
@@ -79,7 +81,8 @@ trek/
 ## 4. Security scope (V1)
 1. **Role guards + ownership checks** — every non-public route requires a JWT with the right role; services verify the caller owns the resource.
 2. **Webhook signature verification** — Razorpay webhooks verified via HMAC before any processing; processing is idempotent. A Checkout success reported by the browser is re-verified server-side (order|payment HMAC) before anything is marked paid. Card data never touches our servers (§7.4).
-3. **Secrets only via environment variables** — listed in `.env.example`, never committed.
+3. **Secrets only via environment variables** — listed in `.env.example`, never committed. In production they come from AWS Secrets Manager.
+4. **Rate limits** — WAF at the edge (per-IP flood rule, managed rule sets) and `RateLimitFilter` in the app (§7.8), plus the per-email login lockout and per-phone OTP throttles (§7.2).
 
 > Current state: JWT + role guards are live (§7.2). Account endpoints (§7.3) accept any signed-in role; ownership comes from the token subject, never the request.
 
@@ -138,6 +141,12 @@ Defined per feature. Each feature appends a subsection: tables/columns added, co
 - **`tracks`** — adds route facts, all `NULL` until an admin fills them in: `distance_km NUMERIC(5,1) CHECK > 0` (on foot, start to finish), `base_altitude_m INT CHECK > 0` (trailhead; with `max_altitude_m` gives the altitude gain), `highest_camp_m INT CHECK > 0`, `stay TEXT` (e.g. "Tents · twin share"), `season_label TEXT` (e.g. "Snow trek · Dec–Apr").
 - **`track_itinerary_days`** — `id UUID PK`, `track_id UUID FK → tracks ON DELETE CASCADE`, `day_number INT NOT NULL CHECK 1..7`, `summary TEXT NOT NULL`. `UNIQUE (track_id, day_number)`. Empty, or exactly one row per day of `duration_days` (service rule).
 
+### 6.8 Trek photos — `V8__track_photos.sql`
+- **`track_photos`** — `id UUID PK` (also the storage key `track-photos/<id>.jpg`), `track_id UUID FK → tracks ON DELETE CASCADE`, `caption TEXT NULL CHECK length 1..200`, `created_at TIMESTAMPTZ NOT NULL`. Index `(track_id, created_at)`. At most 30 per track (service rule).
+
+### 6.9 Trek catalog — `V9__track_catalog.sql`
+- **`tracks`** — adds `listed BOOLEAN NOT NULL DEFAULT FALSE`: show this track in the public catalog even when it has no upcoming dates. A track with an upcoming published departure is in the catalog whatever `listed` says.
+
 ## 7. Feature log
 Each feature appends: scope, endpoints, tables, screens, tests.
 
@@ -151,6 +160,7 @@ Each feature appends: scope, endpoints, tables, screens, tests.
 - Frontend only, no endpoints or tables.
 - `HomePage`: illustrated hero (`components/Ridgeline.tsx`, pure SVG), promise stats, how it works, departures with month filter, guarantee comparison, guides pitch, FAQ, closing CTA.
 - Departures were static sample data until §7.5; the section now reads `GET /api/public/departures` (`components/catalog/DepartureCard.tsx`).
+- Hero photo: `frontend/public/hero.jpg` (static asset, covers the ridgeline art; the art shows if the file is missing).
 - `Layout`: nav anchors, full-bleed `<main>` (pages own their container), backend health indicator moved to the footer.
 - Brand tokens: added brand 200–950 and `laterite` accent; display font Fraunces (Google Fonts) alongside Inter.
 
@@ -310,9 +320,9 @@ Like `/api/auth/me`, account and profile endpoints return `401 UNAUTHENTICATED` 
 
 #### Frontend
 - `api/profile.ts` (profile types + calls) and `api/account.ts` (photo, email, phone, password); `api/client.ts` passes `FormData` bodies through untouched. All authenticated calls go through `withAuth`.
-- `pages/trekker/AccountLayout.tsx` wraps `/account/profile` and `/account/bookings(/:id)` in the account sidebar (a tab strip on phones). Its `account-area` class sets the `--field-*` CSS variables that `TextField` and `components/profile/fields.tsx` read, so fields there use the paper style.
+- `pages/trekker/AccountLayout.tsx` wraps `/account`, `/account/profile`, `/account/bookings(/:id)` and `/account/gear` in the account sidebar (My treks · My profile · Gear, §7.10; `/account` redirects to `/account/bookings`) (a tab strip on phones). Its `account-area` class sets the `--field-*` CSS variables that `TextField` and `components/profile/fields.tsx` read, so fields there use the paper style.
 - `auth/`: `RequireAuth` route guard (redirects to `/login` with `state.from`, optional role); `AuthProvider` exposes `updateUser(user)`. After OTP sign-up without a name, sign-in lands on the profile page.
-- Screens: `/account/profile` (TREKKER only, `pages/trekker/ProfilePage.tsx`): header with photo, name and completion; one form for personal / experience / emergency contact / health, saved with a single `PUT`; a "Sign-in & security" section for email, phone and password. `/account/verify-email` (`pages/VerifyEmailPage.tsx`) consumes the link. Pieces in `components/profile/`.
+- Screens: `/account/profile` (TREKKER only, `pages/trekker/ProfilePage.tsx`): header with photo, name and completion; one form for personal / experience / emergency contact / health, saved with a single `PUT`; a "Sign-in & security" section for email, phone and password. The Health card shows a BMI worked out live from height and weight (WHO bands; not stored). The form no longer shows "About your trekking": `bio` stays in the API and is sent back unchanged. `/account/verify-email` (`pages/VerifyEmailPage.tsx`) consumes the link. Pieces in `components/profile/`.
 - Header: the account name links to the profile and shows the photo or initials.
 
 #### Backend
@@ -685,8 +695,8 @@ Payments: §7.4 endpoints, with the changes listed there. Checkout `prefill` com
 - `/book/:departureId` (`pages/trekker/BookPage.tsx`, **public**): seats (up to `seats_left`, max 10), Google one tap for visitors, then name + WhatsApp (+91) + email (prefilled from the account, or from a returning guest's last booking), itemised price and "Hold & pay" in the right column. Visitors go through `POST /api/public/bookings` and are signed in as a guest; signed-in trekkers use `POST /api/trekker/bookings`. Then the booking page opens Checkout with a 10-minute countdown. `NOT_ENOUGH_SEATS` → "seats just went": nothing charged, details kept, "Take the N seats", and other dates of the trek (same date first) that open their checkout with the details carried over.
 - `/account/bookings/:id` (`BookingDetailPage.tsx`): status, contact, payment, refunds, "Pay now" for a live hold, "Release seats", "Cancel booking" with the quote. After payment the travellers form (`PUT …/travellers`) opens until every seat is named; editable until the start date.
 - Guests: a "keep access to your trip" notice on the booking and profile pages (verify a mobile or email), and "Sign out" asks for confirmation.
-- `/account/bookings` (`BookingsPage.tsx`, upcoming and past).
-- Header: "My trips" link for trekkers.
+- `/account/bookings` (`BookingsPage.tsx`, "My treks", upcoming and past — see §7.10).
+- Header: "My treks" link for trekkers.
 
 ### 7.7 Trek and guide pages
 **Status:** backend and frontend implemented.
@@ -699,7 +709,7 @@ Payments: §7.4 endpoints, with the changes listed there. Checkout `prefill` com
 | `GET /api/public/tracks/{slug}` | `200 { track: TrackDetail, departures: [{ id, start_date, end_date, price_paise, max_group_size, seats_left, bookable, guide: GuideCard }] }`, soonest first | `404 TRACK_NOT_FOUND` |
 | `GET /api/public/guides/{id}` | `200 { id, full_name, avatar_url, home_city, bio, treks_led, treks: [{ track: TrackBrief, times }], upcoming: DepartureSummary[] }` | `404 GUIDE_NOT_FOUND` (not a guide, disabled or unknown) |
 
-- `TrackDetail` (also on `GET /api/public/departures/{id}`) adds `distance_km`, `base_altitude_m`, `highest_camp_m`, `stay`, `season_label`, `itinerary: [{ day, summary }]`.
+- `TrackDetail` (also on `GET /api/public/departures/{id}`) adds `distance_km`, `base_altitude_m`, `highest_camp_m`, `stay`, `season_label`, `itinerary: [{ day, summary }]`, and `photos` (§7.8).
 - `GuideCard` = `{ id, full_name, avatar_url, home_city, led_this_trek }`; `GET /api/public/departures/{id}` now returns it as `guide`.
 - Counts are `COMPLETED` departures, computed at read time and never stored (law 8). `home_city` and `bio` come from the guide's own profile (§6.2).
 - Admin tracks (`POST`/`PUT /api/admin/tracks`) accept and return the route facts and `itinerary: string[]` (one line per day, ≤ 200 chars each; empty or exactly `duration_days` lines → else `400` on `itinerary`; a blank line → `400` on `itinerary[i]`). `base_altitude_m` and `highest_camp_m` can't exceed `max_altitude_m`.
@@ -712,6 +722,143 @@ Payments: §7.4 endpoints, with the changes listed there. Checkout `prefill` com
 - Admin track form: route facts and one input per day for the itinerary.
 - Tests: `TrekPageTests`.
 
+### 7.8 Trek photos
+**Status:** backend and frontend implemented.
+
+**Scope:** an admin uploads photos from past runs of a trek (views, camps, the group on the trail). The trek page shows them so trekkers can see what they're signing up for. Table in §6.8.
+
+#### Shapes
+```jsonc
+// TrackPhoto — on TrackDetail.photos (public) and Track.photos (admin), oldest upload first
+{ "id": "…-uuid", "url": "http://localhost:8081/api/public/files/track-photos/<id>.jpg", "caption": "Summit at first light" }
+```
+
+#### Endpoints
+| Method & path | Auth | Request | Success | Errors |
+|---|---|---|---|---|
+| `POST /api/admin/tracks/{id}/photos` | ADMIN | multipart: `file` (JPEG/PNG ≤ 5 MB), optional `caption` (≤ 200 after trim; blank = none) | `201` TrackPhoto | `400 UNSUPPORTED_IMAGE`, `400 VALIDATION_FAILED` (`caption`), `404 TRACK_NOT_FOUND`, `409 TOO_MANY_PHOTOS` (30), `413 FILE_TOO_LARGE` |
+| `DELETE /api/admin/tracks/{id}/photos/{photoId}` | ADMIN | — | `204` | `404 PHOTO_NOT_FOUND` |
+| `GET /api/public/files/track-photos/{id}.jpg` | — | — | `200 image/jpeg`, cached for a year (immutable) | `404 NOT_FOUND` |
+
+#### Behaviour
+- Uploads are decoded and re-encoded as JPEG (`common/storage/Images`, shared with avatars), scaled so the long edge is ≤ 2000 px, never enlarged. No metadata (EXIF location) survives.
+- The file is written before the row and deleted after it, so a listed photo always has a file; a failed write leaves at most an orphan file.
+- The admin UI scales photos to ≤ 2000 px in the browser before upload (`lib/photos.ts`), so phone photos over 5 MB still go through and arrive upright (EXIF rotation applied).
+
+#### Frontend
+- `/treks/:slug`: the first photo becomes the hero (ridgeline until there is one). "From past treks" gallery under the description (`components/catalog/TrekGallery.tsx`): a swipeable strip on phones, a mosaic on wider screens (first photo large, "+N more" on the fifth), full-screen viewer with arrows, swipe and Esc.
+- Admin track editor: a Photos panel under the form for an existing track: thumbnails with Delete, "Add photos" (multi-select) with an optional caption.
+- Tests: `TrackPhotoTests`.
+
+### 7.8 Launch readiness: notifications, providers, rate limits, legal pages
+**Status:** implemented.
+
+**Providers (switched by config, dev defaults unchanged):**
+- **Email:** `common/mail/MailTransport` with `LoggingMailTransport` (`MAIL_PROVIDER=log`) and `SesMailTransport` (`ses`). `account/mail/DefaultEmailSender` composes the account emails and hands them to the transport.
+- **SMS:** `auth/sms/Msg91SmsSender` (`SMS_PROVIDER=msg91`, MSG91 Flow API, DLT-approved template using `##otp##`). If sending fails, it returns `503 SMS_UNAVAILABLE`.
+- **Uploads:** `common/storage/S3FileStorage` (`STORAGE_TYPE=s3`, `S3_UPLOADS_BUCKET`). `/api/public/files/**` still serves them, so `avatar_url` is unchanged.
+- **AWS credentials and region** come from the ECS task role and `AWS_REGION` (the SDK default chain).
+
+**Booking emails (`booking/notify/`):**
+- `BookingService`, `BookingPaymentHandler` and `ForceMajeureCanceller` publish a `BookingNotice` next to the `BOOKING_CONFIRMED`, `BOOKING_CANCELLED` and `BOOKING_CANCELLED_FORCE_MAJEURE` audit records.
+- `BookingNotifier` emails the booking's `contact_email` **after commit**. A mail failure is logged and never undoes a payment or cancellation.
+- The emails:
+  - **Confirmed:** trek, dates, meeting point, seats, amount paid, and a link to add travellers.
+  - **Cancelled by the trekker:** the refund amount, or "no refund due".
+  - **Cancelled for force majeure:** the reason note and the full refund.
+
+**Rate limiting (`common/web/RateLimitFilter`, `app.rate-limit.*`):**
+- Token buckets per client IP and rule, in memory. That's correct for one backend task; move them to a shared store before scaling out.
+- It runs just after Spring Security, so a 429 carries CORS headers.
+- The client IP comes from `RATE_LIMIT_CLIENT_IP_HEADER` (`CloudFront-Viewer-Address` in prod), else the socket address. It never uses `X-Forwarded-For`.
+
+| Rule | Limit / min / IP |
+|---|---|
+| `POST /api/auth/{signup,login,google}`, `/api/auth/otp/**` | 10 |
+| `POST /api/public/bookings` | 5 |
+| `/api/account/**` writes | 20 |
+| every other `/api/**` (incl. refresh, `/me`) | 120 |
+| `/api/webhooks/**`, `/api/public/health` | exempt |
+
+- Over the limit → `429 RATE_LIMITED`, `Retry-After` header, `details.retry_after` (seconds).
+- The shared API test context sets `app.rate-limit.enabled=false`. `RateLimitFilterTests` covers the filter directly.
+
+**Production packaging:**
+- `backend/Dockerfile`: multi-stage, JRE 21, non-root user.
+- `server.forward-headers-strategy: framework`, graceful shutdown, actuator liveness/readiness probes, `DB_POOL_SIZE`.
+- In production the SPA and API share one origin (`VITE_API_BASE_URL=""`).
+
+**Frontend:**
+- `/terms` (`TermsPage`) and `/privacy` (`PrivacyPage`, DPDP Act 2023) are new, linked from the footer.
+- `/contact` now shows the support email, phone, hours and address, and `/vision` has the About content.
+- "Lead a trek" is a footer link only. It opens the external guide sign-up form (Tally, `SITE_LINKS.leadATrek`) in a new tab. The `/lead-a-trek` placeholder page is gone.
+- Header, once signed in: the avatar opens a profile menu. Trekkers see "My profile" and "Sign out"; other roles see only "Sign out". The other account pages are reached from the account sidebar. Admins keep the "Admin" link beside it. There's no separate "My treks" or "Sign out" in the bar.
+- Business details live in `lib/business.ts`. **It holds placeholders that must be filled in before launch.**
+- New error copy for `RATE_LIMITED` and `SMS_UNAVAILABLE`.
+
+**CI/CD:**
+- `.github/workflows/ci.yml` runs the backend tests and the frontend lint and build.
+- `deploy.yml` deploys `main` after CI passes, through GitHub OIDC:
+  - backend: image → ECR → ECS rolling deploy;
+  - frontend: build → S3 → CloudFront invalidation.
+
+**Tests:** `RateLimitFilterTests`, `BookingNotificationTests`.
+
+### 7.9 Trek catalog (`/treks`)
+**Status:** backend and frontend implemented.
+
+**Scope:** one page listing every trek we run and the dates open on each, browsable by trek or by date. Until this, "All Treks" only jumped to the landing rail, which shows a trek solely while it has a published departure, so a trek with no dates yet was invisible. Column in §6.9.
+
+#### Shapes
+```jsonc
+// CatalogTrek — `departures` empty means "dates coming soon"
+{
+  "slug": "rajmachi-fort", "name": "Rajmachi Fort", "region": "Lonavala", "difficulty": "EASY",
+  "duration_days": 2, "summary": "Twin forts above Lonavala", "max_altitude_m": 822,
+  "season_label": "Monsoon · Jun–Sep",
+  "cover_url": "http://localhost:8081/api/public/files/track-photos/<id>.jpg",  // first photo, else null
+  "departures": [
+    { "id": "…-uuid", "start_date": "2026-10-10", "end_date": "2026-10-11", "price_paise": 249900,
+      "max_group_size": 10, "seats_left": 7, "bookable": true,
+      "guide": { "id": "…-uuid", "full_name": "Sagar Pawar", "avatar_url": null } }
+  ]
+}
+```
+
+#### Endpoints
+| Method & path | Auth | Request | Success | Errors |
+|---|---|---|---|---|
+| `GET /api/public/tracks` | — | — | `200 { items: CatalogTrek[] }` | — |
+| `PUT /api/admin/tracks/{id}/listed` | ADMIN | `{ "listed": true }` | `200` TrackResponse | `400 VALIDATION_FAILED` (`listed`), `404 TRACK_NOT_FOUND` |
+
+#### Behaviour
+- A track is in the catalog when it has an upcoming `PUBLISHED` departure **or** `listed` is true. Tracks with dates come first (soonest departure first), then listed tracks with no dates, by name.
+- Each track carries **every** upcoming published departure, soonest first, so the UI can filter by month and group by date without another call. Drafts, past dates and other statuses never appear.
+- `cover_url` is the track's first uploaded photo (§7.8), or null.
+- Toggling `listed` writes `TRACK_LISTED` / `TRACK_UNLISTED` to `audit_events`; setting it to what it already is writes nothing. Unlisting never hides a track that has upcoming dates — those are public through their departures either way.
+
+#### Frontend
+- `/treks` (`pages/TreksPage.tsx`), public: filters for grade, length (one day / weekend / 3 days +) and month, each kept in the query string so a filtered catalog can be linked. Two views, also in the query string (`?view=dates`):
+  - **By trek** — cards with the cover photo, region, grade, summary, length, altitude, "from ₹X" and the next three dates as chips with seats left; "+N more" and the card itself open the trek page. No dates → "Dates coming soon" with the season label.
+  - **By date** — the same departures grouped by month: dates, trek, seat meter, guide and Book.
+- Header "All Treks" now points at `/treks`; the landing rail keeps its teaser and gains "See all treks →".
+- Admin tracks list: an "In catalog" checkbox per track (`setTrackListed`), for treks with no dates yet.
+- Tests: `TrekCatalogTests`.
+
+### 7.10 Trekker dashboard (`/account`)
+**Status:** frontend implemented on existing endpoints; the pieces marked *placeholder* have no backend yet.
+
+**Scope:** the trekker account area follows the "Trekker Dashboard Design": a sidebar with My treks, My profile and Gear (Overview was dropped; `/account` redirects to My treks). No new endpoints or schema. Everything real comes from `GET /api/trekker/bookings` (§7.6) and `User` (§7.2).
+
+#### Screens
+- ~~`/account` (`pages/trekker/OverviewPage.tsx`)~~ *removed from the app*: "Namaste, <first name>", member since (`user.created_at`), treks completed (`CONFIRMED` bookings whose end date has passed). The next upcoming booking as a slate card: days to departure, trek, date and length, guide, seats (you + companions), meeting point, "View booking" (or "Complete payment" for a hold) and "Arrange gear". "Before you leave": payment and traveller details (real), waiver and gear rental (placeholder). Itinerary and guide contact: placeholder. No upcoming booking → "Find a departure".
+- `/account/bookings` (`BookingsPage.tsx`, "My treks"): chips pick an upcoming booking; its card shows status, departure, guide, meeting point, seats, traveller-details state, "Manage booking" / "Rent gear", and a "⋯" menu holding "Request cancellation" (links to the booking page with `?cancel=1`). Cancelling is deliberately out of the way: on the booking page the "Change of plans?" section is hidden until opened from its own "⋯" menu (or that link), leads with "Keep my booking", and cancelling takes "Continue to cancel" → the refund quote → "Yes, cancel my booking" (§7.6). "Trip arrangements" follows the design's four columns (add-ons with "Request", Veg / Veg + egg, medical certificate upload, dark coordinator card) with every control disabled and a "Coming soon" tag; no coordinator or waiver data is shown until those exist. Past list: "Completed <month> · with <guide>" or the booking status.
+- `/account/gear` (`GearPage.tsx`, `?booking=` picks the trek): no visible title or intro (a screen-reader-only heading); trek chips, a fixed catalogue of six items and a "Your rental" summary, all disabled.
+- Shared: `lib/trips.ts` (upcoming/past split, days until), `components/trips/TripPieces.tsx` (`ComingSoon`, `Fact`, `PaperCard`, `TrekPicker`).
+
+#### Not built (placeholders in the design)
+Gear rental and its payment, add-ons (offload, transport), per-trek food option and its lock, medical-document upload, waivers, trip coordinator, itinerary PDF, guide contact release. Each needs its own schema and endpoints when it's picked up. The design's "balance due" is not used: bookings are paid in full (§7.6).
+
 ## 8. Running locally
 
 ```bash
@@ -723,3 +870,5 @@ cd backend && ./mvnw test                # needs Docker running
 
 First admin: sign up, put that email in `ADMIN_EMAILS`, restart the backend, sign in again (§7.5).
 Payments: set Razorpay test-mode `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET`; for webhooks also a tunnel and `RAZORPAY_WEBHOOK_SECRET` (§7.4 Dev setup). Without keys, everything up to "Hold seats & pay" works and paying returns `GATEWAY_UNAVAILABLE`.
+
+Guides: `docs/BACKEND.md`, `docs/FRONTEND.md`, `docs/API.md` (every endpoint with curl). Production: see `docs/DEPLOY.md`. The same image runs locally with `docker build -t sahyatri-backend backend`.

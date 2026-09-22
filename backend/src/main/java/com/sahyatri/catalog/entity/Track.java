@@ -68,9 +68,18 @@ public class Track {
     /** E.g. "Snow trek · Dec–Apr". */
     private String seasonLabel;
 
+    /** Shown in the public catalog even with no upcoming dates. Tracks with dates are shown regardless. */
+    @Column(nullable = false)
+    private boolean listed;
+
     @OneToMany(mappedBy = "track", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("dayNumber")
     private List<TrackItineraryDay> itinerary = new ArrayList<>();
+
+    /** Read-only here; {@code TrackPhotoService} adds and removes photos. */
+    @OneToMany(mappedBy = "track")
+    @OrderBy("createdAt, id")
+    private List<TrackPhoto> photos = new ArrayList<>();
 
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
@@ -114,6 +123,10 @@ public class Track {
         this.highestCampM = highestCampM;
         this.stay = stay;
         this.seasonLabel = seasonLabel;
+    }
+
+    public void setListed(boolean listed) {
+        this.listed = listed;
     }
 
     /** Day 1 first. Flush between clearing and adding: Hibernate inserts before it deletes, and days are unique. */
@@ -185,8 +198,16 @@ public class Track {
         return seasonLabel;
     }
 
+    public boolean isListed() {
+        return listed;
+    }
+
     public List<TrackItineraryDay> getItinerary() {
         return itinerary;
+    }
+
+    public List<TrackPhoto> getPhotos() {
+        return photos;
     }
 
     public Instant getCreatedAt() {

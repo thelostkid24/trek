@@ -3,6 +3,7 @@ package com.sahyatri.auth;
 import com.jayway.jsonpath.JsonPath;
 import com.sahyatri.TestcontainersConfiguration;
 import com.sahyatri.account.mail.EmailSender;
+import com.sahyatri.common.mail.MailTransport;
 import com.sahyatri.auth.service.GoogleTokenVerifier;
 import com.sahyatri.auth.sms.SmsSender;
 import com.sahyatri.common.security.RefreshCookie;
@@ -46,7 +47,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Keep every mock and dynamic property here so subclasses don't fork the context cache.
  */
 @Import({TestcontainersConfiguration.class, FakePaymentGateway.Config.class})
-@SpringBootTest
+@SpringBootTest(properties = "app.rate-limit.enabled=false") // RateLimitFilterTests covers limits
 @AutoConfigureMockMvc
 public abstract class AuthTestSupport {
 
@@ -68,6 +69,9 @@ public abstract class AuthTestSupport {
 
     @MockitoBean
     protected EmailSender emailSender;
+
+    @MockitoBean
+    protected MailTransport mailTransport;
 
     @MockitoBean
     protected GoogleTokenVerifier googleTokenVerifier;

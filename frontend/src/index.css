@@ -39,12 +39,19 @@
   --font-plex: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
+/*
+ * No rubber-band bounce at the ends of the page: it drags the sticky top bar and the fixed account
+ * sidebar along with it. The dark canvas covers browsers that bounce anyway (no white strip).
+ */
 html {
   scroll-behavior: smooth;
+  background-color: var(--color-ink-950);
+  overscroll-behavior-y: none;
 }
 
 body {
   @apply bg-stone-50 text-stone-900 antialiased;
+  overscroll-behavior-y: none;
 }
 
 /*
@@ -64,4 +71,160 @@ body {
   --field-border: var(--color-paper-300);
   --field-radius: 0.1875rem;
   --field-ring: color-mix(in oklab, var(--color-pine-600) 35%, transparent);
+}
+
+/*
+ * Motion. Route changes that opt in with `viewTransition` crossfade; the header is
+ * named so it holds still, and a trek card's cover (`trek-cover-<slug>`) grows into
+ * the trek page hero. Everything here switches off under reduced motion.
+ */
+.site-header {
+  view-transition-name: site-header;
+}
+
+::view-transition-group(*) {
+  animation-duration: 420ms;
+  animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+::view-transition-old(root) {
+  animation: 160ms ease-in both vt-fade-out;
+}
+
+::view-transition-new(root) {
+  animation: 340ms cubic-bezier(0.2, 0.8, 0.2, 1) 60ms both vt-rise-in;
+}
+
+/*
+ * Named snapshots with no partner (the other trek cards, which aren't morphing) would
+ * otherwise linger over the new page; make them leave and arrive with the page itself.
+ */
+::view-transition-old(*):only-child {
+  animation: 160ms ease-in both vt-fade-out;
+}
+
+::view-transition-new(*):only-child {
+  animation: 340ms cubic-bezier(0.2, 0.8, 0.2, 1) 60ms both vt-rise-in;
+}
+
+/* Card cover ↔ trek hero have different shapes: crop rather than squash while morphing. */
+::view-transition-old(.trek-cover),
+::view-transition-new(.trek-cover) {
+  height: 100%;
+  object-fit: cover;
+}
+
+@keyframes vt-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes vt-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+/* Landing hero slideshow: the progress bar fills (and its end advances the photo); the photo slowly pushes in. */
+@keyframes hero-progress {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes hero-zoom {
+  from {
+    transform: scale(1.08);
+  }
+}
+
+/* Valley mist drifting across the hero ridgeline. */
+@keyframes mist-drift {
+  from {
+    transform: translateX(-12%);
+  }
+  to {
+    transform: translateX(12%);
+  }
+}
+
+.mist-layer {
+  animation: mist-drift var(--mist-duration, 40s) ease-in-out infinite alternate;
+}
+
+/* Profile page: cards rise in one after another, the completion bar fills, "saved" draws its check. */
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+@keyframes bar-grow {
+  from {
+    width: 0;
+  }
+}
+
+@keyframes check-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.profile-card {
+  animation: card-in 560ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: calc(var(--card-i, 0) * 70ms);
+}
+
+form > .profile-card:nth-of-type(1) { --card-i: 1; }
+form > .profile-card:nth-of-type(2) { --card-i: 2; }
+form > .profile-card:nth-of-type(3) { --card-i: 3; }
+form > .profile-card:nth-of-type(4) { --card-i: 4; }
+form > .profile-card:nth-of-type(5) { --card-i: 5; }
+#security.profile-card { --card-i: 6; }
+
+/* BMI value swaps in with a small lift each time height or weight changes it. */
+@keyframes bmi-tick {
+  from {
+    opacity: 0.2;
+    transform: translateY(3px);
+  }
+}
+
+.bmi-tick {
+  display: inline-block;
+  animation: bmi-tick 260ms ease-out;
+}
+
+.bar-grow {
+  animation: bar-grow 900ms cubic-bezier(0.2, 0.8, 0.2, 1) 250ms both;
+}
+
+.check-draw path {
+  stroke-dasharray: 16;
+  stroke-dashoffset: 16;
+  animation: check-draw 360ms ease-out 60ms forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .profile-card,
+  .bar-grow,
+  .bmi-tick {
+    animation: none;
+  }
+  .check-draw path {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+  .mist-layer {
+    animation: none;
+  }
 }

@@ -226,8 +226,8 @@ export function ProfileForm({ user, profile }: { user: User; profile: TrekkerPro
   )
 
   return (
-    <form onSubmit={onSubmit} noValidate className="space-y-10">
-      <ProfileSection title="Personal details" description="Treks are for adults, so your date of birth must make you 18 or over.">
+    <form onSubmit={onSubmit} noValidate className="space-y-6">
+      <ProfileSection id="personal" title="Personal details" description="Treks are for adults, so your date of birth must make you 18 or over.">
         <div className="grid gap-5 sm:grid-cols-2">
           <div className="sm:col-span-2">
             <TextField
@@ -288,6 +288,7 @@ export function ProfileForm({ user, profile }: { user: User; profile: TrekkerPro
       </ProfileSection>
 
       <ProfileSection
+        id="emergency"
         title="Emergency contact"
         description="One person we call if we can't reach you on the mountain."
         badge={hasContact ? <Badge tone="good">Added</Badge> : <Badge tone="warn">Needed before you trek</Badge>}
@@ -333,7 +334,7 @@ export function ProfileForm({ user, profile }: { user: User; profile: TrekkerPro
         )}
       </ProfileSection>
 
-      <ProfileSection title="Trekking experience" description="Helps your guide pace the group and check you're ready for the route.">
+      <ProfileSection id="experience" title="Trekking experience" description="Helps your guide pace the group and check you're ready for the route.">
         <fieldset>
           <legend className="text-sm font-medium text-stone-800">How much have you trekked?</legend>
           <div className="mt-2 grid gap-2 sm:grid-cols-3">
@@ -377,21 +378,10 @@ export function ProfileForm({ user, profile }: { user: User; profile: TrekkerPro
             hint="Summit or highest camp. Leave empty if you're not sure."
           />
         </div>
-        <div className="mt-5">
-          <TextAreaField
-            label="About your trekking"
-            name="bio"
-            placeholder="Treks you've done, fitness routine, what you're hoping to try next…"
-            maxLength={500}
-            value={draft.bio}
-            onChange={set('bio')}
-            error={fields.bio}
-            hint="Optional"
-          />
-        </div>
       </ProfileSection>
 
       <ProfileSection
+        id="health"
         title="Health & fitness"
         description={
           <>
@@ -419,6 +409,7 @@ export function ProfileForm({ user, profile }: { user: User; profile: TrekkerPro
             onChange={setDigits('weight_kg', 3)}
             error={fields.weight_kg}
           />
+          <BmiReadout heightCm={draft.height_cm} weightKg={draft.weight_kg} />
           <SelectField
             label="Blood group"
             name="blood_group"
@@ -454,7 +445,7 @@ export function ProfileForm({ user, profile }: { user: User; profile: TrekkerPro
         </div>
       </ProfileSection>
 
-      <ProfileSection title="Food & gear" description="So the kitchen cooks for you and rental boots fit when you arrive.">
+      <ProfileSection id="food" title="Food & gear" description="So the kitchen cooks for you and rental boots fit when you arrive.">
         <div className="grid gap-5 sm:grid-cols-2">
           <SelectField
             label="Diet"
@@ -478,14 +469,29 @@ export function ProfileForm({ user, profile }: { user: User; profile: TrekkerPro
       </ProfileSection>
 
       {/* Sticky so the save action stays reachable while scrolling the long form. */}
-      <div className="sticky bottom-0 z-10 -mx-4 flex flex-col gap-3 border-t border-paper-300 bg-paper-100/95 px-4 py-4 backdrop-blur sm:mx-0 sm:flex-row-reverse sm:items-center sm:justify-end sm:px-0">
+      <div
+        className={`sticky bottom-0 z-10 -mx-4 flex flex-col gap-3 border-t bg-paper-100/95 px-4 py-4 backdrop-blur transition-[border-color,box-shadow] duration-300 sm:mx-0 sm:flex-row-reverse sm:items-center sm:justify-end sm:px-0 ${
+          dirty ? 'border-laterite-400/40 shadow-[0_-12px_24px_-18px_rgb(23_28_35/0.35)]' : 'border-paper-300'
+        }`}
+      >
         <div className="min-w-0 text-sm sm:ml-3" aria-live="polite">
           {error ? (
             <FormError>{error}</FormError>
           ) : dirty ? (
-            <span className="text-stone-700">You have unsaved changes.</span>
+            <span className="flex items-center gap-2.5 text-stone-700">
+              <span className="relative flex size-2" aria-hidden="true">
+                <span className="absolute inset-0 rounded-full bg-laterite-400/60 motion-safe:animate-ping" />
+                <span className="relative size-2 rounded-full bg-laterite-400" />
+              </span>
+              You have unsaved changes.
+            </span>
           ) : justSaved ? (
-            <span className="text-pine-700">Profile saved.</span>
+            <span className="flex items-center gap-1.5 text-pine-700">
+              <svg viewBox="0 0 16 16" className="check-draw size-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <path d="M3.5 8.5 6.5 11.5 12.5 4.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              Profile saved.
+            </span>
           ) : (
             <span className="text-stone-500">All changes saved.</span>
           )}
@@ -507,5 +513,42 @@ export function ProfileForm({ user, profile }: { user: User; profile: TrekkerPro
         </div>
       </div>
     </form>
+  )
+}
+
+/** WHO adult bands. */
+function bmiBand(bmi: number): { label: string; tone: string } {
+  if (bmi < 18.5) return { label: 'Underweight', tone: 'text-laterite-600' }
+  if (bmi < 25) return { label: 'Healthy range', tone: 'text-pine-700' }
+  if (bmi < 30) return { label: 'Overweight', tone: 'text-laterite-600' }
+  return { label: 'Obese', tone: 'text-laterite-600' }
+}
+
+/** Worked out live from height and weight; nothing is stored. */
+function BmiReadout({ heightCm, weightKg }: { heightCm: string; weightKg: string }) {
+  const h = Number(heightCm)
+  const w = Number(weightKg)
+  const valid = h >= RANGES.height_cm.min && h <= RANGES.height_cm.max && w >= RANGES.weight_kg.min && w <= RANGES.weight_kg.max
+  const bmi = valid ? w / (h / 100) ** 2 : null
+  const band = bmi === null ? null : bmiBand(bmi)
+  return (
+    <div>
+      <p className="block text-sm font-medium text-stone-800">BMI</p>
+      <div
+        className="mt-1.5 flex h-[2.875rem] items-baseline gap-2 rounded-(--field-radius) border border-dashed border-(--field-border) bg-paper-100/60 px-3 pt-2.5"
+        aria-live="polite"
+      >
+        {bmi === null ? (
+          <span className="text-sm text-stone-400">Add height and weight</span>
+        ) : (
+          <>
+            <span key={bmi.toFixed(1)} className="bmi-tick font-medium text-stone-900 tabular-nums">
+              {bmi.toFixed(1)}
+            </span>
+            <span className={`text-xs ${band?.tone}`}>{band?.label}</span>
+          </>
+        )}
+      </div>
+    </div>
   )
 }

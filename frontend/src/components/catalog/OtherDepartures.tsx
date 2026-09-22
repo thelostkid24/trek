@@ -70,7 +70,7 @@ function Row({
         <SeatMeter size={d.max_group_size} left={d.seats_left} />
       </div>
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-        <Link to={`/guides/${d.guide.id}`} className="flex items-center gap-2 text-sm text-stone-700 hover:text-brand-800">
+        <Link to={`/guides/${d.guide.id}`} viewTransition className="flex items-center gap-2 text-sm text-stone-700 hover:text-brand-800">
           <Avatar url={d.guide.avatar_url} name={guide} />
           {guide ? `with ${guide}` : 'Local guide'}
         </Link>
@@ -85,7 +85,7 @@ function Row({
             {fits ? `Book ${seats === 1 ? 'a seat' : `${seats} seats`} here` : 'View'}
           </Link>
         ) : (
-          <Link to={`/departures/${d.id}`} className="text-sm font-medium text-brand-700 hover:text-brand-900">
+          <Link to={`/departures/${d.id}`} viewTransition className="text-sm font-medium text-brand-700 hover:text-brand-900">
             View
           </Link>
         )}

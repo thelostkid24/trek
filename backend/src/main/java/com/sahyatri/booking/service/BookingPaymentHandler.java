@@ -2,6 +2,7 @@ package com.sahyatri.booking.service;
 
 import com.sahyatri.booking.entity.Booking;
 import com.sahyatri.booking.entity.BookingStatus;
+import com.sahyatri.booking.notify.BookingNotice;
 import com.sahyatri.booking.repository.BookingRepository;
 import com.sahyatri.catalog.entity.Departure;
 import com.sahyatri.catalog.entity.DepartureStatus;
@@ -13,6 +14,7 @@ import com.sahyatri.payment.service.CaptureHandler;
 import com.sahyatri.payment.service.RefundService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
@@ -29,14 +31,16 @@ public class BookingPaymentHandler implements CaptureHandler {
     private final RefundPolicy refundPolicy;
     private final RefundService refunds;
     private final AuditLog audit;
+    private final ApplicationEventPublisher events;
 
     public BookingPaymentHandler(BookingRepository bookings, CatalogService catalog, RefundPolicy refundPolicy,
-                                 RefundService refunds, AuditLog audit) {
+                                 RefundService refunds, AuditLog audit, ApplicationEventPublisher events) {
         this.bookings = bookings;
         this.catalog = catalog;
         this.refundPolicy = refundPolicy;
         this.refunds = refunds;
         this.audit = audit;
+        this.events = events;
     }
 
     @Override
@@ -68,6 +72,7 @@ public class BookingPaymentHandler implements CaptureHandler {
         booking.confirm(refundPolicy.currentTiersJson());
         bookings.saveAndFlush(booking);
         audit.record(null, "BOOKING_CONFIRMED", BookingService.ENTITY, booking.getId(), Map.of("late", late));
+        events.publishEvent(new BookingNotice(booking.getId(), BookingNotice.Kind.CONFIRMED, 0));
     }
 
     private void refundAll(Payment payment, String reason) {

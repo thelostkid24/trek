@@ -3,6 +3,8 @@ package com.sahyatri.catalog.service;
 import com.sahyatri.auth.entity.Role;
 import com.sahyatri.auth.entity.User;
 import com.sahyatri.auth.repository.UserRepository;
+import com.sahyatri.catalog.dto.CatalogDeparture;
+import com.sahyatri.catalog.dto.CatalogTrek;
 import com.sahyatri.catalog.dto.DepartureDetail;
 import com.sahyatri.catalog.dto.DepartureSummary;
 import com.sahyatri.catalog.dto.GuideBrief;
@@ -16,11 +18,14 @@ import com.sahyatri.catalog.entity.Departure;
 import com.sahyatri.catalog.entity.DepartureStatus;
 import com.sahyatri.catalog.entity.Difficulty;
 import com.sahyatri.catalog.entity.Track;
+import com.sahyatri.catalog.entity.TrackPhoto;
 import com.sahyatri.catalog.repository.DepartureRepository;
+import com.sahyatri.catalog.repository.TrackPhotoRepository;
 import com.sahyatri.catalog.repository.TrackRepository;
 import com.sahyatri.common.config.CatalogProperties;
 import com.sahyatri.common.exception.ApiException;
 import com.sahyatri.common.storage.AvatarFiles;
+import com.sahyatri.common.storage.TrackPhotoFiles;
 import com.sahyatri.profile.entity.TrekkerProfile;
 import com.sahyatri.profile.repository.TrekkerProfileRepository;
 import org.springframework.http.HttpStatus;
@@ -31,7 +36,9 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeParseException;
 import java.util.Comparator;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -48,19 +55,24 @@ public class CatalogService {
 
     private final DepartureRepository departures;
     private final TrackRepository tracks;
+    private final TrackPhotoRepository photos;
     private final UserRepository users;
     private final TrekkerProfileRepository profiles;
     private final CatalogProperties props;
     private final AvatarFiles avatars;
+    private final TrackPhotoFiles photoFiles;
 
-    public CatalogService(DepartureRepository departures, TrackRepository tracks, UserRepository users,
-                          TrekkerProfileRepository profiles, CatalogProperties props, AvatarFiles avatars) {
+    public CatalogService(DepartureRepository departures, TrackRepository tracks, TrackPhotoRepository photos,
+                          UserRepository users, TrekkerProfileRepository profiles, CatalogProperties props,
+                          AvatarFiles avatars, TrackPhotoFiles photoFiles) {
         this.departures = departures;
         this.tracks = tracks;
+        this.photos = photos;
         this.users = users;
         this.profiles = profiles;
         this.props = props;
         this.avatars = avatars;
+        this.photoFiles = photoFiles;
     }
 
     public LocalDate today() {
@@ -101,8 +113,37 @@ public class CatalogService {
                 .filter(dep -> !dep.isDraft())
                 .orElseThrow(CatalogService::departureNotFound);
         GuideCard guide = guideCards(List.of(d)).get(d.getGuide().getId());
-        return new DepartureDetail(d.getId(), TrackDetail.of(d.getTrack()), guide, d.getStartDate(),
+        return new DepartureDetail(d.getId(), TrackDetail.of(d.getTrack(), photoFiles), guide, d.getStartDate(),
                 d.getEndDate(), d.getPricePaise(), d.getMaxGroupSize(), d.seatsLeft(), isBookable(d), d.getStatus());
+    }
+
+    /**
+     * The public catalog: every track with an upcoming published departure, then listed tracks with no dates yet.
+     * Treks with dates come soonest first; the rest by name.
+     */
+    @Transactional(readOnly = true)
+    public List<CatalogTrek> catalog() {
+        Map<UUID, List<Departure>> byTrack = new LinkedHashMap<>();
+        Map<UUID, Track> trackById = new LinkedHashMap<>();
+        for (Departure d : departures.findListed(DepartureStatus.PUBLISHED, today(), FAR_FUTURE)) {
+            byTrack.computeIfAbsent(d.getTrack().getId(), id -> new ArrayList<>()).add(d);
+            trackById.putIfAbsent(d.getTrack().getId(), d.getTrack());
+        }
+        tracks.findByListedTrue().stream()
+                .sorted(Comparator.comparing(Track::getName))
+                .forEach(t -> trackById.putIfAbsent(t.getId(), t));
+
+        Map<UUID, String> covers = new HashMap<>();
+        for (TrackPhotoRepository.TrackCover c : photos.findCovers(trackById.keySet())) {
+            covers.putIfAbsent(c.getTrackId(), photoFiles.url(c.getPhotoId()));
+        }
+        return trackById.values().stream().map(t -> new CatalogTrek(t.getSlug(), t.getName(), t.getRegion(),
+                t.getDifficulty(), t.getDurationDays(), t.getSummary(), t.getMaxAltitudeM(), t.getSeasonLabel(),
+                covers.get(t.getId()), byTrack.getOrDefault(t.getId(), List.of()).stream()
+                        .map(d -> new CatalogDeparture(d.getId(), d.getStartDate(), d.getEndDate(), d.getPricePaise(),
+                                d.getMaxGroupSize(), d.seatsLeft(), isBookable(d), guideBrief(d)))
+                        .toList()))
+                .toList();
     }
 
     /** The trek page: route facts, itinerary and every upcoming published departure, whoever guides it. */
@@ -115,7 +156,7 @@ public class CatalogService {
                 .map(d -> new TrekDeparture(d.getId(), d.getStartDate(), d.getEndDate(), d.getPricePaise(),
                         d.getMaxGroupSize(), d.seatsLeft(), isBookable(d), guides.get(d.getGuide().getId())))
                 .toList();
-        return new TrekPage(TrackDetail.of(track), rows);
+        return new TrekPage(TrackDetail.of(track, photoFiles), rows);
     }
 
     @Transactional(readOnly = true)

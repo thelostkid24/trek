@@ -37,10 +37,10 @@ export function SecuritySection({ user }: { user: User }) {
           action={user.email ? 'Change' : 'Add'}
           expanded={open === 'email'}
           onAction={() => toggle('email')}
+          note={user.email && !user.email_verified && open !== 'email' && <VerifyEmailNudge email={user.email} />}
         >
           <EmailPanel user={user} onDone={() => setOpen(null)} />
         </Row>
-        {user.email && !user.email_verified && open !== 'email' && <VerifyEmailNudge email={user.email} />}
 
         <Row
           label="Mobile"
@@ -66,7 +66,7 @@ export function SecuritySection({ user }: { user: User }) {
         </Row>
       </div>
 
-      <div className="mt-5 border-t border-paper-300 pt-4">
+      <div className="mt-6 border-t border-paper-300 pt-5">
         <p className="text-sm font-medium text-stone-800">You can sign in with</p>
         <ul className="mt-2 flex flex-wrap gap-2">
           {user.auth_methods.map((method) => (
@@ -88,6 +88,7 @@ function Row({
   action,
   expanded,
   onAction,
+  note,
   children,
 }: {
   label: string
@@ -97,23 +98,31 @@ function Row({
   action: string
   expanded: boolean
   onAction: () => void
+  /** Shown under the value while the row is closed, e.g. the verify-email prompt. */
+  note?: ReactNode
   children: ReactNode
 }) {
   return (
-    <div className="py-4 first:pt-0">
-      <div className="flex items-center justify-between gap-3">
+    <div className="py-5 first:pt-0 last:pb-0">
+      <div className="flex items-center justify-between gap-4 sm:grid sm:grid-cols-[7.5rem_minmax(0,1fr)_auto]">
+        <p className="hidden text-xs font-medium tracking-wide text-stone-500 uppercase sm:block">{label}</p>
         <div className="min-w-0">
-          <p className="text-xs font-medium tracking-wide text-stone-500 uppercase">{label}</p>
-          <div className="mt-0.5 flex flex-wrap items-center gap-2">
+          <p className="text-xs font-medium tracking-wide text-stone-500 uppercase sm:hidden">{label}</p>
+          <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 sm:mt-0">
             <span className={`truncate ${muted ? 'text-stone-400' : 'text-stone-900'}`}>{value}</span>
             {badge}
           </div>
         </div>
-        <SecondaryButton onClick={onAction} aria-expanded={expanded} className="shrink-0">
+        <SecondaryButton onClick={onAction} aria-expanded={expanded} className="min-w-[5.5rem] shrink-0">
           {expanded ? 'Cancel' : action}
         </SecondaryButton>
       </div>
-      {expanded && <div className="mt-4 rounded-(--field-radius) border border-paper-300 bg-paper-50/60 p-4">{children}</div>}
+      {note && <div className="mt-3 sm:ml-[8.5rem]">{note}</div>}
+      {expanded && (
+        <div className="mt-5 rounded-(--field-radius) border border-paper-300 bg-paper-100/70 p-5 sm:ml-[8.5rem] sm:p-6">
+          <div className="max-w-md">{children}</div>
+        </div>
+      )}
     </div>
   )
 }
@@ -156,7 +165,7 @@ function LinkSent({ email }: { email: string }) {
 function VerifyEmailNudge({ email }: { email: string }) {
   const { send, pending, sentTo, error } = useSendEmailLink()
   return (
-    <div className="-mt-1 pb-4">
+    <div>
       {sentTo ? (
         <LinkSent email={sentTo} />
       ) : (
@@ -187,7 +196,7 @@ function EmailPanel({ user, onDone }: { user: User; onDone: () => void }) {
 
   if (sentTo) {
     return (
-      <div className="space-y-3">
+      <div className="space-y-5">
         <LinkSent email={sentTo} />
         <button type="button" onClick={onDone} className="text-sm font-medium text-pine-700 hover:text-pine-600">
           Done
@@ -207,7 +216,7 @@ function EmailPanel({ user, onDone }: { user: User; onDone: () => void }) {
   }
 
   return (
-    <form onSubmit={onSubmit} noValidate className="space-y-3">
+    <form onSubmit={onSubmit} noValidate className="space-y-5">
       <TextField
         label={user.email ? 'New email' : 'Email'}
         name="new_email"
@@ -289,7 +298,7 @@ function PhonePanel({ user, onDone }: { user: User; onDone: () => void }) {
   }
 
   return (
-    <form onSubmit={onSubmit} noValidate className="space-y-3">
+    <form onSubmit={onSubmit} noValidate className="space-y-5">
       {!sentTo ? (
         <>
           <TextField
@@ -396,7 +405,7 @@ function PasswordPanel({ user, hasPassword, onDone }: { user: User; hasPassword:
 
   if (done) {
     return (
-      <div className="space-y-3" role="status">
+      <div className="space-y-4" role="status">
         <p className="text-sm text-stone-700">
           Password {hasPassword ? 'updated' : 'set'}. You're still signed in here; other devices were signed out.
         </p>
@@ -419,7 +428,7 @@ function PasswordPanel({ user, hasPassword, onDone }: { user: User; hasPassword:
   }
 
   return (
-    <form onSubmit={onSubmit} noValidate className="space-y-3">
+    <form onSubmit={onSubmit} noValidate className="space-y-5">
       {/* Lets password managers attach the new password to the right account. */}
       <input type="text" name="username" autoComplete="username" value={user.email} readOnly hidden />
       {hasPassword && (

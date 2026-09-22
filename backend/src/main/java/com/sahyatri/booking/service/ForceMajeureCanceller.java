@@ -2,6 +2,7 @@ package com.sahyatri.booking.service;
 
 import com.sahyatri.booking.entity.Booking;
 import com.sahyatri.booking.entity.BookingStatus;
+import com.sahyatri.booking.notify.BookingNotice;
 import com.sahyatri.booking.repository.BookingRepository;
 import com.sahyatri.catalog.entity.Departure;
 import com.sahyatri.catalog.repository.DepartureRepository;
@@ -10,6 +11,7 @@ import com.sahyatri.common.audit.AuditLog;
 import com.sahyatri.payment.entity.Payment;
 import com.sahyatri.payment.entity.RefundKind;
 import com.sahyatri.payment.service.RefundService;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
@@ -27,14 +29,17 @@ public class ForceMajeureCanceller {
     private final BookingService bookingService;
     private final RefundService refunds;
     private final AuditLog audit;
+    private final ApplicationEventPublisher events;
 
     public ForceMajeureCanceller(BookingRepository bookings, DepartureRepository departures,
-                                 BookingService bookingService, RefundService refunds, AuditLog audit) {
+                                 BookingService bookingService, RefundService refunds, AuditLog audit,
+                                 ApplicationEventPublisher events) {
         this.bookings = bookings;
         this.departures = departures;
         this.bookingService = bookingService;
         this.refunds = refunds;
         this.audit = audit;
+        this.events = events;
     }
 
     @EventListener
@@ -57,6 +62,7 @@ public class ForceMajeureCanceller {
             }
             audit.record(event.adminId(), "BOOKING_CANCELLED_FORCE_MAJEURE", BookingService.ENTITY, booking.getId(),
                     Map.of("refund_paise", refunded));
+            events.publishEvent(new BookingNotice(booking.getId(), BookingNotice.Kind.CANCELLED_FORCE_MAJEURE, refunded));
         }
         bookings.flush();
     }

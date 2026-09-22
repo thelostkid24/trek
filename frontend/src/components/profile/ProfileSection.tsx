@@ -1,6 +1,9 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
 
-/** A titled block on the profile page, divided from the one above by a hairline. */
+/**
+ * A titled card on the profile page; the title row is ruled off from the fields.
+ * While a field inside has focus, a pine bar marks the card as the one being edited.
+ */
 export function ProfileSection({
   id,
   title,
@@ -15,13 +18,22 @@ export function ProfileSection({
   children: ReactNode
 }) {
   return (
-    <section id={id} className="scroll-mt-20 border-t border-paper-300 pt-8">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-display text-xl font-medium text-stone-900">{title}</h2>
-        {badge}
+    <section
+      id={id}
+      className="profile-card group/section relative scroll-mt-24 rounded-(--field-radius) border border-paper-300 bg-paper-50 transition-[border-color,box-shadow] duration-300 focus-within:border-pine-600/30 focus-within:shadow-[0_10px_30px_-18px_rgb(23_28_35/0.3)]"
+    >
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-y-4 -left-px w-0.5 origin-top scale-y-0 rounded-full bg-pine-600 transition-transform duration-300 ease-out group-focus-within/section:scale-y-100"
+      />
+      <div className="border-b border-paper-300 px-5 py-4 sm:px-7">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-display text-xl font-medium text-stone-900">{title}</h2>
+          {badge}
+        </div>
+        {description && <p className="mt-1 text-sm text-stone-600">{description}</p>}
       </div>
-      {description && <p className="mt-1 text-sm text-stone-600">{description}</p>}
-      <div className="mt-5">{children}</div>
+      <div className="px-5 py-6 sm:px-7">{children}</div>
     </section>
   )
 }

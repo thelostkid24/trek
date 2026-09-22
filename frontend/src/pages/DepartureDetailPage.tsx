@@ -52,7 +52,7 @@ function Detail({ departure: d }: { departure: DepartureDetail }) {
         <Ridgeline className="absolute inset-0 -z-20 h-full w-full" />
         <div className="absolute inset-0 -z-10 bg-gradient-to-r from-brand-950/90 via-brand-950/60 to-brand-950/20" />
         <div className="mx-auto max-w-5xl px-4 pt-10 pb-12 sm:pt-16 sm:pb-20">
-          <Link to={`/treks/${track.slug}`} className="text-sm text-brand-200 hover:text-white">
+          <Link to={`/treks/${track.slug}`} viewTransition className="text-sm text-brand-200 hover:text-white">
             ← All {track.name} dates
           </Link>
           <div className="mt-4 flex flex-wrap items-center gap-2">

@@ -8,9 +8,11 @@ const MESSAGES: Record<string, string> = {
   ACCOUNT_DISABLED: 'This account has been disabled. Please contact support.',
   TOO_MANY_ATTEMPTS: 'Too many failed attempts. Try again in a few minutes.',
   OTP_RATE_LIMITED: 'Please wait a moment before requesting another code.',
+  RATE_LIMITED: 'Too many requests. Wait a moment and try again.',
   OTP_INVALID: 'That code is incorrect.',
   OTP_EXPIRED: 'That code expired. Request a new one.',
   OTP_TOO_MANY_ATTEMPTS: 'Too many wrong codes. Request a new one.',
+  SMS_UNAVAILABLE: "We couldn't send the code right now. Try again, or sign in another way.",
   GOOGLE_TOKEN_INVALID: "Google sign-in didn't work. Try another way to sign in.",
   REFRESH_TOKEN_INVALID: 'Your session expired. Please sign in again.',
   VALIDATION_FAILED: 'Please check the highlighted fields.',
@@ -27,6 +29,8 @@ const MESSAGES: Record<string, string> = {
   CURRENT_PASSWORD_INCORRECT: 'Your current password is incorrect.',
   EMAIL_REQUIRED: 'Add an email first — you sign in with it when using a password.',
   // Catalog (§7.5)
+  TOO_MANY_PHOTOS: 'This trek already has 30 photos. Delete one to add another.',
+  PHOTO_NOT_FOUND: 'That photo was already deleted.',
   NOT_FOUND: "We couldn't find that.",
   DEPARTURE_NOT_FOUND: 'This departure is not available.',
   TRACK_NOT_FOUND: 'That track no longer exists.',
@@ -81,7 +85,7 @@ export function fieldErrors(error: unknown): Record<string, string> {
   )
 }
 
-/** Seconds to wait, from a 429 OTP_RATE_LIMITED / EMAIL_RATE_LIMITED body. */
+/** Seconds to wait, from a 429 OTP_RATE_LIMITED / EMAIL_RATE_LIMITED / RATE_LIMITED body. */
 export function retryAfter(error: unknown): number | null {
   if (!(error instanceof ApiError)) return null
   const seconds = error.details.retry_after

@@ -1,6 +1,7 @@
 package com.sahyatri.common.storage;
 
 import com.sahyatri.common.config.AppProperties;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -11,6 +12,7 @@ import java.nio.file.StandardCopyOption;
 import java.util.Optional;
 
 @Component
+@ConditionalOnProperty(name = "app.storage.type", havingValue = "local", matchIfMissing = true)
 public class LocalFileStorage implements FileStorage {
 
     private final Path root;

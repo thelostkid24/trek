@@ -90,7 +90,7 @@ function Profile({ guide: g }: { guide: GuideProfile }) {
             <ul className="mt-3 divide-y divide-stone-100 rounded-2xl bg-white ring-1 ring-stone-200">
               {g.treks.map((t) => (
                 <li key={t.track.slug} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
-                  <Link to={`/treks/${t.track.slug}`} className="font-medium text-stone-900 hover:text-brand-800 hover:underline">
+                  <Link to={`/treks/${t.track.slug}`} viewTransition className="font-medium text-stone-900 hover:text-brand-800 hover:underline">
                     {t.track.name}
                   </Link>
                   <span className="text-stone-500">
@@ -110,7 +110,7 @@ function UpcomingRow({ departure: d }: { departure: DepartureSummary }) {
   return (
     <li className="rounded-2xl bg-white p-4 ring-1 ring-stone-200">
       <div className="flex items-baseline justify-between gap-3">
-        <Link to={`/treks/${d.track.slug}`} className="font-display text-lg font-semibold hover:text-brand-800">
+        <Link to={`/treks/${d.track.slug}`} viewTransition className="font-display text-lg font-semibold hover:text-brand-800">
           {d.track.name}
         </Link>
         <span className="font-semibold">{rupees(d.price_paise)}</span>

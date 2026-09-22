@@ -31,7 +31,7 @@ public class SecurityConfig {
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/me").authenticated()
-                        .requestMatchers("/api/public/**", "/api/auth/**", "/actuator/health", "/error").permitAll()
+                        .requestMatchers("/api/public/**", "/api/auth/**", "/actuator/health", "/actuator/health/**", "/error").permitAll()
                         // Razorpay calls these; the HMAC signature is checked before anything is parsed.
                         .requestMatchers("/api/webhooks/**").permitAll()
                         .requestMatchers("/api/trekker/**").hasRole("TREKKER")

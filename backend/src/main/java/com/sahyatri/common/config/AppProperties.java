@@ -10,10 +10,18 @@ public record AppProperties(
         Storage storage,
         Mail mail) {
 
-    /** @param localDir root directory for uploaded files (local disk in V1) */
-    public record Storage(String localDir) {
+    /**
+     * @param type     {@code local} (dev) or {@code s3}
+     * @param localDir root directory for uploaded files when local
+     * @param s3Bucket bucket for uploaded files when s3 (region from AWS_REGION)
+     */
+    public record Storage(String type, String localDir, String s3Bucket) {
     }
 
-    public record Mail(String from) {
+    /**
+     * @param provider {@code log} (dev: prints links to the log) or {@code ses}
+     * @param from     sender, e.g. "Sahyatri &lt;no-reply@example.com&gt;" (must be SES-verified when ses)
+     */
+    public record Mail(String provider, String from) {
     }
 }

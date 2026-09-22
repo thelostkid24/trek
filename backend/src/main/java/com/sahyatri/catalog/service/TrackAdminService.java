@@ -5,12 +5,15 @@ import com.sahyatri.catalog.dto.TrackResponse;
 import com.sahyatri.catalog.entity.Track;
 import com.sahyatri.catalog.repository.DepartureRepository;
 import com.sahyatri.catalog.repository.TrackRepository;
+import com.sahyatri.common.audit.AuditLog;
 import com.sahyatri.common.exception.ApiException;
+import com.sahyatri.common.storage.TrackPhotoFiles;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -18,15 +21,20 @@ public class TrackAdminService {
 
     private final TrackRepository tracks;
     private final DepartureRepository departures;
+    private final TrackPhotoFiles photoFiles;
+    private final AuditLog audit;
 
-    public TrackAdminService(TrackRepository tracks, DepartureRepository departures) {
+    public TrackAdminService(TrackRepository tracks, DepartureRepository departures, TrackPhotoFiles photoFiles,
+                             AuditLog audit) {
         this.tracks = tracks;
         this.departures = departures;
+        this.photoFiles = photoFiles;
+        this.audit = audit;
     }
 
     @Transactional(readOnly = true)
     public List<TrackResponse> list() {
-        return tracks.findAllByOrderByNameAsc().stream().map(TrackResponse::of).toList();
+        return tracks.findAllByOrderByNameAsc().stream().map(t -> TrackResponse.of(t, photoFiles)).toList();
     }
 
     @Transactional
@@ -42,6 +50,17 @@ public class TrackAdminService {
             throw ApiException.conflict("TRACK_IN_USE", "Duration can't change once the track has departures");
         }
         return save(track, req);
+    }
+
+    /** Shows or hides a track in the public catalog; tracks with upcoming dates show either way. */
+    @Transactional
+    public TrackResponse setListed(UUID adminId, UUID id, boolean listed) {
+        Track track = require(id);
+        if (track.isListed() != listed) {
+            track.setListed(listed);
+            audit.record(adminId, listed ? "TRACK_LISTED" : "TRACK_UNLISTED", "TRACK", id, Map.of());
+        }
+        return TrackResponse.of(tracks.saveAndFlush(track), photoFiles);
     }
 
     public Track require(UUID id) {
@@ -67,7 +86,7 @@ public class TrackAdminService {
         track.clearItinerary();
         tracks.saveAndFlush(track);
         itinerary.forEach(line -> track.addItineraryDay(line.trim()));
-        return TrackResponse.of(tracks.saveAndFlush(track));
+        return TrackResponse.of(tracks.saveAndFlush(track), photoFiles);
     }
 
     private static void checkBelowSummit(String field, Integer altitudeM, Integer maxAltitudeM) {

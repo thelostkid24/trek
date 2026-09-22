@@ -11,6 +11,8 @@ spring:
     url: ${DB_URL:jdbc:postgresql://localhost:5433/sahyatri}
     username: ${DB_USER:sahyatri}
     password: ${DB_PASSWORD:sahyatri}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:10}
   jpa:
     open-in-view: false
     hibernate:
@@ -27,6 +29,9 @@ spring:
 
 server:
   port: ${PORT:8081}
+  # Behind CloudFront/ALB: trust X-Forwarded-* so client IPs (rate limits) and https are real.
+  forward-headers-strategy: framework
+  shutdown: graceful
 
 app:
   # Base URL the API is reachable at from browsers (builds avatar_url).
@@ -34,8 +39,11 @@ app:
   # Where email links point.
   frontend-base-url: ${FRONTEND_BASE_URL:http://localhost:5173}
   storage:
+    type: ${STORAGE_TYPE:local}
     local-dir: ${UPLOAD_DIR:./data/uploads}
+    s3-bucket: ${S3_UPLOADS_BUCKET:}
   mail:
+    provider: ${MAIL_PROVIDER:log}
     from: ${MAIL_FROM:Sahyatri <no-reply@sahyatri.local>}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
@@ -47,6 +55,10 @@ app:
     refresh-reuse-grace: 30s
     cookie-secure: ${AUTH_COOKIE_SECURE:false}
     google-client-id: ${GOOGLE_CLIENT_ID:}
+  sms:
+    provider: ${SMS_PROVIDER:log}
+    msg91-auth-key: ${MSG91_AUTH_KEY:}
+    msg91-otp-template-id: ${MSG91_OTP_TEMPLATE_ID:}
   admin:
     # Existing accounts promoted to ADMIN at startup (comma-separated).
     emails: ${ADMIN_EMAILS:}
@@ -71,9 +83,32 @@ app:
     key-secret: ${RAZORPAY_KEY_SECRET:}
     webhook-secret: ${RAZORPAY_WEBHOOK_SECRET:}
     api-base-url: https://api.razorpay.com/v1
+  rate-limit:
+    enabled: ${RATE_LIMIT_ENABLED:true}
+    # Prod behind CloudFront: CloudFront-Viewer-Address (add it to the origin request policy). Blank = socket IP.
+    client-ip-header: ${RATE_LIMIT_CLIENT_IP_HEADER:}
+    default-per-minute: 120
+    exempt:
+      - /api/webhooks/**
+      - /api/public/health
+    rules:
+      # Credential endpoints only; refresh, logout and /me fall to the default.
+      - patterns: [/api/auth/signup, /api/auth/login, /api/auth/google, /api/auth/otp/**]
+        per-minute: 10
+      - patterns: [/api/public/bookings]
+        methods: [POST]
+        per-minute: 5
+      - patterns: [/api/account/**]
+        methods: [POST, PUT, PATCH, DELETE]
+        per-minute: 20
 
 management:
   endpoints:
     web:
       exposure:
         include: health
+  endpoint:
+    health:
+      # /actuator/health/liveness and /readiness for the load balancer.
+      probes:
+        enabled: true

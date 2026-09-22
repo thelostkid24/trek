@@ -1,6 +1,6 @@
 package com.sahyatri.account.mail;
 
-/** Delivers account emails. V1 dev implementation only logs; a real provider replaces it later. */
+/** Account emails (verification, change notices). Delivered through MailTransport. */
 public interface EmailSender {
 
     void sendVerificationLink(String to, String link);

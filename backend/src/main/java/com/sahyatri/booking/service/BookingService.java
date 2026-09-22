@@ -16,6 +16,7 @@ import com.sahyatri.booking.dto.TravellerResponse;
 import com.sahyatri.booking.dto.TravellersRequest;
 import com.sahyatri.booking.entity.Booking;
 import com.sahyatri.booking.entity.BookingStatus;
+import com.sahyatri.booking.notify.BookingNotice;
 import com.sahyatri.booking.repository.BookingRepository;
 import com.sahyatri.catalog.dto.TrackBrief;
 import com.sahyatri.catalog.entity.Departure;
@@ -33,6 +34,7 @@ import com.sahyatri.payment.repository.PaymentRepository;
 import com.sahyatri.payment.service.PaymentService;
 import com.sahyatri.payment.service.RefundService;
 import com.sahyatri.profile.service.TrekkerProfileService;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -71,11 +73,13 @@ public class BookingService {
     private final RefundPolicy refundPolicy;
     private final BookingProperties props;
     private final AuditLog audit;
+    private final ApplicationEventPublisher events;
 
     public BookingService(BookingRepository bookings, DepartureRepository departures, PaymentRepository payments,
                           PaymentRefundRepository refundRows, PaymentService paymentService, RefundService refunds,
                           CatalogService catalog, UserRepository users, AuthService auth, CurrentUser currentUser,
-                          RefundPolicy refundPolicy, BookingProperties props, AuditLog audit) {
+                          RefundPolicy refundPolicy, BookingProperties props, AuditLog audit,
+                          ApplicationEventPublisher events) {
         this.bookings = bookings;
         this.departures = departures;
         this.payments = payments;
@@ -89,6 +93,7 @@ public class BookingService {
         this.refundPolicy = refundPolicy;
         this.props = props;
         this.audit = audit;
+        this.events = events;
     }
 
     /**
@@ -250,6 +255,7 @@ public class BookingService {
         data.put("refund_bps", quote.refundBps());
         data.put("refund_paise", refunded);
         audit.record(userId, "BOOKING_CANCELLED", ENTITY, bookingId, data);
+        events.publishEvent(new BookingNotice(bookingId, BookingNotice.Kind.CANCELLED_BY_TREKKER, refunded));
         return toResponse(booking);
     }
 

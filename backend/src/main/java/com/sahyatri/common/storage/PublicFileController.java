@@ -23,17 +23,27 @@ public class PublicFileController {
 
     @GetMapping(AvatarFiles.URL_PATH + "{id:[0-9a-fA-F-]{36}}.jpg")
     public ResponseEntity<byte[]> avatar(@PathVariable String id) {
-        UUID key;
-        try {
-            key = UUID.fromString(id);
-        } catch (IllegalArgumentException e) {
-            throw ApiException.notFound("File not found");
-        }
-        byte[] content = storage.get(AvatarFiles.storageKey(key))
-                .orElseThrow(() -> ApiException.notFound("File not found"));
+        return serve(AvatarFiles.storageKey(parse(id)));
+    }
+
+    @GetMapping(TrackPhotoFiles.URL_PATH + "{id:[0-9a-fA-F-]{36}}.jpg")
+    public ResponseEntity<byte[]> trackPhoto(@PathVariable String id) {
+        return serve(TrackPhotoFiles.storageKey(parse(id)));
+    }
+
+    private ResponseEntity<byte[]> serve(String key) {
+        byte[] content = storage.get(key).orElseThrow(() -> ApiException.notFound("File not found"));
         return ResponseEntity.ok()
                 .contentType(MediaType.IMAGE_JPEG)
                 .cacheControl(CacheControl.maxAge(Duration.ofDays(365)).cachePublic().immutable())
                 .body(content);
+    }
+
+    private static UUID parse(String id) {
+        try {
+            return UUID.fromString(id);
+        } catch (IllegalArgumentException e) {
+            throw ApiException.notFound("File not found");
+        }
     }
 }

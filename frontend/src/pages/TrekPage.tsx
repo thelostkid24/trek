@@ -1,10 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { DIFFICULTY_LABEL, MAX_GROUP_SIZE, getTrek, type TrekDeparture, type TrekPage as Trek } from '../api/catalog.ts'
+import { DIFFICULTY_LABEL, MAX_GROUP_SIZE, trekQueryOptions, type TrekDeparture, type TrekPage as Trek } from '../api/catalog.ts'
 import { ApiError } from '../api/client.ts'
 import { messageFor } from '../auth/errorMessages.ts'
 import { SeatMeter } from '../components/catalog/DeparturePieces.tsx'
+import { TrekGallery } from '../components/catalog/TrekGallery.tsx'
 import { GuideLine, Itinerary, TrekFacts } from '../components/catalog/TrekPieces.tsx'
 import { trekTagline } from '../lib/trek.ts'
 import { Ridgeline } from '../components/Ridgeline.tsx'
@@ -14,8 +15,7 @@ import { rupees, shortRange, weekdaysAndYear } from '../lib/format.ts'
 export function TrekPage() {
   const { slug = '' } = useParams()
   const trek = useQuery({
-    queryKey: ['public-trek', slug],
-    queryFn: () => getTrek(slug),
+    ...trekQueryOptions(slug),
     retry: (count, error) => !(error instanceof ApiError && error.status === 404) && count < 2,
   })
 
@@ -45,12 +45,24 @@ export function TrekPage() {
 function Page({ trek }: { trek: Trek }) {
   const { track, departures } = trek
   const fromPrice = departures.length > 0 ? Math.min(...departures.map((d) => d.price_paise)) : null
+  const cover = track.photos[0]
 
   return (
     <>
-      {/* No trek photos yet: the ridgeline stands in for the hero image. */}
-      <section className="relative isolate h-56 overflow-hidden bg-brand-950 sm:h-72">
-        <Ridgeline className="absolute inset-0 -z-10 h-full w-full" />
+      {/* The first trek photo leads; until there is one, the ridgeline stands in. */}
+      {/* Shares its view-transition name with the home page card, which grows into it. */}
+      <section
+        className="relative isolate h-56 overflow-hidden bg-brand-950 sm:h-80"
+        style={{ viewTransitionName: `trek-cover-${track.slug}`, viewTransitionClass: 'trek-cover' }}
+      >
+        {cover ? (
+          <>
+            <img src={cover.url} alt="" className="absolute inset-0 -z-20 size-full object-cover" />
+            <div className="absolute inset-0 -z-10 bg-gradient-to-b from-black/35 via-transparent to-black/25" aria-hidden="true" />
+          </>
+        ) : (
+          <Ridgeline className="absolute inset-0 -z-10 h-full w-full" />
+        )}
         <div className="mx-auto flex h-full max-w-6xl items-start px-4 pt-5">
           {track.season_label && (
             <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-stone-800">{track.season_label}</span>
@@ -60,7 +72,7 @@ function Page({ trek }: { trek: Trek }) {
 
       <div className="mx-auto grid max-w-6xl gap-8 px-4 py-8 sm:py-10 lg:grid-cols-[1fr_360px] lg:items-start">
         <header className="lg:col-start-1">
-          <Link to="/#treks" className="text-sm text-brand-700 hover:text-brand-900">
+          <Link to="/#treks" viewTransition className="text-sm text-brand-700 hover:text-brand-900">
             ← All treks
           </Link>
           <h1 className="mt-2 font-display text-4xl leading-tight font-semibold tracking-tight sm:text-5xl">{track.name}</h1>
@@ -91,6 +103,7 @@ function Page({ trek }: { trek: Trek }) {
 
         <div className="space-y-8 lg:col-start-1">
           <p className="max-w-2xl whitespace-pre-line text-stone-700">{track.description}</p>
+          <TrekGallery photos={track.photos} trekName={track.name} />
           <TrekFacts track={track} />
           <Itinerary track={track} />
           <p className="text-sm text-stone-600">
@@ -106,7 +119,7 @@ function Page({ trek }: { trek: Trek }) {
 function DepartureRow({ departure: d, trekName }: { departure: TrekDeparture; trekName: string }) {
   return (
     <li className="rounded-2xl bg-white p-4 ring-1 ring-stone-200 transition hover:ring-brand-300">
-      <Link to={`/departures/${d.id}`} className="block">
+      <Link to={`/departures/${d.id}`} viewTransition className="block">
         <div className="flex items-baseline justify-between gap-3">
           <span className="text-lg font-semibold text-stone-900">{shortRange(d.start_date, d.end_date)}</span>
           <span className="font-semibold">{rupees(d.price_paise)}</span>

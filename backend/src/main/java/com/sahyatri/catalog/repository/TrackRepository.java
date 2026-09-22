@@ -11,6 +11,8 @@ public interface TrackRepository extends JpaRepository<Track, UUID> {
 
     List<Track> findAllByOrderByNameAsc();
 
+    List<Track> findByListedTrue();
+
     Optional<Track> findBySlug(String slug);
 
     boolean existsBySlugAndIdNot(String slug, UUID id);
