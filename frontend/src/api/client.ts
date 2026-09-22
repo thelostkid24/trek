@@ -14,20 +14,27 @@ export class ApiError extends Error {
   }
 }
 
-type RequestOptions = Omit<RequestInit, 'body'> & { body?: unknown }
+type RequestOptions = Omit<RequestInit, 'body'> & {
+  /** Sent as JSON, except FormData which is sent as-is (the browser sets the multipart boundary). */
+  body?: unknown
+  /** Access token; sent as `Authorization: Bearer <token>`. */
+  token?: string
+}
 
 export async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { body, headers, ...rest } = options
+  const { body, headers, token, ...rest } = options
+  const isForm = body instanceof FormData
   let response: Response
   try {
     response = await fetch(`${BASE_URL}${path}`, {
       ...rest,
       headers: {
         Accept: 'application/json',
-        ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+        ...(body !== undefined && !isForm ? { 'Content-Type': 'application/json' } : {}),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...headers,
       },
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      body: isForm ? body : body !== undefined ? JSON.stringify(body) : undefined,
     })
   } catch {
     throw new ApiError(0, 'NETWORK_ERROR', 'Could not reach the server')

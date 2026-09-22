@@ -3,12 +3,228 @@
 @theme {
   --color-brand-50: #eef7f2;
   --color-brand-100: #d5ebdf;
+  --color-brand-200: #aed6c0;
+  --color-brand-300: #7fbb9b;
+  --color-brand-500: #3f9468;
   --color-brand-600: #2f7a55;
   --color-brand-700: #245f42;
+  --color-brand-800: #1b4a33;
   --color-brand-900: #143626;
+  --color-brand-950: #0b2118;
+
+  /* Laterite — the red soil of the Sahyadri plateaus */
+  --color-laterite-100: #fbe6d6;
+  --color-laterite-400: #e79558;
+  --color-laterite-500: #d9772b;
+  --color-laterite-600: #b95e1b;
+
+  /* Trekker account area: slate sidebar, paper page, pine actions */
+  --color-ink-950: #12161c;
+  --color-ink-900: #171c23;
+  --color-ink-800: #212831;
+  --color-ink-700: #313a45;
+  --color-ink-400: #8a929c;
+  --color-paper-50: #f7f3eb;
+  --color-paper-100: #ede8de;
+  --color-paper-200: #e3ddd0;
+  --color-paper-300: #d5cebf;
+  --color-pine-400: #5c9a8b;
+  --color-pine-600: #3a6e62;
+  --color-pine-700: #2e5a50;
+
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Fraunces", ui-serif, Georgia, "Times New Roman", serif;
+  /* Landing page and site chrome */
+  --font-serif: "Spectral", ui-serif, Georgia, "Times New Roman", serif;
+  --font-plex: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/*
+ * No rubber-band bounce at the ends of the page: it drags the sticky top bar and the fixed account
+ * sidebar along with it. The dark canvas covers browsers that bounce anyway (no white strip).
+ */
+html {
+  scroll-behavior: smooth;
+  background-color: var(--color-ink-950);
+  overscroll-behavior-y: none;
 }
 
 body {
   @apply bg-stone-50 text-stone-900 antialiased;
+  overscroll-behavior-y: none;
+}
+
+/*
+ * Inputs read these so a page area can restyle every field at once (see AccountLayout).
+ * Defaults match the rest of the site.
+ */
+:root {
+  --field-bg: #fff;
+  --field-border: var(--color-stone-300);
+  --field-radius: 0.5rem;
+  --field-ring: color-mix(in oklab, var(--color-brand-500) 40%, transparent);
+}
+
+.account-area,
+.auth-area {
+  --field-bg: var(--color-paper-50);
+  --field-border: var(--color-paper-300);
+  --field-radius: 0.1875rem;
+  --field-ring: color-mix(in oklab, var(--color-pine-600) 35%, transparent);
+}
+
+/*
+ * Motion. Route changes that opt in with `viewTransition` crossfade; the header is
+ * named so it holds still, and a trek card's cover (`trek-cover-<slug>`) grows into
+ * the trek page hero. Everything here switches off under reduced motion.
+ */
+.site-header {
+  view-transition-name: site-header;
+}
+
+::view-transition-group(*) {
+  animation-duration: 420ms;
+  animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+::view-transition-old(root) {
+  animation: 160ms ease-in both vt-fade-out;
+}
+
+::view-transition-new(root) {
+  animation: 340ms cubic-bezier(0.2, 0.8, 0.2, 1) 60ms both vt-rise-in;
+}
+
+/*
+ * Named snapshots with no partner (the other trek cards, which aren't morphing) would
+ * otherwise linger over the new page; make them leave and arrive with the page itself.
+ */
+::view-transition-old(*):only-child {
+  animation: 160ms ease-in both vt-fade-out;
+}
+
+::view-transition-new(*):only-child {
+  animation: 340ms cubic-bezier(0.2, 0.8, 0.2, 1) 60ms both vt-rise-in;
+}
+
+/* Card cover ↔ trek hero have different shapes: crop rather than squash while morphing. */
+::view-transition-old(.trek-cover),
+::view-transition-new(.trek-cover) {
+  height: 100%;
+  object-fit: cover;
+}
+
+@keyframes vt-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes vt-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+/* Landing hero slideshow: the progress bar fills (and its end advances the photo); the photo slowly pushes in. */
+@keyframes hero-progress {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes hero-zoom {
+  from {
+    transform: scale(1.08);
+  }
+}
+
+/* Valley mist drifting across the hero ridgeline. */
+@keyframes mist-drift {
+  from {
+    transform: translateX(-12%);
+  }
+  to {
+    transform: translateX(12%);
+  }
+}
+
+.mist-layer {
+  animation: mist-drift var(--mist-duration, 40s) ease-in-out infinite alternate;
+}
+
+/* Profile page: cards rise in one after another, the completion bar fills, "saved" draws its check. */
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+@keyframes bar-grow {
+  from {
+    width: 0;
+  }
+}
+
+@keyframes check-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.profile-card {
+  animation: card-in 560ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: calc(var(--card-i, 0) * 70ms);
+}
+
+form > .profile-card:nth-of-type(1) { --card-i: 1; }
+form > .profile-card:nth-of-type(2) { --card-i: 2; }
+form > .profile-card:nth-of-type(3) { --card-i: 3; }
+form > .profile-card:nth-of-type(4) { --card-i: 4; }
+form > .profile-card:nth-of-type(5) { --card-i: 5; }
+#security.profile-card { --card-i: 6; }
+
+/* BMI value swaps in with a small lift each time height or weight changes it. */
+@keyframes bmi-tick {
+  from {
+    opacity: 0.2;
+    transform: translateY(3px);
+  }
+}
+
+.bmi-tick {
+  display: inline-block;
+  animation: bmi-tick 260ms ease-out;
+}
+
+.bar-grow {
+  animation: bar-grow 900ms cubic-bezier(0.2, 0.8, 0.2, 1) 250ms both;
+}
+
+.check-draw path {
+  stroke-dasharray: 16;
+  stroke-dashoffset: 16;
+  animation: check-draw 360ms ease-out 60ms forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .profile-card,
+  .bar-grow,
+  .bmi-tick {
+    animation: none;
+  }
+  .check-draw path {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+  .mist-layer {
+    animation: none;
+  }
 }

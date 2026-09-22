@@ -1,0 +1,91 @@
+name: Deploy
+
+# Runs after CI passes on main. Setup (one-time) is in docs/DEPLOY.md: an IAM role GitHub can assume through
+# OIDC, plus these repository variables (Settings → Secrets and variables → Actions → Variables):
+#   AWS_ROLE_ARN, ECR_REPOSITORY, ECS_CLUSTER, ECS_SERVICE, ECS_TASK_FAMILY, ECS_CONTAINER,
+#   SPA_BUCKET, CLOUDFRONT_DISTRIBUTION_ID, VITE_GOOGLE_CLIENT_ID
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-south-1
+
+jobs:
+  backend:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      - id: image
+        env:
+          IMAGE: ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          docker build -t "$IMAGE" backend
+          docker push "$IMAGE"
+          echo "uri=$IMAGE" >> "$GITHUB_OUTPUT"
+      - run: aws ecs describe-task-definition --task-definition "${{ vars.ECS_TASK_FAMILY }}" --query taskDefinition > task-def.json
+      - id: taskdef
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-def.json
+          container-name: ${{ vars.ECS_CONTAINER }}
+          image: ${{ steps.image.outputs.uri }}
+      # Rolling deploy; Flyway migrates on startup. Waits until the new task is healthy behind the ALB.
+      - uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.taskdef.outputs.task-definition }}
+          cluster: ${{ vars.ECS_CLUSTER }}
+          service: ${{ vars.ECS_SERVICE }}
+          wait-for-service-stability: true
+
+  frontend:
+    needs: backend
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci && npm run build
+        working-directory: frontend
+        env:
+          VITE_API_BASE_URL: ''
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      # Hashed assets/ cache forever; everything else (index.html, favicon) revalidates, so a deploy shows up
+      # immediately. Old assets/ files stay a while for tabs still running the previous build.
+      - run: |
+          aws s3 sync frontend/dist/assets "s3://${{ vars.SPA_BUCKET }}/assets" \
+            --cache-control "public,max-age=31536000,immutable"
+          aws s3 sync frontend/dist "s3://${{ vars.SPA_BUCKET }}" --exclude "assets/*" --delete \
+            --cache-control "no-cache"
+          aws cloudfront create-invalidation --distribution-id "${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}" --paths "/index.html" "/favicon.svg" "/icons.svg"
