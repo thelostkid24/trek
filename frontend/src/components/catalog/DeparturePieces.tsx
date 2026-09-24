@@ -15,6 +15,26 @@ export function DifficultyPill({ difficulty }: { difficulty: Difficulty }) {
   )
 }
 
+/**
+ * The batch as ten dark-or-light bars, dark = taken, with "6 of 10 filled · 4 open". The loudest thing on a
+ * departure: a trekker sees at a glance which date needs people.
+ */
+export function FillBar({ size, left, bookable = true }: { size: number; left: number; bookable?: boolean }) {
+  const taken = size - left
+  return (
+    <div aria-label={`${taken} of ${size} seats filled, ${left} open`}>
+      <div className="flex gap-1.5" aria-hidden="true">
+        {Array.from({ length: size }, (_, i) => (
+          <span key={i} className={`h-2.5 flex-1 rounded-full ${i < taken ? 'bg-brand-900' : 'bg-paper-200'}`} />
+        ))}
+      </div>
+      <p className={`mt-2 text-sm font-medium ${left === 0 ? 'text-stone-500' : bookable && left <= 2 ? 'text-laterite-600' : 'text-stone-800'}`}>
+        {left === 0 ? `${size} of ${size} filled · batch full` : `${taken} of ${size} filled · ${left} open`}
+      </p>
+    </div>
+  )
+}
+
 /** One bar per seat in the batch; filled bars are taken. */
 export function SeatMeter({ size, left }: { size: number; left: number }) {
   const taken = size - left
