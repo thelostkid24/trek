@@ -22,12 +22,19 @@ import com.sahyatri.catalog.entity.TrackPhoto;
 import com.sahyatri.catalog.repository.DepartureRepository;
 import com.sahyatri.catalog.repository.TrackPhotoRepository;
 import com.sahyatri.catalog.repository.TrackRepository;
+import com.sahyatri.common.config.BookingProperties;
 import com.sahyatri.common.config.CatalogProperties;
+import com.sahyatri.common.config.CharityProperties;
 import com.sahyatri.common.exception.ApiException;
 import com.sahyatri.common.storage.AvatarFiles;
 import com.sahyatri.common.storage.TrackPhotoFiles;
+import com.sahyatri.guide.dto.GuideDetailsResponse;
+import com.sahyatri.guide.service.GuideDetailsService;
 import com.sahyatri.profile.entity.TrekkerProfile;
 import com.sahyatri.profile.repository.TrekkerProfileRepository;
+import com.sahyatri.review.dto.RatingSummary;
+import com.sahyatri.review.service.ReviewService;
+import com.sahyatri.snow.service.SnowReportService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -61,10 +68,18 @@ public class CatalogService {
     private final CatalogProperties props;
     private final AvatarFiles avatars;
     private final TrackPhotoFiles photoFiles;
+    private final GuideDetailsService guideDetails;
+    private final ReviewService reviews;
+    private final TrekContentService content;
+    private final SnowReportService snowReports;
+    private final BookingProperties bookingProps;
+    private final CharityProperties charity;
 
     public CatalogService(DepartureRepository departures, TrackRepository tracks, TrackPhotoRepository photos,
                           UserRepository users, TrekkerProfileRepository profiles, CatalogProperties props,
-                          AvatarFiles avatars, TrackPhotoFiles photoFiles) {
+                          AvatarFiles avatars, TrackPhotoFiles photoFiles, GuideDetailsService guideDetails,
+                          ReviewService reviews, TrekContentService content, SnowReportService snowReports,
+                          BookingProperties bookingProps, CharityProperties charity) {
         this.departures = departures;
         this.tracks = tracks;
         this.photos = photos;
@@ -73,6 +88,12 @@ public class CatalogService {
         this.props = props;
         this.avatars = avatars;
         this.photoFiles = photoFiles;
+        this.guideDetails = guideDetails;
+        this.reviews = reviews;
+        this.content = content;
+        this.snowReports = snowReports;
+        this.bookingProps = bookingProps;
+        this.charity = charity;
     }
 
     public LocalDate today() {
@@ -146,7 +167,10 @@ public class CatalogService {
                 .toList();
     }
 
-    /** The trek page: route facts, itinerary and every upcoming published departure, whoever guides it. */
+    /**
+     * The trek page: route facts, itinerary, every upcoming published departure (whoever guides it), the page's
+     * lists, the newest snow report, recent crowd counts, refund tiers and the charity share.
+     */
     @Transactional(readOnly = true)
     public TrekPage trek(String slug) {
         Track track = tracks.findBySlug(slug).orElseThrow(CatalogService::trackNotFound);
@@ -156,7 +180,11 @@ public class CatalogService {
                 .map(d -> new TrekDeparture(d.getId(), d.getStartDate(), d.getEndDate(), d.getPricePaise(),
                         d.getMaxGroupSize(), d.seatsLeft(), isBookable(d), guides.get(d.getGuide().getId())))
                 .toList();
-        return new TrekPage(TrackDetail.of(track, photoFiles), rows);
+        return new TrekPage(TrackDetail.of(track, photoFiles), rows, content.forTrack(track.getId()),
+                snowReports.latest(track.getId()).orElse(null), snowReports.crowd(track.getId()),
+                bookingProps.refundTiers().stream()
+                        .map(t -> new TrekPage.RefundTier(t.minDaysBefore(), t.refundBps())).toList(),
+                charity.name() == null ? null : new TrekPage.Charity(charity.name(), charity.bps()));
     }
 
     @Transactional(readOnly = true)
@@ -176,13 +204,20 @@ public class CatalogService {
                 .toList();
         List<DepartureSummary> upcoming = departures.findListedForGuide(id, DepartureStatus.PUBLISHED, today())
                 .stream().map(this::toSummary).toList();
+        GuideDetailsResponse details = guideDetails.forGuides(Set.of(id)).get(id);
+        RatingSummary rating = reviews.ratings(Set.of(id)).getOrDefault(id, RatingSummary.NONE);
 
         return new GuideProfile(guide.getId(), guide.getFullName(), avatars.url(guide.getAvatarKey()),
                 profile == null ? null : profile.getHomeCity(), profile == null ? null : profile.getBio(),
-                treks.stream().mapToLong(GuideProfile.TrekLed::times).sum(), treks, upcoming);
+                treks.stream().mapToLong(GuideProfile.TrekLed::times).sum(), details.yearsLeading(),
+                details.languages(), details.certification(), details.certificationNumber(), details.quote(),
+                rating.average(), rating.count(), reviews.forGuide(id), treks, upcoming);
     }
 
-    /** Each departure's guide with their home city and how often they've completed that departure's trek. */
+    /**
+     * Each departure's guide with their home city, how often they've completed that departure's trek, their
+     * credentials and rating.
+     */
     private Map<UUID, GuideCard> guideCards(List<Departure> list) {
         Set<UUID> guideIds = list.stream().map(d -> d.getGuide().getId()).collect(Collectors.toSet());
         if (guideIds.isEmpty()) {
@@ -193,13 +228,19 @@ public class CatalogService {
         Map<String, Long> led = new HashMap<>();
         departures.countByGuideAndTrack(guideIds, DepartureStatus.COMPLETED)
                 .forEach(c -> led.put(c.getGuideId() + "/" + c.getTrackId(), c.getTimes()));
+        Map<UUID, GuideDetailsResponse> details = guideDetails.forGuides(guideIds);
+        Map<UUID, RatingSummary> ratings = reviews.ratings(guideIds);
 
         Map<UUID, GuideCard> cards = new HashMap<>();
         for (Departure d : list) {
             User g = d.getGuide();
             // One trek per list (trek page) or one departure (departure page), so the key is unique per guide.
+            GuideDetailsResponse gd = details.get(g.getId());
+            RatingSummary rating = ratings.getOrDefault(g.getId(), RatingSummary.NONE);
             cards.putIfAbsent(g.getId(), new GuideCard(g.getId(), g.getFullName(), avatars.url(g.getAvatarKey()),
-                    homes.get(g.getId()), led.getOrDefault(g.getId() + "/" + d.getTrack().getId(), 0L)));
+                    homes.get(g.getId()), led.getOrDefault(g.getId() + "/" + d.getTrack().getId(), 0L),
+                    gd.yearsLeading(), gd.languages(), gd.certification(), gd.certificationNumber(), gd.quote(),
+                    rating.average(), rating.count()));
         }
         return cards;
     }
@@ -241,7 +282,7 @@ public class CatalogService {
         try {
             return Difficulty.valueOf(difficulty.trim().toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException e) {
-            throw ApiException.validation("difficulty", "must be EASY, MODERATE or CHALLENGING");
+            throw ApiException.validation("difficulty", "must be EASY, EASY_MODERATE, MODERATE or CHALLENGING");
         }
     }
 

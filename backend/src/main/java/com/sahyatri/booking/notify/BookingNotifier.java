@@ -49,7 +49,7 @@ public class BookingNotifier {
                     + (departure.getEndDate().equals(departure.getStartDate()) ? "" : " – " + DATE.format(departure.getEndDate()));
             String link = frontendBaseUrl + "/account/bookings/" + booking.getId();
             String hi = "Hi " + firstName(booking.getContactName()) + ",\n\n";
-            String sign = "\n\n— Team Sahyātri";
+            String sign = "\n\n— The Empty Valley team";
             switch (notice.kind()) {
                 case CONFIRMED -> mail.send(booking.getContactEmail(), "Booked: " + trek + ", " + dates, hi
                         + "You're going! Your booking is confirmed.\n\n"

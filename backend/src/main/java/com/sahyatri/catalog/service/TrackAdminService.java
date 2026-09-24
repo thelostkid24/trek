@@ -1,5 +1,6 @@
 package com.sahyatri.catalog.service;
 
+import com.sahyatri.catalog.dto.ItineraryDayRequest;
 import com.sahyatri.catalog.dto.TrackRequest;
 import com.sahyatri.catalog.dto.TrackResponse;
 import com.sahyatri.catalog.entity.Track;
@@ -72,20 +73,37 @@ public class TrackAdminService {
         if (tracks.existsBySlugAndIdNot(req.slug(), track.getId())) {
             throw ApiException.conflict("SLUG_TAKEN", "Another track already uses this slug");
         }
-        List<String> itinerary = req.itinerary() == null ? List.of() : req.itinerary();
+        List<ItineraryDayRequest> itinerary = req.itinerary() == null ? List.of() : req.itinerary();
         if (!itinerary.isEmpty() && itinerary.size() != req.durationDays()) {
-            throw ApiException.validation("itinerary", "must have one line for each of the " + req.durationDays() + " days");
+            throw ApiException.validation("itinerary", "must have one entry for each of the " + req.durationDays() + " days");
         }
         checkBelowSummit("base_altitude_m", req.baseAltitudeM(), req.maxAltitudeM());
         checkBelowSummit("highest_camp_m", req.highestCampM(), req.maxAltitudeM());
+        for (int i = 0; i < itinerary.size(); i++) {
+            ItineraryDayRequest day = itinerary.get(i);
+            String prefix = "itinerary[" + i + "].";
+            checkBelowSummit(prefix + "start_altitude_m", day.startAltitudeM(), req.maxAltitudeM());
+            checkBelowSummit(prefix + "high_altitude_m", day.highAltitudeM(), req.maxAltitudeM());
+            checkBelowSummit(prefix + "end_altitude_m", day.endAltitudeM(), req.maxAltitudeM());
+            if (day.hoursMax() != null && (day.hoursMin() == null || day.hoursMax().compareTo(day.hoursMin()) < 0)) {
+                throw ApiException.validation(prefix + "hours_max", "must be at least the minimum hours");
+            }
+        }
+        if (req.offloadingPricePaise() != null && !Boolean.TRUE.equals(req.offloading())) {
+            throw ApiException.validation("offloading_price_paise", "only applies when offloading is available");
+        }
 
         track.update(req.slug(), req.name().trim(), req.region().trim(), req.difficulty(), req.durationDays(),
                 req.maxAltitudeM(), req.summary().trim(), req.description().trim(), req.meetingPoint().trim());
         track.updateRouteFacts(req.distanceKm(), req.baseAltitudeM(), req.highestCampM(), blankToNull(req.stay()),
                 blankToNull(req.seasonLabel()));
+        track.updateServices(blankToNull(req.pickupDrop()), req.cloakroom(), req.offloading(),
+                req.offloadingPricePaise());
         track.clearItinerary();
         tracks.saveAndFlush(track);
-        itinerary.forEach(line -> track.addItineraryDay(line.trim()));
+        itinerary.forEach(day -> track.addItineraryDay(day.summary().trim()).setDetails(blankToNull(day.description()),
+                day.distanceKm(), day.startAltitudeM(), day.highAltitudeM(), day.endAltitudeM(), day.hoursMin(),
+                day.hoursMax(), blankToNull(day.routeNote())));
         return TrackResponse.of(tracks.saveAndFlush(track), photoFiles);
     }
 
@@ -95,7 +113,7 @@ public class TrackAdminService {
         }
     }
 
-    private static String blankToNull(String value) {
+    static String blankToNull(String value) {
         return value == null || value.isBlank() ? null : value.trim();
     }
 }

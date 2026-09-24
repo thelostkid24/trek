@@ -44,7 +44,7 @@ app:
     s3-bucket: ${S3_UPLOADS_BUCKET:}
   mail:
     provider: ${MAIL_PROVIDER:log}
-    from: ${MAIL_FROM:Sahyatri <no-reply@sahyatri.local>}
+    from: ${MAIL_FROM:The Empty Valley <no-reply@sahyatri.local>}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
   auth:
@@ -67,6 +67,10 @@ app:
     guide-share-bps: ${GUIDE_SHARE_BPS:7000}
     booking-cutoff-days: 1
     zone: Asia/Kolkata
+  charity:
+    # Share of every booking given to charity. Comes out of the price; trekkers never pay extra. Blank name hides it.
+    name: ${CHARITY_NAME:}
+    bps: ${CHARITY_BPS:100}
   bookings:
     hold-ttl: ${BOOKING_HOLD_TTL:10m}
     # Trekker cancellation refund by days before the start date (IST). Frozen onto each booking when paid.

@@ -48,8 +48,15 @@ export function weekdaysAndYear(start: string, end: string): string {
   return `${days} · ${parseDate(start).getFullYear()}`
 }
 
-/** Altitudes are stored in metres: "3,810 m". */
-export const metres = (m: number) => `${m.toLocaleString('en-IN')} m`
+/**
+ * Altitudes are stored in metres and shown in feet, rounded to 5 ft so values typed in feet round-trip
+ * (12,500 ft → 3,810 m → 12,500 ft).
+ */
+export const toFeet = (m: number) => Math.round((m * 3.28084) / 5) * 5
+export const toMetres = (ft: number) => Math.round(ft / 3.28084)
+
+/** "12,500 ft". */
+export const feet = (m: number) => `${toFeet(m).toLocaleString('en-IN')} ft`
 
 export const dateTime = (iso: string) =>
   new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })

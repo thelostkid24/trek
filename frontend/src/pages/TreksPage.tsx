@@ -12,7 +12,7 @@ import { messageFor } from '../auth/errorMessages.ts'
 import { Avatar } from '../components/Avatar.tsx'
 import { DifficultyPill, SeatMeter } from '../components/catalog/DeparturePieces.tsx'
 import { Ridgeline } from '../components/Ridgeline.tsx'
-import { monthKey, monthLabel, rupees, shortRange, weekdaysAndYear } from '../lib/format.ts'
+import { feet, monthKey, monthLabel, rupees, shortRange, weekdaysAndYear } from '../lib/format.ts'
 
 /** Duration buckets a trekker actually plans around. */
 const LENGTHS = {
@@ -22,7 +22,7 @@ const LENGTHS = {
 }
 type LengthKey = keyof typeof LENGTHS
 
-const GRADES: Difficulty[] = ['EASY', 'MODERATE', 'CHALLENGING']
+const GRADES: Difficulty[] = ['EASY', 'EASY_MODERATE', 'MODERATE', 'CHALLENGING']
 
 /** /treks — every trek we run, by trek or by date. Contract: docs/TRD.md §7.9. */
 export function TreksPage() {
@@ -177,7 +177,7 @@ function TrekCard({ trek }: { trek: CatalogTrek }) {
         <p className="mt-1 line-clamp-2 text-sm text-stone-600">{trek.summary}</p>
         <p className="mt-2 text-xs text-stone-500">
           {trek.duration_days} {trek.duration_days === 1 ? 'day' : 'days'}
-          {trek.max_altitude_m ? ` · ${trek.max_altitude_m.toLocaleString('en-IN')} m` : ''}
+          {trek.max_altitude_m ? ` · ${feet(trek.max_altitude_m)}` : ''}
           {from !== null ? ` · from ${rupees(from)}` : ''}
         </p>
 

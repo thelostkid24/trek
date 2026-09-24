@@ -1,11 +1,12 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { DIFFICULTY_LABEL, type Difficulty, type GuideCard, type TrackDetail } from '../../api/catalog.ts'
-import { metres } from '../../lib/format.ts'
+import { feet, toFeet } from '../../lib/format.ts'
 import { Avatar } from '../Avatar.tsx'
 
 const DIFFICULTY_NOTE: Record<Difficulty, string> = {
   EASY: 'no prior trekking needed',
+  EASY_MODERATE: 'a reasonably fit beginner can do it',
   MODERATE: 'steady fitness needed',
   CHALLENGING: 'prior high-altitude trekking needed',
 }
@@ -14,14 +15,14 @@ const DIFFICULTY_NOTE: Record<Difficulty, string> = {
 export function TrekFacts({ track }: { track: TrackDetail }) {
   const gain =
     track.base_altitude_m && track.max_altitude_m
-      ? `${track.base_altitude_m.toLocaleString('en-IN')} → ${metres(track.max_altitude_m)}`
+      ? `${toFeet(track.base_altitude_m).toLocaleString('en-IN')} → ${feet(track.max_altitude_m)}`
       : null
   return (
     <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
       {track.distance_km && <Fact label="Trek distance" value={`${track.distance_km} km`} note="on foot, start to finish" />}
       <Fact label="Difficulty" value={DIFFICULTY_LABEL[track.difficulty]} note={DIFFICULTY_NOTE[track.difficulty]} />
       {gain && <Fact label="Altitude gain" value={gain} note="trailhead to summit" />}
-      {track.highest_camp_m && <Fact label="Highest camp" value={metres(track.highest_camp_m)} note="where you sleep" />}
+      {track.highest_camp_m && <Fact label="Highest camp" value={feet(track.highest_camp_m)} note="where you sleep" />}
       {track.stay && <Fact label="Stay" value={track.stay} />}
     </dl>
   )

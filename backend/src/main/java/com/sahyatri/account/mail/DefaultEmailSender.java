@@ -15,25 +15,25 @@ public class DefaultEmailSender implements EmailSender {
 
     @Override
     public void sendVerificationLink(String to, String link) {
-        mail.send(to, "Verify your email for Sahyātri", """
+        mail.send(to, "Verify your email for The Empty Valley", """
                 Hi,
 
-                Confirm this email address for your Sahyātri account:
+                Confirm this email address for your account with The Empty Valley:
                 %s
 
                 If you didn't ask for this, you can ignore this email.
 
-                — Team Sahyātri""".formatted(link));
+                — The Empty Valley team""".formatted(link));
     }
 
     @Override
     public void sendEmailChangedNotice(String oldEmail, String newEmail) {
-        mail.send(oldEmail, "Your Sahyātri email was changed", """
+        mail.send(oldEmail, "Your email for The Empty Valley was changed", """
                 Hi,
 
-                The email on your Sahyātri account was changed to %s.
+                The email on your account with The Empty Valley was changed to %s.
                 If this wasn't you, reply to this email right away.
 
-                — Team Sahyātri""".formatted(newEmail));
+                — The Empty Valley team""".formatted(newEmail));
     }
 }

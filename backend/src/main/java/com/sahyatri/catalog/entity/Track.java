@@ -68,6 +68,18 @@ public class Track {
     /** E.g. "Snow trek · Dec–Apr". */
     private String seasonLabel;
 
+    /** E.g. "Sankri to Sankri". */
+    private String pickupDrop;
+
+    /** Null = not stated. */
+    private Boolean cloakroom;
+
+    /** Paid bag offloading. Null = not stated. */
+    private Boolean offloading;
+
+    /** Null with offloading = paid, price not fixed yet. */
+    private Long offloadingPricePaise;
+
     /** Shown in the public catalog even with no upcoming dates. Tracks with dates are shown regardless. */
     @Column(nullable = false)
     private boolean listed;
@@ -125,6 +137,13 @@ public class Track {
         this.seasonLabel = seasonLabel;
     }
 
+    public void updateServices(String pickupDrop, Boolean cloakroom, Boolean offloading, Long offloadingPricePaise) {
+        this.pickupDrop = pickupDrop;
+        this.cloakroom = cloakroom;
+        this.offloading = offloading;
+        this.offloadingPricePaise = offloadingPricePaise;
+    }
+
     public void setListed(boolean listed) {
         this.listed = listed;
     }
@@ -134,8 +153,11 @@ public class Track {
         itinerary.clear();
     }
 
-    public void addItineraryDay(String summary) {
-        itinerary.add(new TrackItineraryDay(this, itinerary.size() + 1, summary));
+    /** Appends the next day. */
+    public TrackItineraryDay addItineraryDay(String summary) {
+        TrackItineraryDay day = new TrackItineraryDay(this, itinerary.size() + 1, summary);
+        itinerary.add(day);
+        return day;
     }
 
     public UUID getId() {
@@ -196,6 +218,22 @@ public class Track {
 
     public String getSeasonLabel() {
         return seasonLabel;
+    }
+
+    public String getPickupDrop() {
+        return pickupDrop;
+    }
+
+    public Boolean getCloakroom() {
+        return cloakroom;
+    }
+
+    public Boolean getOffloading() {
+        return offloading;
+    }
+
+    public Long getOffloadingPricePaise() {
+        return offloadingPricePaise;
     }
 
     public boolean isListed() {

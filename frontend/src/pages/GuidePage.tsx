@@ -5,7 +5,7 @@ import { ApiError } from '../api/client.ts'
 import { messageFor } from '../auth/errorMessages.ts'
 import { Avatar } from '../components/Avatar.tsx'
 import { SeatMeter } from '../components/catalog/DeparturePieces.tsx'
-import { rupees, shortRange, weekdaysAndYear } from '../lib/format.ts'
+import { parseDate, rupees, shortRange, weekdaysAndYear } from '../lib/format.ts'
 
 /** /guides/:id — public. Who you'd walk with: their home, record and next departures. */
 export function GuidePage() {
@@ -44,7 +44,9 @@ function Profile({ guide: g }: { guide: GuideProfile }) {
   const firstName = name.split(' ')[0]
   const facts = [
     g.home_city,
+    g.years_leading !== null && `${g.years_leading} ${g.years_leading === 1 ? 'year' : 'years'} leading`,
     g.treks_led > 0 ? `led ${g.treks_led} ${g.treks_led === 1 ? 'trek' : 'treks'} with us` : 'new with us',
+    g.languages,
   ].filter(Boolean)
 
   return (
@@ -59,10 +61,29 @@ function Profile({ guide: g }: { guide: GuideProfile }) {
           <p className="text-xs font-semibold tracking-[0.18em] text-laterite-600 uppercase">Your guide</p>
           <h1 className="mt-1 font-display text-3xl font-semibold tracking-tight sm:text-4xl">{name}</h1>
           <p className="mt-1 text-stone-600">{facts.join(' · ')}</p>
+          <p className="mt-1 text-sm text-stone-600">
+            {g.rating !== null ? (
+              <>
+                <span className="font-semibold text-stone-900">{g.rating.toFixed(1)}</span> · {g.review_count}{' '}
+                {g.review_count === 1 ? 'review' : 'reviews'}
+              </>
+            ) : (
+              'No reviews yet'
+            )}
+          </p>
         </div>
       </header>
 
+      {g.quote && (
+        <blockquote className="max-w-2xl border-l-2 border-paper-300 pl-4 font-serif text-lg text-stone-700 italic">“{g.quote}”</blockquote>
+      )}
       {g.bio && <p className="max-w-2xl whitespace-pre-line text-stone-700">{g.bio}</p>}
+      {g.certification && (
+        <p className="text-sm text-stone-700">
+          <span className="font-medium text-stone-900">Certification:</span> {g.certification}
+          {g.certification_number && <>, number {g.certification_number}</>}
+        </p>
+      )}
 
       <div className="grid gap-8 lg:grid-cols-[1fr_360px] lg:items-start">
         <section>
@@ -85,7 +106,7 @@ function Profile({ guide: g }: { guide: GuideProfile }) {
         <section>
           <h2 className="text-xs font-semibold tracking-[0.14em] text-stone-500 uppercase">Treks led</h2>
           {g.treks.length === 0 ? (
-            <p className="mt-3 text-sm text-stone-600">{firstName} hasn't completed a trek with Sahyātri yet.</p>
+            <p className="mt-3 text-sm text-stone-600">{firstName} hasn't completed a trek with The Empty Valley yet.</p>
           ) : (
             <ul className="mt-3 divide-y divide-stone-100 rounded-2xl bg-white ring-1 ring-stone-200">
               {g.treks.map((t) => (
@@ -102,6 +123,28 @@ function Profile({ guide: g }: { guide: GuideProfile }) {
           )}
         </section>
       </div>
+
+      <section>
+        <h2 className="text-xs font-semibold tracking-[0.14em] text-stone-500 uppercase">What trekkers say</h2>
+        {g.reviews.length === 0 ? (
+          <p className="mt-3 text-sm text-stone-600">Reviews appear here after {firstName}'s treks are completed.</p>
+        ) : (
+          <ul className="mt-3 grid gap-3 sm:grid-cols-2">
+            {g.reviews.map((r, i) => (
+              <li key={i} className="rounded-2xl bg-white p-4 ring-1 ring-stone-200">
+                <p className="text-laterite-600" aria-label={`${r.rating} out of 5`}>
+                  {'★'.repeat(r.rating)}
+                  <span className="text-stone-300">{'★'.repeat(5 - r.rating)}</span>
+                </p>
+                {r.body && <p className="mt-2 text-stone-700">{r.body}</p>}
+                <p className="mt-2 text-xs text-stone-500">
+                  {r.author_name} · {r.trek_name}, {parseDate(r.trek_start_date).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
   )
 }

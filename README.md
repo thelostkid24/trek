@@ -1,4 +1,4 @@
-# Sahyātri (trek)
+# The Empty Valley (trek)
 
 A guide-led trekking marketplace: catalog, bookings, and Razorpay payments.
 

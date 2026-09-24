@@ -38,7 +38,7 @@ function Profile({ user }: { user: User }) {
 
         {welcome && !user.full_name && (
           <div className="rounded-(--field-radius) border border-laterite-400/40 bg-laterite-100 px-5 py-4 text-sm text-laterite-600" role="status">
-            <p className="font-semibold">Welcome to Sahyātri!</p>
+            <p className="font-semibold">Welcome to The Empty Valley!</p>
             <p className="mt-0.5">Add your name below so your guide knows who's coming.</p>
           </div>
         )}

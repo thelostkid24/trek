@@ -1,5 +1,5 @@
 import type { AuthResponse } from './auth'
-import type { DepartureStatus, GuideBrief, Items, TrackBrief } from './catalog'
+import type { DepartureStatus, GuideBrief, Items, RefundTier, TrackBrief } from './catalog'
 import { apiFetch } from './client'
 import type { Payment } from './payments'
 import type { Gender } from './profile'
@@ -45,7 +45,7 @@ export type Refund = {
 /** Who we reach about the booking; `phone` is the WhatsApp number. */
 export type BookingContact = { full_name: string | null; phone: string | null; email: string | null }
 
-export type RefundTier = { min_days_before: number; refund_bps: number }
+export type { RefundTier }
 
 export type Booking = {
   id: string
@@ -130,3 +130,21 @@ export const getCancellationQuote = (token: string, id: string) =>
 
 export const cancelBooking = (token: string, id: string) =>
   apiFetch<Booking>(`/api/trekker/bookings/${id}/cancel`, { method: 'POST', token })
+
+/** The trekker's review of a completed booking (docs/TRD.md §7.14). */
+export type Review = {
+  id: string
+  booking_id: string
+  rating: number
+  body: string | null
+  created_at: string
+  updated_at: string
+}
+
+/** 404 REVIEW_NOT_FOUND until one is written. */
+export const getReview = (token: string, bookingId: string) =>
+  apiFetch<Review>(`/api/trekker/bookings/${bookingId}/review`, { token })
+
+/** Writes or rewrites it; 409 REVIEW_NOT_ALLOWED before the departure is completed. */
+export const writeReview = (token: string, bookingId: string, body: { rating: number; body: string | null }) =>
+  apiFetch<Review>(`/api/trekker/bookings/${bookingId}/review`, { method: 'PUT', token, body })

@@ -20,7 +20,7 @@ public record AppProperties(
 
     /**
      * @param provider {@code log} (dev: prints links to the log) or {@code ses}
-     * @param from     sender, e.g. "Sahyatri &lt;no-reply@example.com&gt;" (must be SES-verified when ses)
+     * @param from     sender, e.g. "The Empty Valley &lt;no-reply@example.com&gt;" (must be SES-verified when ses)
      */
     public record Mail(String provider, String from) {
     }

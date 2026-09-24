@@ -2,6 +2,7 @@ import { DIFFICULTY_LABEL, type Difficulty } from '../../api/catalog.ts'
 
 const DIFFICULTY_TONE: Record<Difficulty, string> = {
   EASY: 'bg-brand-100 text-brand-800',
+  EASY_MODERATE: 'bg-lime-100 text-lime-800',
   MODERATE: 'bg-amber-100 text-amber-800',
   CHALLENGING: 'bg-laterite-100 text-laterite-600',
 }
