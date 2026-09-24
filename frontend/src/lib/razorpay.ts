@@ -69,7 +69,7 @@ export async function openCheckout(order: PaymentOrder): Promise<CheckoutResult>
       order_id: order.razorpay_order_id,
       amount: order.amount_paise,
       currency: order.currency,
-      name: 'Sahyātri',
+      name: 'The Empty Valley',
       description: order.description,
       timeout: order.checkout_timeout_seconds,
       prefill: {

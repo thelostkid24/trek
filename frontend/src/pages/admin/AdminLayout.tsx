@@ -3,6 +3,7 @@ import { NavLink, Outlet } from 'react-router-dom'
 const TABS = [
   { to: '/admin', label: 'Departures', end: true },
   { to: '/admin/tracks', label: 'Tracks', end: false },
+  { to: '/admin/content', label: 'Page content', end: false },
   { to: '/admin/guides', label: 'Guides', end: false },
 ]
 

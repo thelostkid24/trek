@@ -112,7 +112,7 @@ export function VisionPage() {
       </Section>
       <Section title="Who we are">
         <p>
-          Sahyātri is run by {BUSINESS.legalName}, {BUSINESS.address}. Reach us any time through the{' '}
+          The Empty Valley is run by {BUSINESS.legalName}, {BUSINESS.address}. Reach us any time through the{' '}
           <Link to={SITE_LINKS.contact} className={linkClass}>
             contact page
           </Link>
@@ -170,7 +170,7 @@ export function TermsPage() {
   return (
     <InfoPage
       title="Terms of use"
-      intro={`These terms apply when you use Sahyātri or book a trek with us. Sahyātri is operated by ${BUSINESS.legalName}. Last updated ${BUSINESS.lastUpdated}.`}
+      intro={`These terms apply when you use The Empty Valley or book a trek with us. The Empty Valley is operated by ${BUSINESS.legalName}. Last updated ${BUSINESS.lastUpdated}.`}
     >
       <Section title="Bookings and payment">
         <p>
@@ -228,7 +228,7 @@ export function PrivacyPage() {
   return (
     <InfoPage
       title="Privacy policy"
-      intro={`How ${BUSINESS.legalName} (“Sahyātri”) collects and uses your personal data, under India’s Digital Personal Data Protection Act, 2023. Last updated ${BUSINESS.lastUpdated}.`}
+      intro={`How ${BUSINESS.legalName} (“The Empty Valley”) collects and uses your personal data, under India’s Digital Personal Data Protection Act, 2023. Last updated ${BUSINESS.lastUpdated}.`}
     >
       <Section title="What we collect">
         <ul className="list-disc space-y-2 pl-5">

@@ -68,7 +68,7 @@ export function Layout() {
         <div className="mx-auto flex h-16 max-w-[90rem] items-center justify-between gap-6 px-5 sm:px-10">
           <div className="flex items-center gap-10">
             <Link to="/" viewTransition className="font-serif text-[1.35rem] tracking-tight text-white">
-              Sahyātri
+              The Empty Valley
             </Link>
             <nav className="hidden items-center gap-6 text-sm md:flex">
               {NAV.map((item) => (
@@ -115,7 +115,7 @@ export function Layout() {
       <footer className={`bg-ink-950 font-plex text-ink-400 ${accountSidebar ? 'md:ml-60' : ''}`}>
         <div className="mx-auto flex max-w-[90rem] flex-col gap-6 px-5 py-10 text-sm sm:flex-row sm:justify-between sm:px-10">
           <div className="max-w-xs">
-            <p className="font-serif text-lg text-stone-200">Sahyātri</p>
+            <p className="font-serif text-lg text-stone-200">The Empty Valley</p>
             <p className="mt-2 text-xs leading-relaxed">Fair-trade, micro-batch trekking. Registered in Mumbai, Maharashtra.</p>
             <ApiStatus />
           </div>
@@ -161,6 +161,11 @@ function AccountLink() {
       {user.role === 'ADMIN' && (
         <Link to="/admin" className="font-medium text-stone-200 hover:text-white">
           Admin
+        </Link>
+      )}
+      {user.role === 'GUIDE' && (
+        <Link to="/guide" className="font-medium text-stone-200 hover:text-white">
+          Snow reports
         </Link>
       )}
       <ProfileMenu

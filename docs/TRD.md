@@ -1,4 +1,6 @@
-# Sahyātri — Technical Requirement Document (living)
+# The Empty Valley — Technical Requirement Document (living)
+
+The product is **The Empty Valley**. The codebase keeps its working name, Sahyātri (`com.sahyatri`, database `sahyatri`).
 
 **Companion to:** PRD v1.2 (guide-led execution) and TRD v1.2 (lifecycle/protocol deltas).
 **How this doc works:** this file is the source of truth for how the system is built. It starts with only the foundation. Each feature, when built, adds its schema, endpoints and screens to §5 and §6. Nothing is designed here ahead of the feature that needs it.
@@ -115,7 +117,7 @@ Defined per feature. Each feature appends a subsection: tables/columns added, co
 - **`otp_challenges`** — adds `purpose TEXT NOT NULL DEFAULT 'LOGIN' CHECK IN ('LOGIN','PHONE_CHANGE')`; index becomes `(phone, purpose, created_at)`.
 
 ### 6.3 Catalog — `V3__catalog.sql`
-- **`tracks`** — `id UUID PK`, `slug TEXT UNIQUE NOT NULL` (`^[a-z0-9]+(-[a-z0-9]+)*$`), `name TEXT NOT NULL`, `region TEXT NOT NULL`, `difficulty TEXT NOT NULL CHECK IN ('EASY','MODERATE','CHALLENGING')`, `duration_days INT NOT NULL CHECK 1..7`, `max_altitude_m INT NULL CHECK > 0`, `summary TEXT NOT NULL` (≤ 200), `description TEXT NOT NULL`, `meeting_point TEXT NOT NULL`, `created_at`, `updated_at`.
+- **`tracks`** — `id UUID PK`, `slug TEXT UNIQUE NOT NULL` (`^[a-z0-9]+(-[a-z0-9]+)*$`), `name TEXT NOT NULL`, `region TEXT NOT NULL`, `difficulty TEXT NOT NULL CHECK IN ('EASY','MODERATE','CHALLENGING')` (`'EASY_MODERATE'` since V10), `duration_days INT NOT NULL CHECK 1..7`, `max_altitude_m INT NULL CHECK > 0`, `summary TEXT NOT NULL` (≤ 200), `description TEXT NOT NULL`, `meeting_point TEXT NOT NULL`, `created_at`, `updated_at`.
 - **`departures`** — `id UUID PK`, `track_id UUID FK → tracks`, `guide_id UUID FK → users`, `start_date DATE NOT NULL`, `end_date DATE NOT NULL` (= start + duration − 1; CHECK `end_date >= start_date`), `price_paise BIGINT NOT NULL CHECK > 0` (per seat), `max_group_size INT NOT NULL CHECK 1..6` (1..10 since V5), `seats_taken INT NOT NULL DEFAULT 0` (CHECK `0 ≤ seats_taken ≤ max_group_size` — the database backstop for law 2), `status TEXT NOT NULL CHECK IN ('DRAFT','PUBLISHED','CANCELLED','EXPIRED','COMPLETED')`, `guide_share_bps INT NULL CHECK 0..10000` (CHECK: set unless `DRAFT`), `published_at TIMESTAMPTZ NULL`, `cancelled_at TIMESTAMPTZ NULL`, `cancel_reason_code TEXT NULL CHECK IN ('WEATHER','PERMIT_DENIED','GUIDE_UNAVAILABLE','SAFETY')`, `cancel_reason_note TEXT NULL` (CHECK: `CANCELLED` ⇔ `cancelled_at` and `cancel_reason_code` set), `created_at`, `updated_at`. Index `(status, start_date)`.
 - **`audit_events`** — `id UUID PK`, `actor_id UUID NULL FK → users` (null = system job), `action TEXT NOT NULL` (e.g. `DEPARTURE_PUBLISHED`), `entity_type TEXT NOT NULL`, `entity_id UUID NOT NULL`, `data JSONB NOT NULL DEFAULT '{}'`, `created_at`. Index `(entity_type, entity_id, created_at)`. Append-only.
 
@@ -146,6 +148,15 @@ Defined per feature. Each feature appends a subsection: tables/columns added, co
 
 ### 6.9 Trek catalog — `V9__track_catalog.sql`
 - **`tracks`** — adds `listed BOOLEAN NOT NULL DEFAULT FALSE`: show this track in the public catalog even when it has no upcoming dates. A track with an upcoming published departure is in the catalog whatever `listed` says.
+
+### 6.10 Full trek page — `V10__trek_content.sql`
+- **`tracks`** — `difficulty` may also be `EASY_MODERATE` ("Easy to moderate"). Adds `pickup_drop TEXT NULL` ("Sankri to Sankri"), `cloakroom BOOLEAN NULL`, `offloading BOOLEAN NULL` (paid bag offloading), `offloading_price_paise BIGINT NULL CHECK > 0` (null with offloading = paid, price not fixed yet). NULL = not stated; the page leaves the fact out.
+- **`track_itinerary_days`** — `summary` stays the day's heading. Adds `description TEXT`, `distance_km NUMERIC(4,1) CHECK > 0`, `start_altitude_m`, `high_altitude_m`, `end_altitude_m INT CHECK > 0`, `hours_min NUMERIC(3,1) CHECK > 0`, `hours_max NUMERIC(3,1)` (CHECK: null, or ≥ `hours_min`), `route_note TEXT` ("mostly downhill"). All nullable.
+- **`track_photos`** — adds `place TEXT CHECK length 1..100` ("Kedarkantha summit") and `day_number INT CHECK 1..7`.
+- **`trek_content_items`** — `id UUID PK`, `track_id UUID NULL FK → tracks ON DELETE CASCADE` (NULL = shown on every trek), `kind TEXT NOT NULL CHECK IN ('INCLUDED','NOT_INCLUDED','SAFETY','SAFETY_CALLOUT','SAFETY_NOTE','FAQ','WHY_US')`, `position INT NOT NULL CHECK ≥ 0`, `badge TEXT NULL`, `title TEXT NULL`, `body TEXT NOT NULL`, `created_at`. `UNIQUE NULLS NOT DISTINCT (track_id, kind, position)`.
+- **`snow_reports`** — `id UUID PK`, `track_id UUID FK → tracks ON DELETE CASCADE`, `reported_by UUID FK → users`, `reported_on DATE NOT NULL`, `reported_from TEXT NOT NULL`, `snowline_m INT CHECK > 0`, `night_temp_c INT CHECK -60..50`, `conditions JSONB NOT NULL DEFAULT '[]'` (`[{label, value}]`), `crowd_place TEXT`, `crowd_tents INT CHECK ≥ 0` (CHECK: both or neither), `note TEXT`, `has_photo BOOLEAN NOT NULL DEFAULT false` (file at `snow-reports/<id>.jpg`), `created_at`. Index `(track_id, reported_on DESC, created_at DESC)`. Append-only.
+- **`guide_profiles`** — `user_id UUID PK FK → users ON DELETE CASCADE`, `leading_since INT CHECK 1950..2100`, `languages TEXT`, `certification TEXT`, `certification_number TEXT`, `quote TEXT`, `created_at`, `updated_at`. Row created on first save.
+- **`reviews`** — `id UUID PK`, `booking_id UUID UNIQUE FK → bookings`, `user_id`, `departure_id`, `guide_id`, `track_id` (FKs), `rating INT NOT NULL CHECK 1..5`, `body TEXT NULL CHECK length 1..2000`, `author_name TEXT NOT NULL` (first name from the booking), `created_at`, `updated_at`. Index `(guide_id, created_at DESC)`.
 
 ## 7. Feature log
 Each feature appends: scope, endpoints, tables, screens, tests.
@@ -709,18 +720,24 @@ Payments: §7.4 endpoints, with the changes listed there. Checkout `prefill` com
 | `GET /api/public/tracks/{slug}` | `200 { track: TrackDetail, departures: [{ id, start_date, end_date, price_paise, max_group_size, seats_left, bookable, guide: GuideCard }] }`, soonest first | `404 TRACK_NOT_FOUND` |
 | `GET /api/public/guides/{id}` | `200 { id, full_name, avatar_url, home_city, bio, treks_led, treks: [{ track: TrackBrief, times }], upcoming: DepartureSummary[] }` | `404 GUIDE_NOT_FOUND` (not a guide, disabled or unknown) |
 
-- `TrackDetail` (also on `GET /api/public/departures/{id}`) adds `distance_km`, `base_altitude_m`, `highest_camp_m`, `stay`, `season_label`, `itinerary: [{ day, summary }]`, and `photos` (§7.8).
-- `GuideCard` = `{ id, full_name, avatar_url, home_city, led_this_trek }`; `GET /api/public/departures/{id}` now returns it as `guide`.
+- `TrackDetail` (also on `GET /api/public/departures/{id}`) adds `distance_km`, `base_altitude_m`, `highest_camp_m`, `stay`, `season_label`, `pickup_drop`, `cloakroom`, `offloading`, `offloading_price_paise`, `itinerary: ItineraryDay[]`, and `photos` (§7.8).
+- `ItineraryDay` = `{ day, summary, description, distance_km, start_altitude_m, high_altitude_m, end_altitude_m, hours_min, hours_max, route_note }`; everything after `summary` may be null.
+- `GuideCard` = `{ id, full_name, avatar_url, home_city, led_this_trek, years_leading, languages, certification, certification_number, quote, rating, review_count }`; `GET /api/public/departures/{id}` returns it as `guide`. Credentials come from §7.12 (null until filled), `rating` (one decimal, null with no reviews) and `review_count` from §7.14.
+- The trek page response also carries `content` (every `ContentKind` → `[{ badge, title, body }]`, shared items first, §7.11), `snow_report` (newest, or null, §7.13), `crowd` (`[{ reported_on, place, tents }]`, last 12 counts, oldest first), `refund_tiers` (`[{ min_days_before, refund_bps }]` from `app.bookings.refund-tiers`, highest first) and `charity` (`{ name, bps }` from `app.charity`, null when no name is set).
+- The guide page adds `years_leading`, `languages`, `certification`, `certification_number`, `quote`, `rating`, `review_count` and `reviews` (latest 20, §7.14).
 - Counts are `COMPLETED` departures, computed at read time and never stored (law 8). `home_city` and `bio` come from the guide's own profile (§6.2).
-- Admin tracks (`POST`/`PUT /api/admin/tracks`) accept and return the route facts and `itinerary: string[]` (one line per day, ≤ 200 chars each; empty or exactly `duration_days` lines → else `400` on `itinerary`; a blank line → `400` on `itinerary[i]`). `base_altitude_m` and `highest_camp_m` can't exceed `max_altitude_m`.
+- Admin tracks (`POST`/`PUT /api/admin/tracks`) accept and return the route facts, the services (`pickup_drop` ≤ 120, `cloakroom`, `offloading`, `offloading_price_paise` > 0 and only with `offloading: true`) and `itinerary: ItineraryDay[]` without `day` (empty or exactly `duration_days` entries → else `400` on `itinerary`; blank heading → `400` on `itinerary[i].summary`; `hours_max` < `hours_min` → `400` on `itinerary[i].hours_max`). No altitude (track or day) can exceed `max_altitude_m`.
+- Altitudes are stored in metres and shown in feet (`lib/format.ts` `feet`, rounded to 5 ft so feet typed in the admin round-trip). Admin forms take feet.
 
 #### Frontend
-- `/treks/:slug` (`pages/TrekPage.tsx`): hero (ridgeline art until there are photos, season chip), name, tagline, chips on phones, a departures column (dates, price, seat bar, guide with home and record, Book), description, fact cards and the itinerary (`components/catalog/TrekPieces.tsx`). Tapping a departure opens `/departures/:id`.
+- `/treks/:slug` (`pages/TrekPage.tsx`) follows the Kedarkantha design: hero photo, name, then on phones the departures before everything else (a sticky right column from `lg`).
+  - Departures (`components/catalog/TrekDepartures.tsx`): "N dai (mountain guides) lead …" intro, guide chips, month tabs with date counts, one card per date (dates, price, guide, seat bar where dark = taken, "4 of 10 seats left"). The open card (first by default) introduces the guide: photo, "Name — home", years leading · summits of this trek · languages, certification and number, rating · reviews, quote, "Get to know <name> →" (guide page), a "book these dates now" link and the charity line.
+  - Main column: fact cards (duration, maximum altitude, difficulty, pickup and drop, cloakroom, offloading), the snow report panel (§7.13) with the crowd chart, sticky section tabs, Overview (paragraphs split on blank lines), Photos (carousel, §7.8), Day by day (altitude bars — the summit dark, the chosen day laterite — over the day cards), What's included / not included (collapsible), Safety (dark callout, checklist, notes), Cancellation policy (current refund tiers), FAQ and Why choose The Empty Valley. Sections with no content and their tabs are left out. Pieces in `components/catalog/{TrekSections,SnowReportPanel,TrailPhotos,DayByDay}.tsx`.
 - `/departures/:id`: guide card first (links to the guide), guide line above the Book button, trek facts and itinerary, "All <trek> dates" back to the trek page.
-- `/guides/:id` (`pages/GuidePage.tsx`): photo, name, home, treks led, bio, upcoming departures with Book, treks led with counts.
+- `/guides/:id` (`pages/GuidePage.tsx`): photo, name, home, years leading, treks led, languages, rating, quote, bio, certification, upcoming departures with Book, treks led with counts, and reviews.
 - Guide names link to `/guides/:id` on the trek, departure, checkout, booking and other-dates rows. Seat bars read "6 of 10 seats filled · 4 open".
-- Admin track form: route facts and one input per day for the itinerary.
-- Tests: `TrekPageTests`.
+- Admin track editor has four sections: Details (facts, services, overview and the day-by-day fields), Photos, Page lists (§7.11) and Snow reports (§7.13).
+- Tests: `TrekPageTests`, `TrekContentTests`.
 
 ### 7.8 Trek photos
 **Status:** backend and frontend implemented.
@@ -730,13 +747,15 @@ Payments: §7.4 endpoints, with the changes listed there. Checkout `prefill` com
 #### Shapes
 ```jsonc
 // TrackPhoto — on TrackDetail.photos (public) and Track.photos (admin), oldest upload first
-{ "id": "…-uuid", "url": "http://localhost:8081/api/public/files/track-photos/<id>.jpg", "caption": "Summit at first light" }
+{ "id": "…-uuid", "url": "http://localhost:8081/api/public/files/track-photos/<id>.jpg",
+  "caption": "Summit ridge at first light", "place": "Kedarkantha summit", "day_number": 4 }
 ```
 
 #### Endpoints
 | Method & path | Auth | Request | Success | Errors |
 |---|---|---|---|---|
-| `POST /api/admin/tracks/{id}/photos` | ADMIN | multipart: `file` (JPEG/PNG ≤ 5 MB), optional `caption` (≤ 200 after trim; blank = none) | `201` TrackPhoto | `400 UNSUPPORTED_IMAGE`, `400 VALIDATION_FAILED` (`caption`), `404 TRACK_NOT_FOUND`, `409 TOO_MANY_PHOTOS` (30), `413 FILE_TOO_LARGE` |
+| `POST /api/admin/tracks/{id}/photos` | ADMIN | multipart: `file` (JPEG/PNG ≤ 5 MB), optional `caption` (≤ 200 after trim; blank = none), `place` (≤ 100), `day_number` (a day of the trek) | `201` TrackPhoto | `400 UNSUPPORTED_IMAGE`, `400 VALIDATION_FAILED` (`caption`, `place`, `day_number`), `404 TRACK_NOT_FOUND`, `409 TOO_MANY_PHOTOS` (30), `413 FILE_TOO_LARGE` |
+| `PUT /api/admin/tracks/{id}/photos/{photoId}` | ADMIN | `{ caption, place, day_number }` (blank clears) | `200` TrackPhoto | `400 VALIDATION_FAILED`, `404 PHOTO_NOT_FOUND` |
 | `DELETE /api/admin/tracks/{id}/photos/{photoId}` | ADMIN | — | `204` | `404 PHOTO_NOT_FOUND` |
 | `GET /api/public/files/track-photos/{id}.jpg` | — | — | `200 image/jpeg`, cached for a year (immutable) | `404 NOT_FOUND` |
 
@@ -746,8 +765,8 @@ Payments: §7.4 endpoints, with the changes listed there. Checkout `prefill` com
 - The admin UI scales photos to ≤ 2000 px in the browser before upload (`lib/photos.ts`), so phone photos over 5 MB still go through and arrive upright (EXIF rotation applied).
 
 #### Frontend
-- `/treks/:slug`: the first photo becomes the hero (ridgeline until there is one). "From past treks" gallery under the description (`components/catalog/TrekGallery.tsx`): a swipeable strip on phones, a mosaic on wider screens (first photo large, "+N more" on the fifth), full-screen viewer with arrows, swipe and Esc.
-- Admin track editor: a Photos panel under the form for an existing track: thumbnails with Delete, "Add photos" (multi-select) with an optional caption.
+- `/treks/:slug`: the first photo becomes the hero (ridgeline until there is one). "Photos from the trail" (`components/catalog/TrailPhotos.tsx`): one large photo with caption and "place · Day N", arrows, swipe and arrow keys, "1 of 10", thumbnails underneath.
+- Admin track editor → Photos: each photo with editable caption, place and day, and Delete; "Add photos" (multi-select) with caption, place and day for the batch.
 - Tests: `TrackPhotoTests`.
 
 ### 7.8 Launch readiness: notifications, providers, rate limits, legal pages
@@ -858,6 +877,73 @@ Payments: §7.4 endpoints, with the changes listed there. Checkout `prefill` com
 
 #### Not built (placeholders in the design)
 Gear rental and its payment, add-ons (offload, transport), per-trek food option and its lock, medical-document upload, waivers, trip coordinator, itinerary PDF, guide contact release. Each needs its own schema and endpoints when it's picked up. The design's "balance due" is not used: bookings are paid in full (§7.6).
+
+### 7.11 Trek-page lists (shared and per trek)
+**Status:** backend and frontend implemented. Table in §6.10.
+
+**Scope:** the trek page's lists — what's included and not, safety (checklist, the dark "who decides to turn back" callout, notes), FAQ and "Why choose us" cards. Some are the same on every trek (shared), some are the trek's own; the page shows shared items first, then the trek's.
+
+#### Endpoints (ADMIN)
+| Method & path | Request | Success | Errors |
+|---|---|---|---|
+| `GET /api/admin/content` | — | `200` `{ INCLUDED: ContentItem[], …every kind }` (shared lists) | — |
+| `PUT /api/admin/content/{kind}` | `{ items: [{ badge, title, body }] }` (≤ 40, in order; empty clears) | `200` shared lists | `400 VALIDATION_FAILED`, `404` unknown kind |
+| `GET /api/admin/tracks/{id}/content` | — | `200` the track's own lists | `404 TRACK_NOT_FOUND` |
+| `PUT /api/admin/tracks/{id}/content/{kind}` | as above | `200` the track's own lists | as above |
+
+- `body` 1..2000 (trimmed), `title` ≤ 200, `badge` ≤ 12. `FAQ`, `WHY_US` and `SAFETY_CALLOUT` need a `title` (`items[i].title`); only `WHY_US` takes a `badge` (`items[i].badge`). A PUT replaces that one list whole.
+- Public: `content` on `GET /api/public/tracks/{slug}` (§7.7). Only the first `SAFETY_CALLOUT` is shown.
+
+#### Frontend
+- `components/admin/ContentEditor.tsx`: one panel per list with add, remove, reorder, undo and its own Save. `/admin/content` ("Page content" tab) edits the shared lists; Tracks → Edit → Page lists edits a trek's own.
+- Tests: `TrekContentTests`.
+
+### 7.12 Guide credentials
+**Status:** backend and frontend implemented. Table `guide_profiles` in §6.10.
+
+**Scope:** what trekkers read about a guide before choosing a date: years leading (from the year they started), languages, certification and its number, and a line in their own words. An admin fills them in.
+
+| Method & path | Request | Success | Errors |
+|---|---|---|---|
+| `GET /api/admin/guides/{id}/details` | — | `200 { guide_id, leading_since, years_leading, languages, certification, certification_number, quote }` (all null until saved) | `404 GUIDE_NOT_FOUND` |
+| `PUT /api/admin/guides/{id}/details` | `{ leading_since (1950..this year), languages ≤ 120, certification ≤ 160, certification_number ≤ 60, quote ≤ 240 }`, blank clears | `200` as above | `400 VALIDATION_FAILED`, `404 GUIDE_NOT_FOUND` |
+
+- Shown on `GuideCard` (§7.7) and the guide page. Frontend: Admin → Guides → "Credentials" on each guide. Tests: `TrekContentTests`.
+
+### 7.13 Snow reports and crowd counts
+**Status:** backend and frontend implemented. Table `snow_reports` in §6.10.
+
+**Scope:** every Tuesday an admin, or a guide who leads the trek, files what the trail is like: snowline, night temperature at base camp, labelled readings ("Juda ka Talab": "Frozen", "Road, Purola to Sankri": "Open"), the tents counted at the busiest camp, a note and a photo taken that morning. Every report is kept; the newest shows on the trek page, and the last 12 tent counts show as a chart so trekkers can pick a quiet week. Reports are never edited or deleted; a correction is a newer report.
+
+| Method & path | Auth | Request | Success | Errors |
+|---|---|---|---|---|
+| `GET /api/guide/tracks` | GUIDE | — | `200 { items: [{ id, slug, name }] }` — tracks with a `PUBLISHED` or `COMPLETED` departure they lead | — |
+| `GET /api/{admin,guide}/tracks/{id}/snow-reports` | ADMIN / GUIDE | — | `200 { items: SnowReport[] }`, newest first (≤ 52) | `403 FORBIDDEN` (guide not leading it), `404 TRACK_NOT_FOUND` |
+| `POST /api/{admin,guide}/tracks/{id}/snow-reports` | ADMIN / GUIDE | `{ reported_on, reported_from, snowline_m?, night_temp_c?, conditions?: [{label ≤ 40, value ≤ 60}] (≤ 4), crowd_place?, crowd_tents? (0..2000), note? ≤ 500 }` | `201` SnowReport | `400 VALIDATION_FAILED` (`reported_on` in the future; `crowd_place`/`crowd_tents` given alone), `403`, `404` |
+| `POST /api/{admin,guide}/snow-reports/{id}/photo` | ADMIN / GUIDE | multipart `file` | `200` SnowReport with `photo_url` | `403`, `404 REPORT_NOT_FOUND`, `409 REPORT_HAS_PHOTO` |
+| `GET /api/public/files/snow-reports/{id}.jpg` | — | — | `200 image/jpeg` | `404` |
+
+- `SnowReport` = `{ id, reported_on, reported_from, snowline_m, night_temp_c, conditions, crowd_place, crowd_tents, note, photo_url, reported_by: { id, full_name }, created_at }`.
+- Frontend: `components/admin/SnowReports.tsx` (form prefilled with last week's labels and places, plus the history) under Tracks → Edit → Snow reports, and for guides at `/guide` (`pages/guide/GuideReportsPage.tsx`, "Snow reports" in the header). Public panel: `components/catalog/SnowReportPanel.tsx`.
+- Tests: `SnowReportTests`.
+
+### 7.14 Guide reviews
+**Status:** backend and frontend implemented. Table `reviews` in §6.10.
+
+**Scope:** after a departure is `COMPLETED`, each trekker with a `CONFIRMED` booking on it can rate the guide 1–5 with optional words, and change it later. Ratings are averaged at read time (never stored, like every guide figure — law 8). Reviews show with the author's first name.
+
+| Method & path | Auth | Request | Success | Errors |
+|---|---|---|---|---|
+| `GET /api/trekker/bookings/{id}/review` | TREKKER (owner) | — | `200 { id, booking_id, rating, body, created_at, updated_at }` | `404 BOOKING_NOT_FOUND`, `404 REVIEW_NOT_FOUND` |
+| `PUT /api/trekker/bookings/{id}/review` | TREKKER (owner) | `{ rating: 1..5, body?: ≤ 2000 }` | `200` as above (creates or rewrites) | `400`, `404 BOOKING_NOT_FOUND`, `409 REVIEW_NOT_ALLOWED` (not confirmed, or the departure isn't completed) |
+| `GET /api/public/guides/{id}/reviews` | — | — | `200 { items: [{ rating, body, author_name, trek_name, trek_start_date, created_at }] }`, newest first (≤ 20) | — |
+
+- Frontend: "How was it with <guide>?" on a completed booking (`components/booking/ReviewSection.tsx`); reviews on the guide page; rating on the trek page's guide intro. No moderation yet.
+- The local dev mock (`src/devMock.ts`, gitignored) seeds sample reviews, the Kedarkantha page and a snow report history.
+- Tests: `ReviewTests`.
+
+### Charity share
+`app.charity` (`CHARITY_NAME`, `CHARITY_BPS`, default 100 = 1%) is part of the price, never added on top. It only shows as a line on the trek page ("1% goes to …, and the rest runs the company"); no money is split or recorded per booking yet.
 
 ## 8. Running locally
 

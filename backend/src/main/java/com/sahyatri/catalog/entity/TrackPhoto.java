@@ -23,8 +23,14 @@ public class TrackPhoto {
     @JoinColumn(name = "track_id")
     private Track track;
 
-    /** E.g. "Summit push at first light". */
+    /** E.g. "Summit ridge at first light". */
     private String caption;
+
+    /** E.g. "Kedarkantha summit". */
+    private String place;
+
+    /** Which itinerary day it was taken on. */
+    private Integer dayNumber;
 
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
@@ -32,11 +38,17 @@ public class TrackPhoto {
     protected TrackPhoto() {
     }
 
-    public TrackPhoto(Track track, String caption) {
+    public TrackPhoto(Track track, String caption, String place, Integer dayNumber) {
         this.id = UUID.randomUUID();
         this.track = track;
-        this.caption = caption;
         this.createdAt = Instant.now();
+        describe(caption, place, dayNumber);
+    }
+
+    public void describe(String caption, String place, Integer dayNumber) {
+        this.caption = caption;
+        this.place = place;
+        this.dayNumber = dayNumber;
     }
 
     public UUID getId() {
@@ -45,5 +57,13 @@ public class TrackPhoto {
 
     public String getCaption() {
         return caption;
+    }
+
+    public String getPlace() {
+        return place;
+    }
+
+    public Integer getDayNumber() {
+        return dayNumber;
     }
 }

@@ -8,7 +8,7 @@ import { OtherDepartures } from '../components/catalog/OtherDepartures.tsx'
 import { GuideLine, Itinerary, TrekFacts } from '../components/catalog/TrekPieces.tsx'
 import { trekTagline } from '../lib/trek.ts'
 import { Ridgeline } from '../components/Ridgeline.tsx'
-import { dateRange, longDate, rupees } from '../lib/format.ts'
+import { dateRange, feet, longDate, rupees } from '../lib/format.ts'
 
 /** /departures/:id — public. */
 export function DepartureDetailPage() {
@@ -59,7 +59,7 @@ function Detail({ departure: d }: { departure: DepartureDetail }) {
             <DifficultyPill difficulty={track.difficulty} />
             <span className="text-sm text-brand-200">
               {track.region} · {track.duration_days} {track.duration_days === 1 ? 'day' : 'days'}
-              {track.max_altitude_m && <> · {track.max_altitude_m.toLocaleString('en-IN')} m</>}
+              {track.max_altitude_m && <> · {feet(track.max_altitude_m)}</>}
             </span>
           </div>
           <h1 className="mt-3 font-display text-4xl leading-tight font-semibold tracking-tight sm:text-5xl">

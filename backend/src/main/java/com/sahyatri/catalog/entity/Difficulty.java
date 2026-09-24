@@ -1,5 +1,5 @@
 package com.sahyatri.catalog.entity;
 
 public enum Difficulty {
-    EASY, MODERATE, CHALLENGING
+    EASY, EASY_MODERATE, MODERATE, CHALLENGING
 }

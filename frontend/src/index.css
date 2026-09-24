@@ -31,6 +31,8 @@
   --color-pine-400: #5c9a8b;
   --color-pine-600: #3a6e62;
   --color-pine-700: #2e5a50;
+  /* Trek page: quiet bars in the day-by-day chart */
+  --color-sage-200: #c9d4cc;
 
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-display: "Fraunces", ui-serif, Georgia, "Times New Roman", serif;

@@ -2,6 +2,7 @@ package com.sahyatri.catalog.repository;
 
 import com.sahyatri.catalog.entity.Departure;
 import com.sahyatri.catalog.entity.DepartureStatus;
+import com.sahyatri.catalog.entity.Track;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
@@ -60,6 +61,14 @@ public interface DepartureRepository extends JpaRepository<Departure, UUID> {
     }
 
     boolean existsByTrackId(UUID trackId);
+
+    boolean existsByTrackIdAndGuideIdAndStatusIn(UUID trackId, UUID guideId, Collection<DepartureStatus> statuses);
+
+    /** Tracks a guide has published or completed departures on. */
+    @Query("""
+            select distinct t from Departure d join d.track t
+            where d.guide.id = :guideId and d.status in :statuses order by t.name""")
+    List<Track> findTracksLedBy(UUID guideId, Collection<DepartureStatus> statuses);
 
     @Query("select d.id from Departure d where d.status = :status and d.startDate <= :date and d.seatsTaken = 0")
     List<UUID> findUnsoldStartedIds(DepartureStatus status, LocalDate date);

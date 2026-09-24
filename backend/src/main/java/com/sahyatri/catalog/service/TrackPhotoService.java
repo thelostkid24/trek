@@ -1,5 +1,6 @@
 package com.sahyatri.catalog.service;
 
+import com.sahyatri.catalog.dto.TrackPhotoRequest;
 import com.sahyatri.catalog.dto.TrackPhotoResponse;
 import com.sahyatri.catalog.entity.Track;
 import com.sahyatri.catalog.entity.TrackPhoto;
@@ -10,6 +11,7 @@ import com.sahyatri.common.storage.Images;
 import com.sahyatri.common.storage.TrackPhotoFiles;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.awt.image.BufferedImage;
@@ -26,6 +28,7 @@ public class TrackPhotoService {
     static final int MAX_EDGE = 2000;
     static final int MAX_PHOTOS = 30;
     static final int MAX_CAPTION = 200;
+    static final int MAX_PLACE = 100;
 
     private final TrackAdminService tracks;
     private final TrackPhotoRepository photos;
@@ -40,18 +43,24 @@ public class TrackPhotoService {
         this.files = files;
     }
 
-    public TrackPhotoResponse upload(UUID trackId, MultipartFile file, String caption) {
+    public TrackPhotoResponse upload(UUID trackId, MultipartFile file, String caption, String place,
+                                     Integer dayNumber) {
         Track track = tracks.require(trackId);
-        String trimmed = caption == null || caption.isBlank() ? null : caption.trim();
+        String trimmed = TrackAdminService.blankToNull(caption);
         if (trimmed != null && trimmed.length() > MAX_CAPTION) {
             throw ApiException.validation("caption", "must be at most " + MAX_CAPTION + " characters");
         }
+        String trimmedPlace = TrackAdminService.blankToNull(place);
+        if (trimmedPlace != null && trimmedPlace.length() > MAX_PLACE) {
+            throw ApiException.validation("place", "must be at most " + MAX_PLACE + " characters");
+        }
+        checkDay(track, dayNumber);
         if (photos.countByTrackId(trackId) >= MAX_PHOTOS) {
             throw ApiException.conflict("TOO_MANY_PHOTOS", "A trek can have at most " + MAX_PHOTOS + " photos");
         }
         byte[] jpeg = toPhotoJpeg(Images.read(file));
 
-        TrackPhoto photo = new TrackPhoto(track, trimmed);
+        TrackPhoto photo = new TrackPhoto(track, trimmed, trimmedPlace, dayNumber);
         storage.put(TrackPhotoFiles.storageKey(photo.getId()), jpeg);
         try {
             photos.save(photo);
@@ -62,14 +71,33 @@ public class TrackPhotoService {
         return TrackPhotoResponse.of(photo, files);
     }
 
+    @Transactional
+    public TrackPhotoResponse describe(UUID trackId, UUID photoId, TrackPhotoRequest req) {
+        TrackPhoto photo = require(trackId, photoId);
+        checkDay(tracks.require(trackId), req.dayNumber());
+        photo.describe(TrackAdminService.blankToNull(req.caption()), TrackAdminService.blankToNull(req.place()),
+                req.dayNumber());
+        return TrackPhotoResponse.of(photos.saveAndFlush(photo), files);
+    }
+
     public void delete(UUID trackId, UUID photoId) {
-        TrackPhoto photo = photos.findByIdAndTrackId(photoId, trackId)
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "PHOTO_NOT_FOUND", "Photo not found"));
-        photos.delete(photo);
+        photos.delete(require(trackId, photoId));
         deleteQuietly(photoId);
     }
 
-    static byte[] toPhotoJpeg(byte[] bytes) {
+    private TrackPhoto require(UUID trackId, UUID photoId) {
+        return photos.findByIdAndTrackId(photoId, trackId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "PHOTO_NOT_FOUND", "Photo not found"));
+    }
+
+    private static void checkDay(Track track, Integer dayNumber) {
+        if (dayNumber != null && (dayNumber < 1 || dayNumber > track.getDurationDays())) {
+            throw ApiException.validation("day_number", "must be a day of the trek (1–" + track.getDurationDays() + ")");
+        }
+    }
+
+    /** Re-encoded JPEG, long edge at most {@link #MAX_EDGE}. Also used for snow-report photos. */
+    public static byte[] toPhotoJpeg(byte[] bytes) {
         BufferedImage source = Images.decode(bytes);
         int w = source.getWidth();
         int h = source.getHeight();

@@ -28,7 +28,11 @@ class TrekPageTests extends AuthTestSupport {
 
     private UUID createTrek(String admin, String slug) throws Exception {
         MvcResult result = authed(post("/api/admin/tracks"), admin, trekJson(slug, """
-                ["Dehradun to Sankri","Sankri to Juda ka Talab","Summit, back to Sankri"]"""))
+                [{"summary":"Dehradun to Sankri","end_altitude_m":1967},
+                 {"summary":"Sankri to Juda ka Talab","distance_km":4,"start_altitude_m":1967,"end_altitude_m":2700,
+                  "hours_min":4,"hours_max":5,"description":"Pine and oak most of the way."},
+                 {"summary":"Summit, back to Sankri","start_altitude_m":2700,"high_altitude_m":3810,
+                  "end_altitude_m":1967,"route_note":"long descent"}]"""))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.itinerary", hasSize(3)))
                 .andExpect(jsonPath("$.distance_km").value(20.5))
@@ -66,6 +70,11 @@ class TrekPageTests extends AuthTestSupport {
                 .andExpect(jsonPath("$.track.highest_camp_m").value(3430))
                 .andExpect(jsonPath("$.track.itinerary[*].day", contains(1, 2, 3)))
                 .andExpect(jsonPath("$.track.itinerary[1].summary").value("Sankri to Juda ka Talab"))
+                .andExpect(jsonPath("$.track.itinerary[1].distance_km").value(4))
+                .andExpect(jsonPath("$.track.itinerary[1].hours_max").value(5))
+                .andExpect(jsonPath("$.track.itinerary[1].description").value("Pine and oak most of the way."))
+                .andExpect(jsonPath("$.track.itinerary[2].high_altitude_m").value(3810))
+                .andExpect(jsonPath("$.track.itinerary[2].route_note").value("long descent"))
                 .andExpect(jsonPath("$.departures[*].id", contains(sooner.toString(), later.toString())))
                 .andExpect(jsonPath("$.departures[0].guide.id").value(pratap.toString()))
                 .andExpect(jsonPath("$.departures[0].guide.home_city").value("Sankri"))
@@ -90,6 +99,14 @@ class TrekPageTests extends AuthTestSupport {
                 .andExpect(jsonPath("$.upcoming[*].id", contains(sooner.toString())));
     }
 
+    private static String days(String... summaries) {
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < summaries.length; i++) {
+            sb.append(i > 0 ? "," : "").append("{\"summary\":\"").append(summaries[i]).append("\"}");
+        }
+        return sb.append(']').toString();
+    }
+
     @Test
     void unknownTrekAndNonGuidesAreNotFound() throws Exception {
         mockMvc.perform(get("/api/public/tracks/no-such-trek"))
@@ -107,18 +124,26 @@ class TrekPageTests extends AuthTestSupport {
     void itineraryHasOneLinePerDayAndCanBeReplaced() throws Exception {
         String admin = adminToken();
         String slug = uniqueSlug();
-        authed(post("/api/admin/tracks"), admin, trekJson(slug, "[\"Only one day\"]"))
+        authed(post("/api/admin/tracks"), admin, trekJson(slug, "[{\"summary\":\"Only one day\"}]"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.details.fields.itinerary").exists());
-        authed(post("/api/admin/tracks"), admin, trekJson(slug, "[\"Day one\",\" \",\"Day three\"]"))
+        authed(post("/api/admin/tracks"), admin, trekJson(slug, days("Day one", " ", "Day three")))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.details.fields['itinerary[1]']").exists());
+                .andExpect(jsonPath("$.details.fields['itinerary[1].summary']").exists());
+        // Hours run min to max, and no day goes above the summit.
+        authed(post("/api/admin/tracks"), admin, trekJson(slug, """
+                [{"summary":"a"},{"summary":"b","hours_min":5,"hours_max":4},{"summary":"c"}]"""))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.details.fields['itinerary[1].hours_max']").exists());
+        authed(post("/api/admin/tracks"), admin, trekJson(slug, """
+                [{"summary":"a"},{"summary":"b"},{"summary":"c","high_altitude_m":4000}]"""))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.details.fields['itinerary[2].high_altitude_m']").exists());
 
         UUID track = createTrek(admin, slug);
-        authed(put("/api/admin/tracks/" + track), admin, trekJson(slug, """
-                ["Day one, new","Day two, new","Day three, new"]"""))
+        authed(put("/api/admin/tracks/" + track), admin, trekJson(slug, days("Day one, new", "Day two, new", "Day three, new")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.itinerary", contains("Day one, new", "Day two, new", "Day three, new")));
+                .andExpect(jsonPath("$.itinerary[*].summary", contains("Day one, new", "Day two, new", "Day three, new")));
 
         // Facts are optional; an empty itinerary clears it.
         authed(put("/api/admin/tracks/" + track), admin, trekJson(slug, "[]"))

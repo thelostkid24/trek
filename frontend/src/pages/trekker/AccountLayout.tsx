@@ -31,7 +31,7 @@ export function AccountLayout() {
       {/* Fixed, not sticky: a sticky rail rides up with its container once the footer scrolls in. Layout offsets the footer (route handle `accountSidebar`). */}
       <aside className="bg-ink-900 text-stone-300 md:fixed md:top-16 md:bottom-0 md:left-0 md:flex md:w-60 md:flex-col">
         <div className="hidden px-6 pt-8 pb-6 md:block">
-          <p className="font-display text-xl text-stone-100">Sahyātri</p>
+          <p className="font-display text-xl text-stone-100">The Empty Valley</p>
           <p className="mt-1 text-xs text-ink-400">Trekker since {joinedFormat.format(new Date(user.created_at))}</p>
         </div>
 

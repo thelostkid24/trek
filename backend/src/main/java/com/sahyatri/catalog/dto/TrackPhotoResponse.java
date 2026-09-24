@@ -5,9 +5,9 @@ import com.sahyatri.common.storage.TrackPhotoFiles;
 
 import java.util.UUID;
 
-public record TrackPhotoResponse(UUID id, String url, String caption) {
+public record TrackPhotoResponse(UUID id, String url, String caption, String place, Integer dayNumber) {
 
     public static TrackPhotoResponse of(TrackPhoto p, TrackPhotoFiles files) {
-        return new TrackPhotoResponse(p.getId(), files.url(p.getId()), p.getCaption());
+        return new TrackPhotoResponse(p.getId(), files.url(p.getId()), p.getCaption(), p.getPlace(), p.getDayNumber());
     }
 }

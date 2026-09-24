@@ -1,6 +1,7 @@
 package com.sahyatri.catalog.controller;
 
 import com.sahyatri.catalog.dto.TrackListingRequest;
+import com.sahyatri.catalog.dto.TrackPhotoRequest;
 import com.sahyatri.catalog.dto.TrackPhotoResponse;
 import com.sahyatri.catalog.dto.TrackRequest;
 import com.sahyatri.catalog.dto.TrackResponse;
@@ -65,8 +66,16 @@ public class AdminTrackController {
     @PostMapping(path = "/{id}/photos", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
     public TrackPhotoResponse uploadPhoto(@PathVariable UUID id, @RequestPart("file") MultipartFile file,
-                                          @RequestParam(required = false) String caption) {
-        return photos.upload(id, file, caption);
+                                          @RequestParam(required = false) String caption,
+                                          @RequestParam(required = false) String place,
+                                          @RequestParam(name = "day_number", required = false) Integer dayNumber) {
+        return photos.upload(id, file, caption, place, dayNumber);
+    }
+
+    @PutMapping("/{id}/photos/{photoId}")
+    public TrackPhotoResponse describePhoto(@PathVariable UUID id, @PathVariable UUID photoId,
+                                            @Valid @RequestBody TrackPhotoRequest req) {
+        return photos.describe(id, photoId, req);
     }
 
     @DeleteMapping("/{id}/photos/{photoId}")

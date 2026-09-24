@@ -18,7 +18,7 @@ export function AuthCard({
     <div className="auth-area min-h-[calc(100dvh-4rem)] bg-paper-100 font-plex text-ink-900">
       <section className="mx-auto flex w-full max-w-md flex-col px-4 py-10 sm:py-16">
         <Link to="/" className="self-center font-serif text-[1.6rem] tracking-tight text-ink-900">
-          Sahyātri
+          The Empty Valley
         </Link>
         <div className="mt-6 rounded-sm border border-paper-300 bg-paper-50 p-6 sm:p-8">
           <h1 className="font-serif text-[1.75rem] leading-tight tracking-tight">{title}</h1>

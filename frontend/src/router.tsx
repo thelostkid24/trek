@@ -4,11 +4,13 @@ import { PROFILE_PATH } from './auth/useCompleteSignIn.ts'
 import { SITE_LINKS } from './lib/siteLinks.ts'
 import { Layout } from './components/Layout.tsx'
 import { AdminLayout } from './pages/admin/AdminLayout.tsx'
+import { ContentAdminPage } from './pages/admin/ContentAdminPage.tsx'
 import { DeparturesAdminPage } from './pages/admin/DeparturesAdminPage.tsx'
 import { GuidesAdminPage } from './pages/admin/GuidesAdminPage.tsx'
 import { TracksAdminPage } from './pages/admin/TracksAdminPage.tsx'
 import { DepartureDetailPage } from './pages/DepartureDetailPage.tsx'
 import { GuidePage } from './pages/GuidePage.tsx'
+import { GuideReportsPage } from './pages/guide/GuideReportsPage.tsx'
 import { HomePage } from './pages/HomePage.tsx'
 import {
   CancellationsPage,
@@ -77,8 +79,17 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <DeparturesAdminPage /> },
           { path: 'tracks', element: <TracksAdminPage /> },
+          { path: 'content', element: <ContentAdminPage /> },
           { path: 'guides', element: <GuidesAdminPage /> },
         ],
+      },
+      {
+        path: '/guide',
+        element: (
+          <RequireAuth role="GUIDE">
+            <GuideReportsPage />
+          </RequireAuth>
+        ),
       },
       { path: '*', element: <NotFoundPage /> },
     ],

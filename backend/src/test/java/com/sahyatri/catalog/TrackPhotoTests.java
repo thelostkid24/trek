@@ -21,6 +21,7 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -47,6 +48,33 @@ class TrackPhotoTests extends AuthTestSupport {
         // Long edge scaled down to 2000px, aspect kept; small photos aren't enlarged.
         assertSize(first, 2000, 1500);
         assertSize(second, 600, 900);
+    }
+
+    @Test
+    void photosCarryAPlaceAndADayThatCanBeEdited() throws Exception {
+        String admin = adminToken();
+        UUID track = createTrack(admin, 2);
+        String slug = jdbc.queryForObject("SELECT slug FROM tracks WHERE id = ?", String.class, track);
+
+        String id = photoId(authed(photoRequest(track, image("png", 100, 100), "Summit ridge")
+                .param("place", "Kedarkantha summit").param("day_number", "2"), admin, null));
+        authed(photoRequest(track, image("png", 100, 100), null).param("day_number", "3"), admin, null)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.details.fields.day_number").exists());
+
+        authed(put("/api/admin/tracks/" + track + "/photos/" + id), admin, """
+                {"caption":"Summit ridge at first light","place":" ","day_number":1}""")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.caption").value("Summit ridge at first light"))
+                .andExpect(jsonPath("$.place").value(nullValue()))
+                .andExpect(jsonPath("$.day_number").value(1));
+        authed(put("/api/admin/tracks/" + track + "/photos/" + id), admin, """
+                {"day_number":5}""")
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(get("/api/public/tracks/" + slug))
+                .andExpect(jsonPath("$.track.photos[0].caption").value("Summit ridge at first light"))
+                .andExpect(jsonPath("$.track.photos[0].day_number").value(1));
     }
 
     @Test

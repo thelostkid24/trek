@@ -1,6 +1,7 @@
 package com.sahyatri.catalog.dto;
 
 import com.sahyatri.catalog.entity.Difficulty;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
@@ -9,14 +10,15 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
 import java.util.List;
 
 /**
- * Create or replace a track. Text is trimmed in the service. Route facts and the itinerary are optional; an
- * itinerary, when given, has one line per day of {@code durationDays} (checked in the service).
+ * Create or replace a track. Text is trimmed in the service. Route facts, services and the itinerary are optional; an
+ * itinerary, when given, has one entry per day of {@code durationDays} (checked in the service).
  */
 public record TrackRequest(
         @NotBlank @Size(min = 3, max = 80)
@@ -35,5 +37,9 @@ public record TrackRequest(
         @Min(1) @Max(9000) Integer highestCampM,
         @Size(max = 120) String stay,
         @Size(max = 60) String seasonLabel,
-        @Size(max = 7) List<@NotBlank @Size(max = 200) String> itinerary) {
+        @Size(max = 120) String pickupDrop,
+        Boolean cloakroom,
+        Boolean offloading,
+        @Positive Long offloadingPricePaise,
+        @Size(max = 7) List<@Valid ItineraryDayRequest> itinerary) {
 }

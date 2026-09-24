@@ -21,6 +21,7 @@ import { Avatar } from '../../components/Avatar.tsx'
 import { GuestNotice } from '../../components/booking/GuestNotice.tsx'
 import { BookingStatusBadge } from '../../components/booking/BookingStatusBadge.tsx'
 import { MoreMenu } from '../../components/booking/MoreMenu.tsx'
+import { ReviewSection } from '../../components/booking/ReviewSection.tsx'
 import { usePayForBooking, type PayOutcome } from '../../components/booking/usePayForBooking.ts'
 import { clock, useSecondsUntil } from '../../components/booking/useSecondsUntil.ts'
 import { SelectField } from '../../components/profile/fields.tsx'
@@ -170,6 +171,7 @@ function Detail({ booking: b }: { booking: Booking }) {
         </section>
       )}
 
+      {b.status === 'CONFIRMED' && b.departure.status === 'COMPLETED' && <ReviewSection booking={b} />}
       {(b.payment?.status === 'PAID' || b.refunds.length > 0) && <PaymentSection booking={b} />}
       {b.status === 'CONFIRMED' && showCancel && <CancelSection booking={b} onKeep={() => setShowCancel(false)} />}
     </div>

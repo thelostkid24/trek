@@ -34,7 +34,7 @@ export function LoginPage() {
       subtitle="Sign in to see your bookings and upcoming treks."
       footer={
         <>
-          New to Sahyātri?{' '}
+          New to The Empty Valley?{' '}
           <Link to="/signup" state={{ from: target }} className="font-medium text-pine-600 hover:text-pine-700">
             Create an account
           </Link>
