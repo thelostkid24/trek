@@ -1,16 +1,21 @@
 import { useQuery } from '@tanstack/react-query'
+import type { ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { getDeparture, type DepartureDetail } from '../api/catalog.ts'
+import { getDeparture, trekQueryOptions, type DepartureDetail, type TrekPage } from '../api/catalog.ts'
 import { ApiError } from '../api/client.ts'
 import { messageFor } from '../auth/errorMessages.ts'
-import { DifficultyPill, SeatMeter } from '../components/catalog/DeparturePieces.tsx'
+import { DayByDay } from '../components/catalog/DayByDay.tsx'
+import { FillBar } from '../components/catalog/DeparturePieces.tsx'
+import { GuideProfileCard } from '../components/catalog/GuideProfileCard.tsx'
 import { OtherDepartures } from '../components/catalog/OtherDepartures.tsx'
-import { GuideLine, Itinerary, TrekFacts } from '../components/catalog/TrekPieces.tsx'
-import { trekTagline } from '../lib/trek.ts'
+import { Cancellation, FactGrid, Inclusions, TrekSection } from '../components/catalog/TrekSections.tsx'
 import { Ridgeline } from '../components/Ridgeline.tsx'
-import { dateRange, feet, longDate, rupees } from '../lib/format.ts'
+import { rupees, shortRange, weekdaysAndYear } from '../lib/format.ts'
 
-/** /departures/:id — public. */
+/**
+ * /departures/:id — public. One dated run: how full it is, who leads it (above the Book button), the full price
+ * and what it doesn't cover, the days with their dates, and the refund dates. Lists come from the trek page.
+ */
 export function DepartureDetailPage() {
   const { id = '' } = useParams()
   const departure = useQuery({
@@ -46,103 +51,141 @@ export function DepartureDetailPage() {
 
 function Detail({ departure: d }: { departure: DepartureDetail }) {
   const { track, guide } = d
+  // The trek page carries the lists, refund tiers and charity; the departure page shows them for these dates.
+  const trek = useQuery(trekQueryOptions(track.slug))
+  const extras: TrekPage | undefined = trek.data
+  const cover = track.photos[0]
+  const guideName = guide.full_name ?? 'a local guide'
+
   return (
-    <>
-      <section className="relative isolate overflow-hidden bg-brand-950 text-white">
-        <Ridgeline className="absolute inset-0 -z-20 h-full w-full" />
-        <div className="absolute inset-0 -z-10 bg-gradient-to-r from-brand-950/90 via-brand-950/60 to-brand-950/20" />
-        <div className="mx-auto max-w-5xl px-4 pt-10 pb-12 sm:pt-16 sm:pb-20">
-          <Link to={`/treks/${track.slug}`} viewTransition className="text-sm text-brand-200 hover:text-white">
-            ← All {track.name} dates
-          </Link>
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            <DifficultyPill difficulty={track.difficulty} />
-            <span className="text-sm text-brand-200">
-              {track.region} · {track.duration_days} {track.duration_days === 1 ? 'day' : 'days'}
-              {track.max_altitude_m && <> · {feet(track.max_altitude_m)}</>}
-            </span>
-          </div>
-          <h1 className="mt-3 font-display text-4xl leading-tight font-semibold tracking-tight sm:text-5xl">
-            {track.name}
-          </h1>
-          <p className="mt-3 max-w-2xl text-lg text-brand-100">{track.summary}</p>
-        </div>
+    <div className="bg-paper-50 pb-24 lg:pb-0">
+      <section className="relative isolate h-44 overflow-hidden bg-brand-950 sm:h-64">
+        {cover ? (
+          <>
+            <img src={cover.url} alt={cover.caption ?? ''} className="absolute inset-0 -z-20 size-full object-cover" />
+            <div className="absolute inset-0 -z-10 bg-gradient-to-b from-black/30 via-transparent to-black/30" aria-hidden="true" />
+          </>
+        ) : (
+          <Ridgeline className="absolute inset-0 -z-10 h-full w-full" />
+        )}
       </section>
 
-      <div className="mx-auto grid max-w-5xl gap-6 px-4 py-8 sm:py-12 lg:grid-cols-[1fr_320px] lg:items-start">
-        <div className="space-y-6">
-          {/* The guide comes first: who you walk with is the decision. */}
-          <section className="rounded-2xl border border-stone-200 bg-white p-5 sm:p-7">
-            <p className="text-xs font-semibold tracking-[0.18em] text-laterite-600 uppercase">Your guide</p>
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-4">
-              <GuideLine guide={guide} trekName={track.name} size="md" />
-              <Link
-                to={`/guides/${guide.id}`}
-                className="rounded-full bg-white px-4 py-2 text-sm font-medium text-stone-700 ring-1 ring-stone-300 hover:ring-stone-400"
-              >
-                View profile
-              </Link>
-            </div>
-            <p className="mt-3 text-sm text-stone-600">Local, vetted, and leading no more than {d.max_group_size}.</p>
-          </section>
+      <div className="mx-auto grid max-w-6xl gap-x-12 gap-y-8 px-4 py-8 sm:py-10 lg:grid-cols-[minmax(0,1fr)_22rem]">
+        <header className="lg:col-start-1">
+          <Link to={`/treks/${track.slug}`} viewTransition className="text-sm text-brand-700 hover:text-brand-900">
+            ← All {track.name} dates
+          </Link>
+          <p className="mt-3 text-xs font-semibold tracking-[0.16em] text-laterite-600 uppercase">{track.name}</p>
+          <h1 className="mt-1 font-serif text-4xl leading-tight tracking-tight text-stone-900 sm:text-6xl">
+            {shortRange(d.start_date, d.end_date)} {d.end_date.slice(0, 4)}
+          </h1>
+          <p className="mt-2 text-stone-600">
+            {weekdaysAndYear(d.start_date, d.end_date).split(' · ')[0]} · {track.duration_days}{' '}
+            {track.duration_days === 1 ? 'day' : 'days'} · with {guideName}
+          </p>
+          <div className="mt-5 max-w-xl">
+            <FillBar size={d.max_group_size} left={d.seats_left} bookable={d.bookable} />
+          </div>
+        </header>
 
-          <section className="space-y-6 rounded-2xl border border-stone-200 bg-white p-5 sm:p-7">
-            <div>
-              <h2 className="font-display text-xl font-semibold">About the trek</h2>
-              <p className="mt-1 text-sm text-stone-500">{trekTagline(track)}</p>
-              <p className="mt-3 whitespace-pre-line text-stone-700">{track.description}</p>
-            </div>
-            <TrekFacts track={track} />
-            <Itinerary track={track} />
-            <dl className="grid gap-4 text-sm sm:grid-cols-2">
-              <div>
-                <dt className="text-stone-500">Dates</dt>
-                <dd className="mt-0.5 font-medium text-stone-900">
-                  {d.start_date === d.end_date ? longDate(d.start_date) : dateRange(d.start_date, d.end_date)}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-stone-500">Meeting point</dt>
-                <dd className="mt-0.5 font-medium text-stone-900">{track.meeting_point}</dd>
-              </div>
-            </dl>
-          </section>
+        <aside className="hidden lg:sticky lg:top-20 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:block lg:self-start">
+          <PriceCard departure={d} extras={extras} />
+        </aside>
 
+        <div className="min-w-0 space-y-8 lg:col-start-1">
+          <GuideProfileCard guide={guide} trekName={track.name} />
+
+          {/* Phones: the full price and Book right under the guide; the bar at the bottom keeps Book in reach. */}
+          <div className="lg:hidden">
+            <PriceCard departure={d} extras={extras} />
+          </div>
+
+          {extras && extras.content.INCLUDED.length + extras.content.NOT_INCLUDED.length > 0 && (
+            <TrekSection id="included" label="What the price covers">
+              <Inclusions included={extras.content.INCLUDED} excluded={extras.content.NOT_INCLUDED} open />
+            </TrekSection>
+          )}
+          <TrekSection id="facts" label="The trek">
+            <FactGrid track={track} />
+          </TrekSection>
+          <DayByDay id="days" days={track.itinerary} startDate={d.start_date} />
+          {extras && extras.refund_tiers.length > 0 && (
+            <TrekSection id="cancellation" label="If your plans change">
+              <Cancellation tiers={extras.refund_tiers} startDate={d.start_date} />
+            </TrekSection>
+          )}
           <OtherDepartures current={d} title={`Other ${track.name} dates`} />
         </div>
-
-        <aside className="rounded-2xl border border-stone-200 bg-white p-5 sm:p-6 lg:sticky lg:top-20">
-          <p>
-            <span className="text-2xl font-semibold">{rupees(d.price_paise)}</span>
-            <span className="text-sm text-stone-500"> / person</span>
-          </p>
-          <p className="mt-1 text-sm text-stone-600">{dateRange(d.start_date, d.end_date)}</p>
-          <div className="mt-5">
-            <SeatMeter size={d.max_group_size} left={d.seats_left} />
-          </div>
-          <div className="mt-5 border-t border-stone-100 pt-4">
-            <GuideLine guide={guide} trekName={track.name} />
-          </div>
-          <BookingCta departure={d} />
-          <ul className="mt-5 space-y-1.5 text-xs text-stone-600">
-            <li>✓ {rupees(d.price_paise)} per person is the full price</li>
-            <li>✓ No account needed — name, WhatsApp and email</li>
-            <li>✓ Full refund if weather, permits or safety stop the trek</li>
-          </ul>
-        </aside>
       </div>
-    </>
+
+      {d.bookable && (
+        <div className="fixed inset-x-0 bottom-0 z-20 flex items-center justify-between gap-4 border-t border-paper-300 bg-paper-50/95 px-4 py-3 backdrop-blur lg:hidden">
+          <div>
+            <p className="font-semibold text-stone-900">{rupees(d.price_paise)} <span className="text-sm font-normal text-stone-500">per person</span></p>
+            <p className="text-xs text-stone-600">{d.seats_left} of {d.max_group_size} seats open</p>
+          </div>
+          <Link to={`/book/${d.id}`} className="rounded-lg bg-brand-900 px-5 py-3 font-semibold text-white hover:bg-brand-800">
+            Book these dates
+          </Link>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** The full price, what's extra, the charity share, then Book. */
+function PriceCard({ departure: d, extras }: { departure: DepartureDetail; extras: TrekPage | undefined }) {
+  const { track } = d
+  return (
+    <section aria-label="Price" className="rounded-2xl bg-white p-5 ring-1 ring-paper-300 sm:p-6">
+      <p className="text-xs font-semibold tracking-[0.16em] text-laterite-600 uppercase">Full price</p>
+      <p className="mt-2">
+        <span className="font-serif text-4xl text-stone-900">{rupees(d.price_paise)}</span>
+        <span className="text-stone-500"> per person</span>
+      </p>
+      <p className="mt-1 text-sm text-stone-600">
+        {track.pickup_drop ? `${track.pickup_drop}, with everything` : 'Everything'} in “What the price covers”. Nothing is
+        added at checkout.
+      </p>
+      <ul className="mt-4 space-y-2 border-t border-paper-200 pt-4 text-sm text-stone-700">
+        {track.offloading && (
+          <Line>
+            Bag offloading is extra
+            {track.offloading_price_paise ? `: ${rupees(track.offloading_price_paise)}` : ', priced separately'}
+          </Line>
+        )}
+        <Line>No account needed: name, WhatsApp and email</Line>
+        <Line>Full refund if weather, permits or safety stop the trek</Line>
+        {extras?.charity && (
+          <Line>
+            {extras.charity.bps / 100}% goes to {extras.charity.name}, from the price, not on top
+          </Line>
+        )}
+      </ul>
+      <BookingCta departure={d} />
+    </section>
+  )
+}
+
+function Line({ children }: { children: ReactNode }) {
+  return (
+    <li className="flex gap-2">
+      <span className="text-brand-700" aria-hidden="true">
+        ✓
+      </span>
+      <span>{children}</span>
+    </li>
   )
 }
 
 function BookingCta({ departure: d }: { departure: DepartureDetail }) {
   if (d.status !== 'PUBLISHED') {
     const label = { CANCELLED: 'This departure was cancelled', EXPIRED: 'This departure has closed', COMPLETED: 'This trek has taken place' }[d.status]
-    return <p className="mt-5 rounded-xl bg-stone-100 px-4 py-3 text-center text-sm font-medium text-stone-600">{label}</p>
+    return <p className="mt-5 rounded-xl bg-paper-100 px-4 py-3 text-center text-sm font-medium text-stone-600">{label}</p>
   }
   if (!d.bookable) {
     return (
-      <p className="mt-5 rounded-xl bg-stone-100 px-4 py-3 text-center text-sm font-medium text-stone-600">
+      <p className="mt-5 rounded-xl bg-paper-100 px-4 py-3 text-center text-sm font-medium text-stone-600">
         {d.seats_left === 0 ? 'This batch is full' : 'Bookings for this departure have closed'}
       </p>
     )
@@ -151,9 +194,9 @@ function BookingCta({ departure: d }: { departure: DepartureDetail }) {
   return (
     <Link
       to={`/book/${d.id}`}
-      className="mt-5 block rounded-full bg-laterite-500 px-6 py-3 text-center font-medium text-white shadow-lg shadow-laterite-600/20 hover:bg-laterite-600"
+      className="mt-5 block rounded-lg bg-brand-900 px-6 py-3.5 text-center font-semibold text-white hover:bg-brand-800"
     >
-      Book seats
+      Book these dates
     </Link>
   )
 }

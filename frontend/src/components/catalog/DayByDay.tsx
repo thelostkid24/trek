@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import type { ItineraryDay } from '../../api/catalog.ts'
-import { toFeet } from '../../lib/format.ts'
+import { addDays, dayLabel, toFeet } from '../../lib/format.ts'
 import { TrekSection } from './TrekSections.tsx'
 
 /** The day's bar: its high point or where you end, whichever is higher. The start is last night's camp. */
@@ -32,7 +32,7 @@ function dayMeta(d: ItineraryDay): string {
  * "Day by day": an altitude bar per day (the summit day dark, the chosen day in laterite) over the day cards.
  * Tapping a bar or a card picks that day.
  */
-export function DayByDay({ id, days }: { id: string; days: ItineraryDay[] }) {
+export function DayByDay({ id, days, startDate }: { id: string; days: ItineraryDay[]; startDate?: string }) {
   const [selected, setSelected] = useState(1)
   const cards = useRef<HTMLOListElement>(null)
   if (days.length === 0) return null
@@ -102,7 +102,12 @@ export function DayByDay({ id, days }: { id: string; days: ItineraryDay[] }) {
                   chosen ? 'bg-white ring-laterite-600' : 'bg-white/60 ring-paper-300 hover:ring-stone-400'
                 }`}
               >
-                <span className={`text-sm font-semibold ${chosen ? 'text-laterite-600' : 'text-stone-800'}`}>Day {d.day}</span>
+                <span className={`text-sm font-semibold ${chosen ? 'text-laterite-600' : 'text-stone-800'}`}>
+                  Day {d.day}
+                  {startDate && (
+                    <span className="mt-0.5 block text-xs font-normal text-stone-500">{dayLabel(addDays(startDate, d.day - 1))}</span>
+                  )}
+                </span>
                 <span className="min-w-0">
                   <span className="block font-semibold text-stone-900">{d.summary}</span>
                   {meta && <span className="mt-0.5 block text-sm text-stone-500">{meta}</span>}

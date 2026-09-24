@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { DIFFICULTY_LABEL, type ContentItem, type RefundTier, type TrackDetail } from '../../api/catalog.ts'
-import { feet, rupees } from '../../lib/format.ts'
+import { addDays, dayLabel, feet, rupees } from '../../lib/format.ts'
 
 // The trek page's sections (docs/TRD.md §7.7, §7.11): small, mostly static pieces the page stacks.
 
@@ -118,17 +118,17 @@ export function Overview({ text }: { text: string }) {
 }
 
 /** "What's included" and "What's not included" as two cards that open to their lists. */
-export function Inclusions({ included, excluded }: { included: ContentItem[]; excluded: ContentItem[] }) {
+export function Inclusions({ included, excluded, open = false }: { included: ContentItem[]; excluded: ContentItem[]; open?: boolean }) {
   return (
     <div className="grid items-start gap-3 sm:grid-cols-2">
-      {included.length > 0 && <ListCard title="What's included" items={included} mark="✓" />}
-      {excluded.length > 0 && <ListCard title="What's not included" items={excluded} mark="–" />}
+      {included.length > 0 && <ListCard title="What's included" items={included} mark="✓" startOpen={open} />}
+      {excluded.length > 0 && <ListCard title="What's not included" items={excluded} mark="–" startOpen={open} />}
     </div>
   )
 }
 
-function ListCard({ title, items, mark }: { title: string; items: ContentItem[]; mark: string }) {
-  const [open, setOpen] = useState(false)
+function ListCard({ title, items, mark, startOpen }: { title: string; items: ContentItem[]; mark: string; startOpen: boolean }) {
+  const [open, setOpen] = useState(startOpen)
   const id = `list-${title.replace(/\W+/g, '-').toLowerCase()}`
   return (
     <div className="rounded-xl bg-white/80 ring-1 ring-paper-300">
@@ -197,8 +197,11 @@ export function Safety({ callouts, checklist, notes }: { callouts: ContentItem[]
   )
 }
 
-/** The refund tiers now in force, highest first (docs/TRD.md §7.6). The first card is dark. */
-export function Cancellation({ tiers }: { tiers: RefundTier[] }) {
+/**
+ * The refund tiers now in force, highest first (docs/TRD.md §7.6). The first card is dark. With `startDate` (a
+ * departure page) each tier also says until when it applies.
+ */
+export function Cancellation({ tiers, startDate }: { tiers: RefundTier[]; startDate?: string }) {
   if (tiers.length === 0) return null
   return (
     <>
@@ -217,6 +220,11 @@ export function Cancellation({ tiers }: { tiers: RefundTier[] }) {
             <li key={t.min_days_before} className={`rounded-xl p-4 ${dark ? 'bg-brand-900 text-white' : 'bg-white/80 ring-1 ring-paper-300'}`}>
               <p className={`text-xs font-medium tracking-[0.12em] uppercase ${dark ? 'text-brand-100' : 'text-stone-500'}`}>{when}</p>
               <p className="mt-1 text-2xl font-semibold">{refund}</p>
+              {startDate && t.min_days_before > 0 && (
+                <p className={`mt-1 text-sm font-medium ${dark ? 'text-white' : 'text-stone-800'}`}>
+                  until {dayLabel(addDays(startDate, -t.min_days_before))}
+                </p>
+              )}
               <p className={`mt-1 text-sm ${dark ? 'text-brand-100' : 'text-stone-600'}`}>
                 {t.refund_bps === 0 && i > 0 ? `inside ${tiers[i - 1].min_days_before} days of the departure` : 'of what you paid'}
               </p>

@@ -20,6 +20,13 @@ export const dayLabel = (iso: string) =>
 export const longDate = (iso: string) =>
   parseDate(iso).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 
+/** A calendar date `n` days after (or before, negative) another: "2026-12-19" + 2 → "2026-12-21". */
+export function addDays(iso: string, n: number): string {
+  const d = parseDate(iso)
+  d.setDate(d.getDate() + n)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 /** "YYYY-MM" key and its short label ("Oct"). */
 export const monthKey = (iso: string) => iso.slice(0, 7)
 export const monthLabel = (key: string) =>

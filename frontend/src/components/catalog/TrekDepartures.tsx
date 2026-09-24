@@ -11,7 +11,7 @@ const firstName = (g: GuideCard) => g.full_name?.split(' ')[0] ?? 'your guide'
 
 /**
  * The departures column: filter by guide and month, then one card per date. The open card introduces its guide
- * (credentials, rating, quote) and sends the trekker to the guide's page, where they book.
+ * (credentials, rating, quote) and leads on to the departure page, where they book, or the guide's page.
  */
 export function TrekDepartures({ trek }: { trek: TrekPage }) {
   const { track, departures, charity } = trek
@@ -201,27 +201,24 @@ function GuideIntro({ departure: d, trekName, charity }: { departure: TrekDepart
       </p>
       {g.quote && <blockquote className="mt-3 border-l-2 border-paper-300 pl-3 font-serif text-stone-700 italic">“{g.quote}”</blockquote>}
 
-      <Link
-        to={`/guides/${g.id}`}
-        viewTransition
-        className="mt-4 block rounded-lg bg-brand-900 px-4 py-3 text-center font-semibold text-white hover:bg-brand-800"
-      >
-        Get to know {name} →
-      </Link>
+      <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
+        <Link
+          to={`/departures/${d.id}`}
+          viewTransition
+          className="block rounded-lg bg-brand-900 px-4 py-3 text-center font-semibold text-white hover:bg-brand-800"
+        >
+          View these dates →
+        </Link>
+        <Link
+          to={`/guides/${g.id}`}
+          viewTransition
+          className="block rounded-lg bg-white px-4 py-3 text-center font-semibold text-stone-900 ring-1 ring-paper-300 hover:ring-stone-400"
+        >
+          Get to know {name}
+        </Link>
+      </div>
       <p className="mt-3 text-center text-sm text-stone-600">
-        See {name}'s full profile, certifications and reviews. If you'd like to walk with {name}, book your seats from
-        there
-        {d.bookable ? (
-          <>
-            , or{' '}
-            <Link to={`/book/${d.id}`} className="font-medium text-brand-800 underline underline-offset-2">
-              book these dates now
-            </Link>
-            .
-          </>
-        ) : (
-          '.'
-        )}
+        The full price, what's covered and {name}'s record are on the next page. Book from there.
       </p>
       {charity && (
         <p className="mt-2 text-center text-xs text-stone-500">
