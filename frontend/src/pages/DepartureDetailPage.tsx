@@ -77,7 +77,7 @@ function Detail({ departure: d }: { departure: DepartureDetail }) {
           </Link>
           <p className="mt-3 text-xs font-semibold tracking-[0.16em] text-laterite-600 uppercase">{track.name}</p>
           <h1 className="mt-1 font-serif text-4xl leading-tight tracking-tight text-stone-900 sm:text-6xl">
-            {shortRange(d.start_date, d.end_date)} {d.start_date.slice(0, 4)}
+            {shortRange(d.start_date, d.end_date)} {d.end_date.slice(0, 4)}
           </h1>
           <p className="mt-2 text-stone-600">
             {weekdaysAndYear(d.start_date, d.end_date).split(' · ')[0]} · {track.duration_days}{' '}
