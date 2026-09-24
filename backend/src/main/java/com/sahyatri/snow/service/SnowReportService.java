@@ -111,7 +111,7 @@ public class SnowReportService {
     /** One photo per report, taken that morning. The file is written before the flag, so the URL never 404s. */
     @Transactional
     public SnowReportResponse addPhoto(UUID userId, UUID reportId, MultipartFile file) {
-        SnowReport report = reports.findById(reportId)
+        SnowReport report = reports.findByIdForUpdate(reportId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "REPORT_NOT_FOUND", "Report not found"));
         requireReporter(userId, report.getTrackId());
         if (report.hasPhoto()) {

@@ -28,7 +28,9 @@ import { shrinkPhoto } from '../../lib/photos.ts'
 
 // Altitudes are stored in metres and typed in feet; the form keeps what was typed until it's saved.
 const ftText = (m: number | null) => (m === null ? '' : String(toFeet(m)))
-const metresOrNull = (ft: string) => (ft.trim() === '' ? null : toMetres(Number(ft)))
+/** Feet typed → metres; an untouched field keeps its stored metres exactly (feet are rounded to 5 for display). */
+const metresOrNull = (ft: string, stored: number | null = null) =>
+  ft.trim() === '' ? null : stored !== null && ftText(stored) === ft.trim() ? stored : toMetres(Number(ft))
 const numberOrNull = (value: string) => (value.trim() === '' ? null : Number(value))
 const textOrNull = (value: string) => (value.trim() === '' ? null : value)
 
@@ -258,22 +260,22 @@ function TrackForm({ track, onDone }: { track: Track | null; onDone: () => void 
     const blank = drafts.every((d) => Object.values(d).every((v) => v.trim() === ''))
     const itinerary: ItineraryDayInput[] = blank
       ? []
-      : drafts.map((d) => ({
+      : drafts.map((d, i) => ({
           summary: d.summary.trim(),
           description: textOrNull(d.description),
           distance_km: numberOrNull(d.distance_km),
-          start_altitude_m: metresOrNull(d.start_ft),
-          high_altitude_m: metresOrNull(d.high_ft),
-          end_altitude_m: metresOrNull(d.end_ft),
+          start_altitude_m: metresOrNull(d.start_ft, track?.itinerary[i]?.start_altitude_m),
+          high_altitude_m: metresOrNull(d.high_ft, track?.itinerary[i]?.high_altitude_m),
+          end_altitude_m: metresOrNull(d.end_ft, track?.itinerary[i]?.end_altitude_m),
           hours_min: numberOrNull(d.hours_min),
           hours_max: numberOrNull(d.hours_max),
           route_note: textOrNull(d.route_note),
         }))
     save.mutate({
       ...form,
-      max_altitude_m: metresOrNull(alt.max),
-      base_altitude_m: metresOrNull(alt.base),
-      highest_camp_m: metresOrNull(alt.camp),
+      max_altitude_m: metresOrNull(alt.max, track?.max_altitude_m),
+      base_altitude_m: metresOrNull(alt.base, track?.base_altitude_m),
+      highest_camp_m: metresOrNull(alt.camp, track?.highest_camp_m),
       offloading_price_paise: form.offloading && price.trim() !== '' ? Math.round(Number(price) * 100) : null,
       itinerary,
     })
