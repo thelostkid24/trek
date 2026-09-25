@@ -7,6 +7,7 @@ import { AdminLayout } from './pages/admin/AdminLayout.tsx'
 import { ContentAdminPage } from './pages/admin/ContentAdminPage.tsx'
 import { DeparturesAdminPage } from './pages/admin/DeparturesAdminPage.tsx'
 import { GuidesAdminPage } from './pages/admin/GuidesAdminPage.tsx'
+import { InsightsPage } from './pages/admin/InsightsPage.tsx'
 import { TracksAdminPage } from './pages/admin/TracksAdminPage.tsx'
 import { DepartureDetailPage } from './pages/DepartureDetailPage.tsx'
 import { GuidePage } from './pages/GuidePage.tsx'
@@ -81,6 +82,7 @@ export const router = createBrowserRouter([
           { path: 'tracks', element: <TracksAdminPage /> },
           { path: 'content', element: <ContentAdminPage /> },
           { path: 'guides', element: <GuidesAdminPage /> },
+          { path: 'insights', element: <InsightsPage /> },
         ],
       },
       {

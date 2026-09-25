@@ -1,6 +1,10 @@
 package com.sahyatri.auth.entity;
 
+import com.sahyatri.common.acquisition.HeardFrom;
+import com.sahyatri.common.acquisition.Touch;
+import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
+import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -43,6 +47,28 @@ public class User {
     private Instant emailVerifiedAt;
 
     private Instant phoneVerifiedAt;
+
+    @Enumerated(EnumType.STRING)
+    @Column(updatable = false)
+    private SignupMethod signupMethod;
+
+    /** First touch (§6.11): set once, when the account is created. */
+    @Embedded
+    @AttributeOverride(name = "seenAt", column = @Column(name = "first_seen_at"))
+    private Touch firstTouch;
+
+    @Enumerated(EnumType.STRING)
+    private HeardFrom heardFrom;
+
+    private String heardFromNote;
+
+    /** Written by {@code UserRepository.markSeen} only, so it never bumps {@code updated_at}. */
+    @Column(insertable = false, updatable = false)
+    private Instant lastSeenAt;
+
+    private Instant marketingEmailConsentAt;
+
+    private Instant marketingWhatsappConsentAt;
 
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
@@ -180,5 +206,49 @@ public class User {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public SignupMethod getSignupMethod() {
+        return signupMethod;
+    }
+
+    public Touch getFirstTouch() {
+        return firstTouch;
+    }
+
+    public HeardFrom getHeardFrom() {
+        return heardFrom;
+    }
+
+    public String getHeardFromNote() {
+        return heardFromNote;
+    }
+
+    /** Where a new account came from. Only before the first save; the columns are never rewritten. */
+    public void setAcquisition(SignupMethod method, Touch firstTouch, HeardFrom heardFrom, String heardFromNote) {
+        this.signupMethod = method;
+        this.firstTouch = firstTouch;
+        this.heardFrom = heardFrom;
+        this.heardFromNote = heardFromNote;
+    }
+
+    public Instant getLastSeenAt() {
+        return lastSeenAt;
+    }
+
+    public Instant getMarketingEmailConsentAt() {
+        return marketingEmailConsentAt;
+    }
+
+    public void setMarketingEmailConsentAt(Instant marketingEmailConsentAt) {
+        this.marketingEmailConsentAt = marketingEmailConsentAt;
+    }
+
+    public Instant getMarketingWhatsappConsentAt() {
+        return marketingWhatsappConsentAt;
+    }
+
+    public void setMarketingWhatsappConsentAt(Instant marketingWhatsappConsentAt) {
+        this.marketingWhatsappConsentAt = marketingWhatsappConsentAt;
     }
 }

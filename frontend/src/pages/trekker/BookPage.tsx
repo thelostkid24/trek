@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
+import type { SignupChoices } from '../../analytics/attribution.ts'
 import { googleSignIn, type User } from '../../api/auth.ts'
 import { createBooking, createGuestBooking, listBookings, type Booking } from '../../api/bookings.ts'
 import { getDeparture, type DepartureDetail } from '../../api/catalog.ts'
@@ -10,6 +11,7 @@ import { useAuth } from '../../auth/useAuth.ts'
 import { EMAIL_RULE, INDIAN_MOBILE } from '../../auth/validation.ts'
 import { FormError } from '../../components/auth/AuthCard.tsx'
 import { GoogleSignInButton } from '../../components/auth/GoogleSignInButton.tsx'
+import { SignupChoicesFields } from '../../components/auth/SignupChoicesFields.tsx'
 import { TextField } from '../../components/auth/TextField.tsx'
 import { DifficultyPill, SeatMeter } from '../../components/catalog/DeparturePieces.tsx'
 import { OtherDepartures } from '../../components/catalog/OtherDepartures.tsx'
@@ -111,6 +113,8 @@ function Checkout({ departure, user }: { departure: DepartureDetail; user: User 
   const [details, setDetails] = useState<Details>(() => fillBlanks(carried.details ?? EMPTY, user ? fromUser(user) : EMPTY))
   const [clientErrors, setClientErrors] = useState<Record<string, string>>({})
   const [googleError, setGoogleError] = useState('')
+  /** Guest checkout creates an account, so it asks what sign-up asks. */
+  const [choices, setChoices] = useState<SignupChoices>({})
   /** Seats left as last reported by a failed hold; the departure itself refreshes only after a success. */
   const [knownLeft, setKnownLeft] = useState(departure.seats_left)
   const formId = useId()
@@ -149,7 +153,7 @@ function Checkout({ departure, user }: { departure: DepartureDetail; user: User 
       if (user) {
         return auth.withAuth((token) => createBooking(token, { departure_id: departure.id, seats: seatCount, ...contact }))
       }
-      const result = await createGuestBooking({ departure_id: departure.id, seats: seatCount, ...contact })
+      const result = await createGuestBooking({ departure_id: departure.id, seats: seatCount, ...contact }, choices)
       auth.setSession(result.auth)
       return result.booking
     },
@@ -203,7 +207,7 @@ function Checkout({ departure, user }: { departure: DepartureDetail; user: User 
   async function onGoogle(idToken: string) {
     setGoogleError('')
     try {
-      auth.setSession(await googleSignIn(idToken))
+      auth.setSession(await googleSignIn(idToken, choices))
     } catch (err) {
       setGoogleError(messageFor(err))
     }
@@ -323,6 +327,12 @@ function Checkout({ departure, user }: { departure: DepartureDetail; user: User 
                 hint="For your receipt."
               />
             </div>
+
+            {!user && (
+              <div className="mt-5 border-t border-stone-100 pt-5">
+                <SignupChoicesFields value={choices} onChange={setChoices} />
+              </div>
+            )}
           </section>
 
           {book.error && !seatsWent && Object.keys(serverErrors).length === 0 && (

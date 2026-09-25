@@ -47,6 +47,7 @@ ADMIN=<access_token of an admin>
 | POST | `/api/account/phone/otp` | Bearer | Text a code to a new phone |
 | POST | `/api/account/phone/verify` | Bearer | Confirm the phone with the code |
 | PUT | `/api/account/password` | Bearer | Set or change the password |
+| PATCH | `/api/account/marketing-consent` | Bearer | Opt in or out of trek offers |
 | GET | `/api/public/departures` | — | Upcoming published departures |
 | GET | `/api/public/departures/{id}` | — | One departure with trek and guide |
 | GET | `/api/public/tracks/{slug}` | — | Trek page: trek + its departures |
@@ -78,6 +79,7 @@ ADMIN=<access_token of an admin>
 | POST | `/api/admin/departures/{id}/cancel` | ADMIN | Force-majeure cancel + full refunds |
 | GET | `/api/admin/guides` | ADMIN | All guides |
 | POST | `/api/admin/guides` | ADMIN | Promote a trekker to guide |
+| GET | `/api/admin/insights` | ADMIN | Funnel, sources and business numbers |
 
 ---
 
@@ -96,10 +98,12 @@ ADMIN=<access_token of an admin>
   "phone_verified": true,
   "guest": false,
   "auth_methods": ["PASSWORD", "PHONE"],
+  "marketing_email": true,
+  "marketing_whatsapp": false,
   "created_at": "2026-09-01T08:00:00Z"
 }
 ```
-`role`: `TREKKER | GUIDE | ADMIN`. `auth_methods`: `PASSWORD | PHONE | GOOGLE`. `guest` is true for accounts created by guest checkout.
+`role`: `TREKKER | GUIDE | ADMIN`. `auth_methods`: `PASSWORD | PHONE | GOOGLE`. `guest` is true for accounts created by guest checkout. `marketing_email` / `marketing_whatsapp`: agreed to trek offers on that channel.
 
 ### AuthResponse
 ```json
@@ -112,6 +116,27 @@ ADMIN=<access_token of an admin>
 }
 ```
 Every sign-in also sends `Set-Cookie: sahyatri_refresh=…; Path=/api/auth; HttpOnly; SameSite=Lax`.
+
+### Acquisition
+Optional `acquisition` object on signup, OTP verify, Google sign-in and both booking endpoints: where the visitor came from, and what they chose at sign-up (TRD §7.15).
+```json
+{
+  "first_touch": { "utm_source": "instagram", "utm_medium": "paid", "utm_campaign": "kedarkantha_dec",
+                   "utm_term": null, "utm_content": "reel-1", "gclid": null, "fbclid": "fb.123",
+                   "referrer": "https://l.instagram.com/", "landing_path": "/treks/kedarkantha",
+                   "seen_at": "2026-09-20T05:30:00Z" },
+  "last_touch": { "…": "same shape, the latest tagged or referred visit" },
+  "device_type": "MOBILE",
+  "heard_from": "FRIEND_FAMILY",
+  "heard_from_note": null,
+  "marketing_email": true,
+  "marketing_whatsapp": false
+}
+```
+- A **new** account keeps the first touch (else the last), `device_type`, `heard_from` (+ `heard_from_note`, ≤ 200) and consent. An existing account signing in ignores all of it.
+- A booking keeps the last touch (else the first) and `device_type`.
+- Touch values are cleaned, never rejected: trimmed, truncated, tags lower-cased; a non-`http(s)` referrer, a path not starting with `/` or an unknown `device_type` is dropped.
+- `heard_from`: `INSTAGRAM | YOUTUBE | GOOGLE_SEARCH | FRIEND_FAMILY | WHATSAPP_GROUP | BLOG_FORUM | OTHER`. An unknown value or a note over 200 chars → `400 VALIDATION_FAILED`.
 
 ### Booking
 ```json
@@ -232,7 +257,7 @@ Creates a `TREKKER` account with email and password, and signs it in.
 curl -c jar.txt -X POST $API/api/auth/signup -H 'Content-Type: application/json' \
   -d '{"full_name":"Asha Rao","email":"asha@example.com","password":"trekking1"}'
 ```
-`201` AuthResponse (`is_new_user: true`, `email_verified: false`) + refresh cookie. The email is verified later through `POST /api/account/email`.
+`201` AuthResponse (`is_new_user: true`, `email_verified: false`) + refresh cookie. The email is verified later through `POST /api/account/email`. Optional `acquisition` ([Acquisition](#acquisition)).
 Errors: `400 VALIDATION_FAILED`, `409 EMAIL_ALREADY_REGISTERED`.
 
 ### POST `/api/auth/login`
@@ -256,7 +281,7 @@ curl -X POST $API/api/auth/otp/request -H 'Content-Type: application/json' -d '{
 Errors: `400 VALIDATION_FAILED`, `429 OTP_RATE_LIMITED` (`details.retry_after`), `503 SMS_UNAVAILABLE`. In dev the code is printed in the backend log.
 
 ### POST `/api/auth/otp/verify`
-Signs in with the code. An unknown number gets a new account (`full_name` optional).
+Signs in with the code. An unknown number gets a new account (`full_name` optional). Optional `acquisition` ([Acquisition](#acquisition)).
 ```bash
 curl -c jar.txt -X POST $API/api/auth/otp/verify -H 'Content-Type: application/json' \
   -d '{"phone":"+919876543210","code":"123456","full_name":"Asha Rao"}'
@@ -265,7 +290,7 @@ curl -c jar.txt -X POST $API/api/auth/otp/verify -H 'Content-Type: application/j
 Errors: `400 VALIDATION_FAILED`, `400 OTP_INVALID` (`details.attempts_left`), `410 OTP_EXPIRED`, `429 OTP_TOO_MANY_ATTEMPTS`, `403 ACCOUNT_DISABLED`.
 
 ### POST `/api/auth/google`
-Signs in with the credential from Google Identity Services (the button on the login page). Creates the account on first use.
+Signs in with the credential from Google Identity Services (the button on the login page). Creates the account on first use. Optional `acquisition` ([Acquisition](#acquisition)).
 ```bash
 curl -c jar.txt -X POST $API/api/auth/google -H 'Content-Type: application/json' \
   -d '{"id_token":"<Google ID token>"}'
@@ -418,6 +443,14 @@ curl -c jar.txt -X PUT $API/api/account/password -H "Authorization: Bearer $TOKE
 `200` AuthResponse + rotated refresh cookie.
 Errors: `400 VALIDATION_FAILED`, `400 CURRENT_PASSWORD_INCORRECT`, `400 EMAIL_REQUIRED`, `429 TOO_MANY_ATTEMPTS`.
 
+### PATCH `/api/account/marketing-consent`
+Opts in or out of trek offers by email and WhatsApp. A field left out keeps that channel as it is. Every actual change is audited (`MARKETING_CONSENT_GRANTED` / `MARKETING_CONSENT_WITHDRAWN`).
+```bash
+curl -X PATCH $API/api/account/marketing-consent -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"email":true,"whatsapp":false}'
+```
+`200` User (`marketing_email`, `marketing_whatsapp` updated).
+
 ---
 
 ## Catalog (public)
@@ -506,7 +539,7 @@ curl -o photo.jpg $API/api/public/files/track-photos/<photo-id>.jpg
 A booking holds seats for 10 minutes while the trekker pays. Payment confirms it and emails the contact.
 
 ### POST `/api/public/bookings`
-Guest checkout. Holds seats and signs the visitor in as a new guest account (no password or OTP). Signed-in trekkers use `POST /api/trekker/bookings` instead.
+Guest checkout. Holds seats and signs the visitor in as a new guest account (no password or OTP). Signed-in trekkers use `POST /api/trekker/bookings` instead. Optional `acquisition` ([Acquisition](#acquisition)).
 ```bash
 curl -c jar.txt -X POST $API/api/public/bookings -H 'Content-Type: application/json' \
   -d '{"departure_id":"<departure-id>","seats":2,"full_name":"Asha Rao","phone":"+919876543210","email":"asha@example.com"}'
@@ -518,7 +551,7 @@ curl -c jar.txt -X POST $API/api/public/bookings -H 'Content-Type: application/j
 Errors: `400 VALIDATION_FAILED`, `404 DEPARTURE_NOT_FOUND`, `409 DEPARTURE_NOT_BOOKABLE`, `409 NOT_ENOUGH_SEATS` (`details.seats_left`).
 
 ### POST `/api/trekker/bookings`
-Holds 1–10 seats for a signed-in trekker. Contact fields left out come from the account. Travellers are optional now; if given, exactly `seats` of them (each 18–100 years old on the start date).
+Holds 1–10 seats for a signed-in trekker. Contact fields left out come from the account. Travellers are optional now; if given, exactly `seats` of them (each 18–100 years old on the start date). Optional `acquisition` ([Acquisition](#acquisition)).
 ```bash
 curl -X POST $API/api/trekker/bookings -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"departure_id":"<departure-id>","seats":2,
@@ -778,3 +811,40 @@ curl -X POST $API/api/admin/guides -H "Authorization: Bearer $ADMIN" -H 'Content
   -d '{"email":"vikram@example.com"}'
 ```
 `201` Guide. Errors: `400 VALIDATION_FAILED`, `404 USER_NOT_FOUND`, `409 ALREADY_GUIDE`, `409 ROLE_NOT_PROMOTABLE`.
+
+### GET `/api/admin/insights`
+The Insights dashboard: counts and sums only, computed on each request. `days` is the window, 1–365 (default 30). "Accounts" means trekker accounts; days are IST.
+```bash
+curl "$API/api/admin/insights?days=30" -H "Authorization: Bearer $ADMIN"
+```
+`200`
+```json
+{
+  "days": 30, "from": "2026-08-26T10:00:00Z", "to": "2026-09-25T10:00:00Z",
+  "headline": { "new_accounts": 84, "bookings_held": 41, "bookings_confirmed": 29, "gross_paise": 6377100,
+                "hold_to_paid_bps": 7632, "avg_group_size": 2.1, "cancellations": 2 },
+  "daily": [ { "date": "2026-08-26", "accounts": 3, "confirmed": 1 } ],
+  "funnel": [ { "key": "ACCOUNT", "label": "Signed up", "count": 84 }, { "key": "HELD", "label": "Held seats", "count": 30 },
+              { "key": "PAID", "label": "Paid", "count": 22 }, { "key": "TREKKED", "label": "Trekked", "count": 9 },
+              { "key": "REVIEWED", "label": "Reviewed", "count": 4 } ],
+  "sources": [ { "source": "instagram", "accounts": 40, "confirmed_bookings": 12, "gross_paise": 2638800 } ],
+  "campaigns": [ { "source": "kedarkantha_dec", "accounts": 18, "confirmed_bookings": 6, "gross_paise": 1319400 } ],
+  "heard_from": [ { "key": "FRIEND_FAMILY", "count": 22 } ],
+  "signup_methods": [ { "key": "GUEST_CHECKOUT", "count": 31 } ],
+  "devices": [ { "key": "MOBILE", "count": 61 } ],
+  "payments": { "attempts": 45, "paid": 30, "failed": 9, "success_bps": 7143,
+                "methods": [ { "key": "UPI", "count": 24 } ], "failures": [ { "key": "Bank declined", "count": 5 } ] },
+  "treks": [ { "track_id": "…-uuid", "name": "Kedarkantha", "slug": "kedarkantha", "confirmed_bookings": 11,
+               "seats": 24, "gross_paise": 2638800, "avg_rating": 4.8, "reviews": 12 } ],
+  "upcoming": [ { "departure_id": "…-uuid", "track_name": "Kedarkantha", "start_date": "2026-10-12",
+                  "seats_taken": 7, "max_group_size": 10, "guide_name": "Vikram Shinde" } ],
+  "guides": [ { "guide_id": "…-uuid", "name": "Vikram Shinde", "departures_completed": 14, "avg_fill_bps": 8214,
+                "avg_rating": 4.9, "reviews": 31 } ],
+  "marketing_reach": { "accounts": 612, "email": 204, "whatsapp": 188 }
+}
+```
+- `sources` / `campaigns` (top 20 by gross): accounts are counted by first touch, bookings and gross by each booking's last touch. Source = UTM source, else `google-ads` / `meta-ads` from a click id, else the referring site, else `direct`; accounts and bookings from before tracking are `unknown`.
+- `funnel` follows one cohort, the trekkers who signed up in the window. `gross_paise` is before refunds.
+- `upcoming` covers the next 60 days; `guides` and `marketing_reach` are all-time.
+
+Errors: `400 VALIDATION_FAILED` (`days` out of range).

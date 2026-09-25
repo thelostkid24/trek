@@ -20,6 +20,8 @@ public record UserResponse(
         boolean phoneVerified,
         boolean guest,
         List<AuthMethod> authMethods,
+        boolean marketingEmail,
+        boolean marketingWhatsapp,
         Instant createdAt) {
 
     public static UserResponse of(User user, AvatarFiles avatars) {
@@ -34,6 +36,8 @@ public record UserResponse(
                 user.getPhoneVerifiedAt() != null,
                 user.isGuest(),
                 user.authMethods(),
+                user.getMarketingEmailConsentAt() != null,
+                user.getMarketingWhatsappConsentAt() != null,
                 user.getCreatedAt());
     }
 }

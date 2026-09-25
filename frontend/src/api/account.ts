@@ -29,3 +29,7 @@ export type PasswordChange = { current_password?: string; new_password: string }
 /** Signs out every other session and returns a fresh one, so the refresh cookie must be accepted. */
 export const changePassword = (token: string, body: PasswordChange) =>
   apiFetch<AuthResponse>('/api/account/password', { method: 'PUT', token, body, credentials: 'include' })
+
+/** Trek offers by email / WhatsApp (docs/TRD.md §7.15). A field left out keeps that channel as it is. */
+export const updateMarketingConsent = (token: string, body: { email?: boolean; whatsapp?: boolean }) =>
+  apiFetch<User>('/api/account/marketing-consent', { method: 'PATCH', token, body })

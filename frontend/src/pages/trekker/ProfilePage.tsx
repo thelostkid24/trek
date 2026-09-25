@@ -6,6 +6,7 @@ import { getProfile } from '../../api/profile.ts'
 import { messageFor } from '../../auth/errorMessages.ts'
 import { useAuth } from '../../auth/useAuth.ts'
 import { GuestNotice } from '../../components/booking/GuestNotice.tsx'
+import { CommunicationSection } from '../../components/profile/CommunicationSection.tsx'
 import { ProfileForm } from '../../components/profile/ProfileForm.tsx'
 import { ProfileHeader } from '../../components/profile/ProfileHeader.tsx'
 import { PrimaryButton } from '../../components/profile/ProfileSection.tsx'
@@ -60,6 +61,7 @@ function Profile({ user }: { user: User }) {
             {/* Keyed by user so switching accounts never shows the previous draft. */}
             <ProfileForm key={user.id} user={user} profile={profile.data} />
             <SecuritySection user={user} />
+            <CommunicationSection user={user} />
           </>
         )}
       </div>
@@ -76,6 +78,7 @@ const SECTIONS = [
   { id: 'health', label: 'Health & fitness' },
   { id: 'food', label: 'Food & gear' },
   { id: 'security', label: 'Sign-in & security' },
+  { id: 'communication', label: 'Communication' },
 ]
 
 /** Wide screens only: sticky jump list whose marker follows the section being read. */
