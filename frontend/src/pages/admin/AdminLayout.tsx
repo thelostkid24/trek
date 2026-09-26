@@ -1,4 +1,5 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { Outlet } from 'react-router-dom'
+import { PillTabs } from '../../components/PillTabs.tsx'
 
 const TABS = [
   { to: '/admin', label: 'Departures', end: true },
@@ -11,25 +12,12 @@ const TABS = [
 /** /admin/* — rendered inside <RequireAuth role="ADMIN">. */
 export function AdminLayout() {
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6 sm:py-10">
-      <h1 className="font-display text-2xl font-semibold">Admin</h1>
-      <nav className="mt-4 flex gap-1 overflow-x-auto border-b border-stone-200" aria-label="Admin sections">
-        {TABS.map((tab) => (
-          <NavLink
-            key={tab.to}
-            to={tab.to}
-            end={tab.end}
-            className={({ isActive }) =>
-              `-mb-px shrink-0 border-b-2 px-3 py-2 text-sm font-medium whitespace-nowrap ${
-                isActive ? 'border-brand-700 text-brand-900' : 'border-transparent text-stone-500 hover:text-stone-800'
-              }`
-            }
-          >
-            {tab.label}
-          </NavLink>
-        ))}
-      </nav>
-      <div className="mt-6 space-y-5">
+    <div className="mx-auto max-w-5xl px-5 py-10 sm:px-10 sm:py-14">
+      <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+        <h1 className="text-3xl font-light tracking-[-0.02em] sm:text-4xl">Admin</h1>
+        <PillTabs label="Admin sections" tabs={TABS} />
+      </div>
+      <div className="mt-8 space-y-5">
         <Outlet />
       </div>
     </div>

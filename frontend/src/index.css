@@ -24,21 +24,31 @@
   --color-ink-800: #212831;
   --color-ink-700: #313a45;
   --color-ink-400: #8a929c;
-  --color-paper-50: #f7f3eb;
-  --color-paper-100: #ede8de;
-  --color-paper-200: #e3ddd0;
-  --color-paper-300: #d5cebf;
+  /* Page surfaces. Light theme is plain white with neutral greys; the dark theme redefines these below. */
+  --color-paper-50: #ffffff;
+  --color-paper-100: #f6f6f7;
+  --color-paper-200: #ededef;
+  --color-paper-300: #e2e2e5;
   --color-pine-400: #5c9a8b;
   --color-pine-600: #3a6e62;
   --color-pine-700: #2e5a50;
   /* Trek page: quiet bars in the day-by-day chart */
   --color-sage-200: #c9d4cc;
 
-  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-display: "Fraunces", ui-serif, Georgia, "Times New Roman", serif;
-  /* Landing page and site chrome */
-  --font-serif: "Spectral", ui-serif, Georgia, "Times New Roman", serif;
-  --font-plex: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  /*
+   * One typeface across the whole site (landing, catalog, account, admin): a clean grotesk,
+   * light at display sizes. The older family names stay as aliases so every page picks it up.
+   */
+  --font-grotesk: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-sans: var(--font-grotesk);
+  --font-display: var(--font-grotesk);
+  --font-serif: var(--font-grotesk);
+  --font-plex: var(--font-grotesk);
+
+  /* Softer corners to match the landing page: cards 1.5rem, panels 1rem, buttons are pills. */
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
 }
 
 /*
@@ -46,13 +56,14 @@
  * sidebar along with it. The dark canvas covers browsers that bounce anyway (no white strip).
  */
 html {
+  color-scheme: light;
   scroll-behavior: smooth;
   background-color: var(--color-ink-950);
   overscroll-behavior-y: none;
 }
 
 body {
-  @apply bg-stone-50 text-stone-900 antialiased;
+  @apply bg-paper-50 font-sans text-stone-900 antialiased;
   overscroll-behavior-y: none;
 }
 
@@ -61,9 +72,10 @@ body {
  * Defaults match the rest of the site.
  */
 :root {
-  --field-bg: #fff;
+  --field-bg: var(--color-paper-50);
   --field-border: var(--color-stone-300);
-  --field-radius: 0.5rem;
+  --field-radius: 0.75rem;
+  --card-radius: 1.5rem;
   --field-ring: color-mix(in oklab, var(--color-brand-500) 40%, transparent);
 }
 
@@ -71,8 +83,93 @@ body {
 .auth-area {
   --field-bg: var(--color-paper-50);
   --field-border: var(--color-paper-300);
-  --field-radius: 0.1875rem;
   --field-ring: color-mix(in oklab, var(--color-pine-600) 35%, transparent);
+}
+
+/*
+ * Dark theme: <html data-theme="dark">, set before first paint by index.html and toggled from the header
+ * (lib/theme.ts). The neutral scales flip, so paper surfaces turn dark and stone text turns light on every
+ * page at once. Ink and white stay put because they also paint the footer, photo overlays and buttons;
+ * only their text and card uses are overridden. Dark surfaces that must not flip use white text.
+ */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --color-paper-50: #0f1115;
+  --color-paper-100: #16191e;
+  --color-paper-200: #1e2228;
+  --color-paper-300: #2b3038;
+
+  --color-stone-50: oklch(0.22 0.006 56);
+  --color-stone-100: oklch(0.25 0.006 56);
+  --color-stone-200: oklch(0.3 0.006 56);
+  --color-stone-300: oklch(0.36 0.006 56);
+  --color-stone-400: oklch(0.52 0.006 56);
+  --color-stone-500: oklch(0.63 0.006 56);
+  --color-stone-600: oklch(0.72 0.006 56);
+  --color-stone-700: oklch(0.8 0.005 56);
+  --color-stone-800: oklch(0.88 0.004 56);
+  --color-stone-900: oklch(0.94 0.003 56);
+  --color-stone-950: oklch(0.97 0.002 56);
+
+  --field-ring: color-mix(in oklab, var(--color-pine-400) 45%, transparent);
+}
+
+:root[data-theme="dark"] body {
+  color: var(--color-stone-900);
+}
+
+/* Cards and light chips (not the translucent glass over photos, which uses bg-white/NN). */
+:root[data-theme="dark"] :is(.bg-white, .bg-white\/80, .bg-white\/60):not(footer *) {
+  background-color: var(--color-paper-100);
+}
+
+/* Ink as text colour reads as light text. */
+:root[data-theme="dark"] :is(.text-ink-950, .text-ink-900):not(footer *) {
+  color: var(--color-stone-950);
+}
+
+:root[data-theme="dark"] :is(.text-ink-700, .text-ink-700\/80, .text-ink-700\/75, .text-ink-700\/70):not(footer *) {
+  color: var(--color-stone-700);
+}
+
+:root[data-theme="dark"] .border-ink-900\/25 {
+  border-color: rgb(255 255 255 / 0.25);
+}
+
+/* Solid ink buttons would vanish on a dark page: invert them. */
+:root[data-theme="dark"] main .bg-ink-950.text-white {
+  background-color: var(--color-stone-950);
+  color: var(--color-ink-950);
+}
+
+/* Brand, pine and laterite text and tints, lifted for contrast. */
+:root[data-theme="dark"] :is(.text-brand-700, .text-brand-800, .text-brand-900, .text-brand-950) {
+  color: var(--color-brand-200);
+}
+
+:root[data-theme="dark"] :is(.text-pine-700, .text-pine-600) {
+  color: var(--color-pine-400);
+}
+
+:root[data-theme="dark"] .text-laterite-600 {
+  color: var(--color-laterite-400);
+}
+
+:root[data-theme="dark"] :is(.bg-laterite-100, .bg-laterite-100\/60, .bg-laterite-100\/50) {
+  background-color: color-mix(in oklab, var(--color-laterite-500) 16%, transparent);
+}
+
+:root[data-theme="dark"] :is(.bg-brand-50, .bg-brand-100) {
+  background-color: color-mix(in oklab, var(--color-brand-500) 18%, transparent);
+}
+
+:root[data-theme="dark"] :is(.bg-amber-50, .bg-amber-100) {
+  background-color: color-mix(in oklab, #f59e0b 16%, transparent);
+}
+
+:root[data-theme="dark"] :is(.text-amber-800, .text-amber-900) {
+  color: #fde68a;
 }
 
 /*
@@ -209,6 +306,101 @@ form > .profile-card:nth-of-type(5) { --card-i: 5; }
   stroke-dasharray: 16;
   stroke-dashoffset: 16;
   animation: check-draw 360ms ease-out 60ms forwards;
+}
+
+/*
+ * Landing page motion.
+ * - Hero headline: each word rises out of its own clipped line.
+ * - Statement: photo capsules open inside the sentence; words fill from pale to ink as they scroll past.
+ * - Photos drift slower than the page (parallax) where scroll-driven animations exist; elsewhere they sit still.
+ * - A slow marquee of promises; the "how it works" trail draws itself.
+ */
+@keyframes word-rise {
+  from {
+    transform: translateY(105%);
+  }
+}
+
+.word-rise {
+  display: inline-block;
+  animation: word-rise 900ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: calc(var(--w, 0) * 70ms + 150ms);
+}
+
+@keyframes fade-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+.fade-rise {
+  animation: fade-rise 800ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: var(--d, 0ms);
+}
+
+.capsule {
+  transition: width 1100ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition-delay: var(--d, 0ms);
+}
+
+@keyframes marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.marquee-track {
+  animation: marquee 40s linear infinite;
+}
+
+.marquee:hover .marquee-track {
+  animation-play-state: paused;
+}
+
+.trail-draw {
+  stroke-dasharray: 6 8;
+}
+
+@keyframes word-fill {
+  from {
+    color: var(--color-paper-300);
+  }
+}
+
+@keyframes drift {
+  from {
+    transform: translateY(-6%) scale(1.12);
+  }
+  to {
+    transform: translateY(6%) scale(1.12);
+  }
+}
+
+@supports (animation-timeline: view()) {
+  .scroll-fill {
+    animation: word-fill linear both;
+    animation-timeline: view();
+    animation-range: entry 20% cover 45%;
+  }
+
+  .parallax {
+    animation: drift linear both;
+    animation-timeline: view();
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .word-rise,
+  .fade-rise,
+  .marquee-track,
+  .scroll-fill,
+  .parallax {
+    animation: none;
+  }
+  .capsule {
+    transition: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

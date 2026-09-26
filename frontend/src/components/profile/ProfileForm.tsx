@@ -470,7 +470,7 @@ export function ProfileForm({ user, profile }: { user: User; profile: TrekkerPro
 
       {/* Sticky so the save action stays reachable while scrolling the long form. */}
       <div
-        className={`sticky bottom-0 z-10 -mx-4 flex flex-col gap-3 border-t bg-paper-100/95 px-4 py-4 backdrop-blur transition-[border-color,box-shadow] duration-300 sm:mx-0 sm:flex-row-reverse sm:items-center sm:justify-end sm:px-0 ${
+        className={`sticky bottom-0 z-10 -mx-4 flex flex-col gap-3 border-t bg-paper-50/95 px-4 py-4 backdrop-blur transition-[border-color,box-shadow] duration-300 sm:mx-0 sm:flex-row-reverse sm:items-center sm:justify-end sm:px-0 ${
           dirty ? 'border-laterite-400/40 shadow-[0_-12px_24px_-18px_rgb(23_28_35/0.35)]' : 'border-paper-300'
         }`}
       >

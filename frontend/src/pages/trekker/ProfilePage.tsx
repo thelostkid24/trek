@@ -30,15 +30,15 @@ function Profile({ user }: { user: User }) {
   })
 
   return (
-    <div className="px-4 py-8 sm:px-10 sm:py-12 lg:grid lg:grid-cols-[minmax(0,48rem)_11rem] lg:gap-12 xl:gap-16">
+    <div className="px-5 py-8 sm:px-10 sm:py-10 lg:grid lg:grid-cols-[minmax(0,48rem)_11rem] lg:gap-12 xl:gap-16">
       <div className="min-w-0 space-y-6">
         <header>
-          <h1 className="font-display text-3xl font-medium text-stone-900 sm:text-4xl">My profile</h1>
-          <p className="mt-2 text-sm text-stone-600">Used for your bookings and for the guide to reach you on the trail.</p>
+          <h1 className="text-2xl font-light tracking-[-0.02em] text-ink-900">My profile</h1>
+          <p className="mt-1 text-sm text-ink-700/70">Used for your bookings and for the guide to reach you on the trail.</p>
         </header>
 
         {welcome && !user.full_name && (
-          <div className="rounded-(--field-radius) border border-laterite-400/40 bg-laterite-100 px-5 py-4 text-sm text-laterite-600" role="status">
+          <div className="rounded-(--card-radius) border border-laterite-400/40 bg-laterite-100 px-5 py-4 text-sm text-laterite-600" role="status">
             <p className="font-semibold">Welcome to The Empty Valley!</p>
             <p className="mt-0.5">Add your name below so your guide knows who's coming.</p>
           </div>
@@ -155,7 +155,7 @@ function ProfileSkeleton() {
   return (
     <div className="space-y-5 border-t border-paper-300 pt-8" aria-busy="true" aria-label="Loading profile">
       {[56, 48, 48, 48].map((h, i) => (
-        <div key={i} className="animate-pulse rounded-(--field-radius) bg-paper-200" style={{ height: h }} />
+        <div key={i} className="animate-pulse rounded-(--card-radius) bg-paper-200" style={{ height: h }} />
       ))}
     </div>
   )

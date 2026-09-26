@@ -25,7 +25,7 @@ export function ReviewSection({ booking: b }: { booking: Booking }) {
   const guide = b.departure.guide.full_name?.split(' ')[0] ?? 'your guide'
 
   return (
-    <section className="rounded-(--field-radius) border border-paper-300 bg-paper-50 p-5 sm:p-7">
+    <section className="rounded-(--card-radius) border border-paper-300 bg-paper-50 p-5 sm:p-7">
       <h2 className="font-display text-xl font-medium text-stone-900">How was it with {guide}?</h2>
       {review.isError ? (
         <p className="mt-2 text-sm text-laterite-600">{messageFor(review.error)}</p>
@@ -89,7 +89,7 @@ function ReviewForm({
         <button
           type="submit"
           disabled={rating === 0 || save.isPending}
-          className="rounded-(--field-radius) bg-pine-700 px-4 py-2 text-sm font-medium text-white hover:bg-pine-600 disabled:opacity-50"
+          className="rounded-full bg-pine-700 px-4 py-2 text-sm font-medium text-white hover:bg-pine-600 disabled:opacity-50"
         >
           {save.isPending ? 'Saving…' : initial ? 'Update review' : 'Post review'}
         </button>

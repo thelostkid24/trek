@@ -41,9 +41,8 @@ export const router = createBrowserRouter([
       { path: '/', element: <HomePage /> },
       { path: '/login', element: <LoginPage /> },
       { path: '/signup', element: <SignupPage /> },
-      // Trekker account pages share the sidebar layout (the handle tells Layout to keep the footer clear of it).
+      // Trekker account pages share the account layout (name, then pill tabs).
       {
-        handle: { accountSidebar: true },
         element: (
           <RequireAuth role="TREKKER">
             <AccountLayout />

@@ -26,11 +26,11 @@ export function GearPage() {
   const selected = upcoming.find((b) => b.id === params.get('booking')) ?? upcoming[0]
 
   return (
-    <div className="max-w-5xl px-4 py-8 sm:px-10 sm:py-12">
+    <div className="max-w-5xl px-5 py-8 sm:px-10 sm:py-10">
       <h1 className="sr-only">Gear</h1>
 
       {bookings.isPending ? (
-        <div className="h-40 animate-pulse rounded-(--field-radius) bg-paper-200" aria-busy="true" aria-label="Loading treks" />
+        <div className="h-40 animate-pulse rounded-(--card-radius) bg-paper-200" aria-busy="true" aria-label="Loading treks" />
       ) : bookings.isError ? (
         <p className="text-stone-700">{messageFor(bookings.error)}</p>
       ) : upcoming.length === 0 ? (
@@ -61,7 +61,7 @@ export function GearPage() {
       <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_18rem] lg:items-start">
         <ul className="grid gap-4 sm:grid-cols-2">
           {GEAR.map((item) => (
-            <li key={item.name} className="overflow-hidden rounded-(--field-radius) border border-paper-300 bg-paper-50">
+            <li key={item.name} className="overflow-hidden rounded-(--card-radius) border border-paper-300 bg-paper-50">
               <div className="flex aspect-[4/3] items-center justify-center bg-paper-200 text-xs text-stone-400">Photo coming soon</div>
               <div className="p-4">
                 <p className="text-sm font-medium text-stone-900">{item.name}</p>
@@ -70,7 +70,7 @@ export function GearPage() {
                 <button
                   type="button"
                   disabled
-                  className="mt-3 w-full cursor-not-allowed rounded-(--field-radius) border border-paper-300 py-2 text-sm text-stone-400"
+                  className="mt-3 w-full cursor-not-allowed rounded-full border border-paper-300 py-2 text-sm text-stone-400"
                 >
                   Add to rental
                 </button>
@@ -90,7 +90,7 @@ export function GearPage() {
           <button
             type="button"
             disabled
-            className="mt-4 w-full cursor-not-allowed rounded-(--field-radius) bg-paper-300 py-2.5 text-sm text-stone-500"
+            className="mt-4 w-full cursor-not-allowed rounded-full bg-paper-300 py-2.5 text-sm text-stone-500"
           >
             Pay &amp; confirm rental
           </button>

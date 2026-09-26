@@ -82,14 +82,14 @@ export function TabBar({ tabs }: { tabs: { id: string; label: string }[] }) {
 
   return (
     <nav aria-label="Trek sections" className="sticky top-16 z-10 -mx-4 bg-paper-50/95 px-4 py-2 backdrop-blur sm:mx-0 sm:px-0">
-      <ul className="flex overflow-x-auto rounded-xl bg-brand-900 p-1 text-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <ul className="flex overflow-x-auto rounded-full bg-brand-900 p-1 text-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {tabs.map((t) => (
           <li key={t.id} className="shrink-0">
             <a
               href={`#${t.id}`}
               aria-current={active === t.id ? 'location' : undefined}
               onClick={() => setActive(t.id)}
-              className={`block rounded-lg px-4 py-2 font-medium whitespace-nowrap transition ${
+              className={`block rounded-full px-4 py-2 font-medium whitespace-nowrap transition ${
                 active === t.id ? 'bg-paper-50 text-stone-900' : 'text-brand-50 hover:bg-white/10'
               }`}
             >
@@ -276,7 +276,7 @@ export function WhyUs({ items }: { items: ContentItem[] }) {
     <ul className="grid gap-3 sm:grid-cols-2">
       {items.map((item, i) => (
         <li key={i} className="rounded-xl bg-white/80 p-5 ring-1 ring-paper-300">
-          {item.badge && <p className="font-serif text-4xl text-laterite-600">{item.badge}</p>}
+          {item.badge && <p className="font-serif text-4xl font-light text-laterite-600">{item.badge}</p>}
           <p className="mt-2 font-semibold text-stone-900">{item.title}</p>
           <p className="mt-2 leading-relaxed text-stone-600">{item.body}</p>
         </li>

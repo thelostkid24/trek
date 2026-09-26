@@ -20,7 +20,7 @@ export function ProfileSection({
   return (
     <section
       id={id}
-      className="profile-card group/section relative scroll-mt-24 rounded-(--field-radius) border border-paper-300 bg-paper-50 transition-[border-color,box-shadow] duration-300 focus-within:border-pine-600/30 focus-within:shadow-[0_10px_30px_-18px_rgb(23_28_35/0.3)]"
+      className="profile-card group/section relative scroll-mt-24 rounded-(--card-radius) border border-paper-300 bg-paper-50 transition-[border-color,box-shadow] duration-300 focus-within:border-pine-600/30 focus-within:shadow-[0_10px_30px_-18px_rgb(23_28_35/0.3)]"
     >
       <span
         aria-hidden="true"
@@ -60,7 +60,7 @@ export function PrimaryButton({ pending = false, disabled, type = 'submit', clas
       {...rest}
       type={type}
       disabled={pending || disabled}
-      className={`rounded-(--field-radius) bg-pine-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-pine-700 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+      className={`rounded-full bg-pine-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-pine-700 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
     >
       {pending ? 'Just a moment…' : children}
     </button>
@@ -73,7 +73,7 @@ export function SecondaryButton({ type = 'button', className = '', children, ...
     <button
       {...rest}
       type={type}
-      className={`rounded-(--field-radius) border border-paper-300 bg-paper-50 px-4 py-2 text-sm font-medium text-stone-800 transition hover:border-pine-600 hover:text-pine-700 disabled:opacity-60 ${className}`}
+      className={`rounded-full border border-paper-300 bg-paper-50 px-4 py-2 text-sm font-medium text-stone-800 transition hover:border-pine-600 hover:text-pine-700 disabled:opacity-60 ${className}`}
     >
       {children}
     </button>
