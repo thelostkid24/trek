@@ -15,13 +15,13 @@ export function AuthCard({
 }) {
   return (
     // Same paper, type and field styling as the landing page and account area.
-    <div className="auth-area min-h-[calc(100dvh-4rem)] bg-paper-100 font-plex text-ink-900">
+    <div className="auth-area min-h-[calc(100dvh-4rem)] bg-paper-50 font-plex text-ink-900">
       <section className="mx-auto flex w-full max-w-md flex-col px-4 py-10 sm:py-16">
         <Link to="/" className="self-center font-serif text-[1.6rem] tracking-tight text-ink-900">
           The Empty Valley
         </Link>
-        <div className="mt-6 rounded-sm border border-paper-300 bg-paper-50 p-6 sm:p-8">
-          <h1 className="font-serif text-[1.75rem] leading-tight tracking-tight">{title}</h1>
+        <div className="mt-6 rounded-(--card-radius) border border-paper-300 bg-paper-50 p-6 sm:p-8">
+          <h1 className="font-serif text-[1.75rem] font-light leading-tight tracking-tight">{title}</h1>
           <p className="mt-1 text-sm text-ink-700/75">{subtitle}</p>
           <div className="mt-6">{children}</div>
         </div>
@@ -59,7 +59,7 @@ export function SubmitButton({
       className={`${
         inline
           ? 'rounded-full bg-brand-900 px-5 py-2.5 text-sm hover:bg-brand-800'
-          : 'w-full rounded-sm bg-pine-600 px-6 py-3 hover:bg-pine-700'
+          : 'w-full rounded-full bg-pine-600 px-6 py-3 hover:bg-pine-700'
       } font-medium text-white disabled:cursor-not-allowed disabled:opacity-60`}
     >
       {pending ? 'Just a moment…' : children}

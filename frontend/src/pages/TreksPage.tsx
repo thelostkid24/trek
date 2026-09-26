@@ -58,7 +58,7 @@ export function TreksPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:py-10">
       <header>
-        <h1 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">Our treks</h1>
+        <h1 className="font-display text-3xl font-light tracking-[-0.02em] sm:text-4xl">Our treks</h1>
         <p className="mt-2 max-w-2xl text-stone-600">
           Every route we run, with the dates open on each. Batches of ten, one guide, no cancellations for low
           numbers.

@@ -49,7 +49,7 @@ export function ProfileHeader({ user, profile }: { user: User; profile: TrekkerP
   const { percent } = profile.completion
 
   return (
-    <section id="photo" aria-label="Photo and profile completion" className="profile-card scroll-mt-24 rounded-(--field-radius) border border-paper-300 bg-paper-50 px-5 py-6 sm:px-7">
+    <section id="photo" aria-label="Photo and profile completion" className="profile-card scroll-mt-24 rounded-(--card-radius) border border-paper-300 bg-paper-50 px-5 py-6 sm:px-7">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
         <div className="relative w-fit">
           <Avatar url={user.avatar_url} name={user.full_name} size="md" className="ring-paper-50!" />

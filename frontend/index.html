@@ -2,13 +2,23 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <!-- Theme before first paint (no flash): the saved choice, else the system setting. See src/lib/theme.ts. -->
+    <script>
+      try {
+        var saved = localStorage.getItem('theme')
+        var dark = saved ? saved === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches
+        document.documentElement.dataset.theme = dark ? 'dark' : 'light'
+      } catch (e) {
+        document.documentElement.dataset.theme = 'light'
+      }
+    </script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500&family=Spectral:wght@400;500&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap"
     />
     <meta name="description" content="Small-batch treks with vetted local guides. Ten people per guide, guaranteed departures." />
     <title>The Empty Valley — Small batches. Guaranteed departures.</title>

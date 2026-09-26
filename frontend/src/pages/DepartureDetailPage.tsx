@@ -76,7 +76,7 @@ function Detail({ departure: d }: { departure: DepartureDetail }) {
             ← All {track.name} dates
           </Link>
           <p className="mt-3 text-xs font-semibold tracking-[0.16em] text-laterite-600 uppercase">{track.name}</p>
-          <h1 className="mt-1 font-serif text-4xl leading-tight tracking-tight text-stone-900 sm:text-6xl">
+          <h1 className="mt-1 font-serif text-4xl font-light leading-tight tracking-tight text-stone-900 sm:text-6xl">
             {shortRange(d.start_date, d.end_date)} {d.end_date.slice(0, 4)}
           </h1>
           <p className="mt-2 text-stone-600">
@@ -124,7 +124,7 @@ function Detail({ departure: d }: { departure: DepartureDetail }) {
             <p className="font-semibold text-stone-900">{rupees(d.price_paise)} <span className="text-sm font-normal text-stone-500">per person</span></p>
             <p className="text-xs text-stone-600">{d.seats_left} of {d.max_group_size} seats open</p>
           </div>
-          <Link to={`/book/${d.id}`} className="rounded-lg bg-brand-900 px-5 py-3 font-semibold text-white hover:bg-brand-800">
+          <Link to={`/book/${d.id}`} className="rounded-full bg-brand-900 px-5 py-3 font-semibold text-white hover:bg-brand-800">
             Book these dates
           </Link>
         </div>
@@ -140,7 +140,7 @@ function PriceCard({ departure: d, extras }: { departure: DepartureDetail; extra
     <section aria-label="Price" className="rounded-2xl bg-white p-5 ring-1 ring-paper-300 sm:p-6">
       <p className="text-xs font-semibold tracking-[0.16em] text-laterite-600 uppercase">Full price</p>
       <p className="mt-2">
-        <span className="font-serif text-4xl text-stone-900">{rupees(d.price_paise)}</span>
+        <span className="font-serif text-4xl font-light text-stone-900">{rupees(d.price_paise)}</span>
         <span className="text-stone-500"> per person</span>
       </p>
       <p className="mt-1 text-sm text-stone-600">
@@ -194,7 +194,7 @@ function BookingCta({ departure: d }: { departure: DepartureDetail }) {
   return (
     <Link
       to={`/book/${d.id}`}
-      className="mt-5 block rounded-lg bg-brand-900 px-6 py-3.5 text-center font-semibold text-white hover:bg-brand-800"
+      className="mt-5 block rounded-full bg-brand-900 px-6 py-3.5 text-center font-semibold text-white hover:bg-brand-800"
     >
       Book these dates
     </Link>

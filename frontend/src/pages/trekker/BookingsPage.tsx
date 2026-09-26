@@ -20,19 +20,19 @@ export function BookingsPage() {
   const selected = upcoming.find((b) => b.id === selectedId) ?? upcoming[0]
 
   return (
-    <div className="max-w-6xl px-4 py-8 sm:px-10 sm:py-12">
+    <div className="max-w-6xl px-5 py-8 sm:px-10 sm:py-10">
       <h1 className="sr-only">My treks</h1>
       {bookings.isPending ? (
-        <div className="h-72 animate-pulse rounded-(--field-radius) bg-paper-200" aria-busy="true" aria-label="Loading treks" />
+        <div className="h-72 animate-pulse rounded-(--card-radius) bg-paper-200" aria-busy="true" aria-label="Loading treks" />
       ) : bookings.isError ? (
         <p className="text-stone-700">{messageFor(bookings.error)}</p>
       ) : all.length === 0 ? (
-        <div className="rounded-(--field-radius) border border-paper-300 bg-paper-50 p-8 text-center">
+        <div className="rounded-(--card-radius) border border-paper-300 bg-paper-50 p-8 text-center">
           <p className="font-display text-xl text-stone-900">No treks yet</p>
           <p className="mt-1 text-sm text-stone-600">Pick a departure and your seats are one step away.</p>
           <Link
             to="/treks"
-            className="mt-4 inline-block rounded-(--field-radius) bg-pine-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-pine-700"
+            className="mt-4 inline-block rounded-full bg-pine-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-pine-700"
           >
             Find a departure
           </Link>
@@ -96,7 +96,7 @@ function UpcomingTrek({ booking: b }: { booking: Booking }) {
   const detail = `/account/bookings/${b.id}`
 
   return (
-    <article className="mt-4 rounded-(--field-radius) border border-paper-300 bg-paper-50">
+    <article className="mt-4 rounded-(--card-radius) border border-paper-300 bg-paper-50">
       <div className="flex items-start justify-between gap-3 p-6">
         <div>
           <h3 className="font-display text-2xl text-stone-900">{d.track.name}</h3>
@@ -124,12 +124,12 @@ function UpcomingTrek({ booking: b }: { booking: Booking }) {
           </span>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Link to={detail} className="rounded-(--field-radius) bg-pine-600 px-4 py-2 text-sm font-medium text-white hover:bg-pine-700">
+          <Link to={detail} className="rounded-full bg-pine-600 px-4 py-2 text-sm font-medium text-white hover:bg-pine-700">
             {b.status === 'HELD' ? 'Complete payment' : 'Manage booking'}
           </Link>
           <Link
             to={`/account/gear?booking=${b.id}`}
-            className="rounded-(--field-radius) border border-pine-600/60 bg-paper-50 px-4 py-2 text-sm font-medium text-pine-700 hover:border-pine-600"
+            className="rounded-full border border-pine-600/60 bg-paper-50 px-4 py-2 text-sm font-medium text-pine-700 hover:border-pine-600"
           >
             Rent gear
           </Link>
@@ -199,9 +199,9 @@ function TripArrangements() {
           </button>
           <p className="mt-3 text-xs leading-relaxed text-stone-500">Certificate is due 10 days before your trek date.</p>
         </PaperCard>
-        <div className="rounded-(--field-radius) bg-ink-800 p-4 text-sm">
+        <div className="rounded-(--card-radius) bg-ink-800 p-4 text-sm">
           <p className="text-xs text-ink-400">Coordinator</p>
-          <p className="mt-2 text-stone-300">Your trip coordinator's name, phone and email will appear here.</p>
+          <p className="mt-2 text-white/70">Your trip coordinator's name, phone and email will appear here.</p>
         </div>
       </div>
     </div>

@@ -69,7 +69,7 @@ function Profile({ guide: g }: { guide: GuideProfile }) {
           )}
           <div>
             <p className="text-xs font-semibold tracking-[0.16em] text-laterite-600 uppercase">Know your guide</p>
-            <h1 className="mt-1 font-serif text-5xl leading-none tracking-tight text-stone-900">{name}</h1>
+            <h1 className="mt-1 font-serif text-5xl font-light leading-none tracking-tight text-stone-900">{name}</h1>
             {g.home_city && <p className="mt-2 text-lg text-stone-600">from {g.home_city}</p>}
             <p className="mt-2">
               <RatingLine rating={g.rating} count={g.review_count} />
@@ -198,12 +198,12 @@ function UpcomingRow({ departure: d }: { departure: DepartureSummary }) {
       <div className="mt-3 flex gap-2">
         <Link
           to={`/departures/${d.id}`}
-          className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-stone-700 ring-1 ring-paper-300 hover:ring-stone-400"
+          className="rounded-full bg-white px-4 py-2 text-sm font-medium text-stone-700 ring-1 ring-paper-300 hover:ring-stone-400"
         >
           Details
         </Link>
         {d.bookable && (
-          <Link to={`/book/${d.id}`} className="rounded-lg bg-brand-900 px-4 py-2 text-sm font-medium text-white hover:bg-brand-800">
+          <Link to={`/book/${d.id}`} className="rounded-full bg-brand-900 px-4 py-2 text-sm font-medium text-white hover:bg-brand-800">
             Book
           </Link>
         )}

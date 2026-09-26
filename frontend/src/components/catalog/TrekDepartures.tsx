@@ -205,14 +205,14 @@ function GuideIntro({ departure: d, trekName, charity }: { departure: TrekDepart
         <Link
           to={`/departures/${d.id}`}
           viewTransition
-          className="block rounded-lg bg-brand-900 px-4 py-3 text-center font-semibold text-white hover:bg-brand-800"
+          className="block rounded-full bg-brand-900 px-4 py-3 text-center font-semibold text-white hover:bg-brand-800"
         >
           View these dates →
         </Link>
         <Link
           to={`/guides/${g.id}`}
           viewTransition
-          className="block rounded-lg bg-white px-4 py-3 text-center font-semibold text-stone-900 ring-1 ring-paper-300 hover:ring-stone-400"
+          className="block rounded-full bg-white px-4 py-3 text-center font-semibold text-stone-900 ring-1 ring-paper-300 hover:ring-stone-400"
         >
           Get to know {name}
         </Link>

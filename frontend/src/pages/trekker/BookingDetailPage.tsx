@@ -47,9 +47,9 @@ export function BookingDetailPage() {
 
   if (booking.isPending) {
     return (
-      <div className="max-w-3xl space-y-4 px-4 py-8 sm:px-10 sm:py-12" aria-busy="true" aria-label="Loading booking">
-        <div className="h-40 animate-pulse rounded-(--field-radius) bg-paper-200" />
-        <div className="h-56 animate-pulse rounded-(--field-radius) bg-paper-200/70" />
+      <div className="max-w-3xl space-y-4 px-5 py-8 sm:px-10 sm:py-10" aria-busy="true" aria-label="Loading booking">
+        <div className="h-40 animate-pulse rounded-(--card-radius) bg-paper-200" />
+        <div className="h-56 animate-pulse rounded-(--card-radius) bg-paper-200/70" />
       </div>
     )
   }
@@ -87,15 +87,15 @@ function Detail({ booking: b }: { booking: Booking }) {
     if (arrivedToCancel.current) scrollToCancel()
   }, [])
   return (
-    <div className="max-w-3xl space-y-5 px-4 py-8 sm:px-10 sm:py-12">
+    <div className="max-w-3xl space-y-5 px-5 py-8 sm:px-10 sm:py-10">
       <Link to="/account/bookings" className="text-sm text-pine-700 hover:text-pine-600">
         ← My treks
       </Link>
 
-      <section className="rounded-(--field-radius) border border-paper-300 bg-paper-50 p-5 sm:p-7">
+      <section className="rounded-(--card-radius) border border-paper-300 bg-paper-50 p-5 sm:p-7">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="font-display text-3xl font-medium text-stone-900">
+            <h1 className="font-display text-3xl font-light tracking-[-0.02em] text-stone-900">
               <Link to={`/departures/${d.id}`} className="hover:text-pine-700">
                 {d.track.name}
               </Link>
@@ -154,14 +154,14 @@ function Detail({ booking: b }: { booking: Booking }) {
         <TravellersSection key={b.id} booking={b} />
       ) : (
         live && (
-          <p className="rounded-(--field-radius) border border-paper-300 bg-paper-100 px-5 py-4 text-sm text-stone-600">
+          <p className="rounded-(--card-radius) border border-paper-300 bg-paper-100 px-5 py-4 text-sm text-stone-600">
             Traveller names, medical and dietary details come after payment.
           </p>
         )
       )}
 
       {(b.contact.phone || b.contact.email) && (
-        <section className="rounded-(--field-radius) border border-paper-300 bg-paper-50 p-5 sm:p-7">
+        <section className="rounded-(--card-radius) border border-paper-300 bg-paper-50 p-5 sm:p-7">
           <h2 className="font-display text-xl font-medium text-stone-900">Contact</h2>
           <dl className="mt-3 grid gap-4 text-sm sm:grid-cols-3">
             {b.contact.full_name && <Fact label="Name">{b.contact.full_name}</Fact>}
@@ -214,7 +214,7 @@ function PayPanel({ booking }: { booking: Booking }) {
   const expired = seconds === 0
   const error = pay.error ?? release.error
   return (
-    <section className="rounded-(--field-radius) border border-laterite-400/50 bg-laterite-100/60 p-5 sm:p-7">
+    <section className="rounded-(--card-radius) border border-laterite-400/50 bg-laterite-100/60 p-5 sm:p-7">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="font-display text-xl font-medium text-stone-900">
           {expired ? 'Your hold has ended' : 'Seats held for you'}
@@ -255,7 +255,7 @@ function PayPanel({ booking }: { booking: Booking }) {
             type="button"
             onClick={start}
             disabled={pay.isPending || release.isPending}
-            className="rounded-(--field-radius) bg-pine-600 px-6 py-2.5 font-medium text-white hover:bg-pine-700 disabled:opacity-50"
+            className="rounded-full bg-pine-600 px-6 py-2.5 font-medium text-white hover:bg-pine-700 disabled:opacity-50"
           >
             {pay.isPending ? 'Waiting for payment…' : `Pay ${rupees(booking.amount_paise)}`}
           </button>
@@ -263,7 +263,7 @@ function PayPanel({ booking }: { booking: Booking }) {
             type="button"
             onClick={() => window.confirm('Give these seats back?') && release.mutate()}
             disabled={pay.isPending || release.isPending}
-            className="rounded-(--field-radius) border border-paper-300 bg-paper-50 px-5 py-2.5 text-sm font-medium text-stone-700 hover:border-pine-600 disabled:opacity-50"
+            className="rounded-full border border-paper-300 bg-paper-50 px-5 py-2.5 text-sm font-medium text-stone-700 hover:border-pine-600 disabled:opacity-50"
           >
             Release seats
           </button>
@@ -324,7 +324,7 @@ function TravellersSection({ booking: b }: { booking: Booking }) {
 
   if (!editing) {
     return (
-      <section className="rounded-(--field-radius) border border-paper-300 bg-paper-50 p-5 sm:p-7">
+      <section className="rounded-(--card-radius) border border-paper-300 bg-paper-50 p-5 sm:p-7">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="font-display text-xl font-medium text-stone-900">Travellers</h2>
           {editable && (
@@ -361,7 +361,7 @@ function TravellersSection({ booking: b }: { booking: Booking }) {
         e.preventDefault()
         save.mutate()
       }}
-      className="rounded-(--field-radius) border border-pine-600/40 bg-paper-50 p-5 sm:p-7"
+      className="rounded-(--card-radius) border border-pine-600/40 bg-paper-50 p-5 sm:p-7"
     >
       <h2 className="font-display text-xl font-medium text-stone-900">Who's coming?</h2>
       <p className="mt-1 text-sm text-stone-600">
@@ -424,7 +424,7 @@ function TravellersSection({ booking: b }: { booking: Booking }) {
         <button
           type="submit"
           disabled={save.isPending}
-          className="rounded-(--field-radius) bg-pine-600 px-6 py-2.5 font-medium text-white hover:bg-pine-700 disabled:opacity-50"
+          className="rounded-full bg-pine-600 px-6 py-2.5 font-medium text-white hover:bg-pine-700 disabled:opacity-50"
         >
           {save.isPending ? 'Saving…' : 'Save travellers'}
         </button>
@@ -432,7 +432,7 @@ function TravellersSection({ booking: b }: { booking: Booking }) {
           <button
             type="button"
             onClick={() => setEditing(false)}
-            className="rounded-(--field-radius) border border-paper-300 bg-paper-50 px-5 py-2.5 text-sm font-medium text-stone-700 hover:border-pine-600"
+            className="rounded-full border border-paper-300 bg-paper-50 px-5 py-2.5 text-sm font-medium text-stone-700 hover:border-pine-600"
           >
             Cancel
           </button>
@@ -457,7 +457,7 @@ const REFUND_STATUS_LABEL: Record<Refund['status'], string> = {
 function PaymentSection({ booking: b }: { booking: Booking }) {
   const payment = b.payment
   return (
-    <section className="rounded-(--field-radius) border border-paper-300 bg-paper-50 p-5 sm:p-7">
+    <section className="rounded-(--card-radius) border border-paper-300 bg-paper-50 p-5 sm:p-7">
       <h2 className="font-display text-xl font-medium text-stone-900">Payment</h2>
       {payment?.status === 'PAID' && (
         <p className="mt-2 text-sm text-stone-700">
@@ -511,7 +511,7 @@ function CancelSection({ booking, onKeep }: { booking: Booking; onKeep: () => vo
   const tiers = booking.refund_policy ?? []
 
   return (
-    <section id="cancel" className="scroll-mt-20 rounded-(--field-radius) border border-paper-300 bg-paper-50 p-5 sm:p-7">
+    <section id="cancel" className="scroll-mt-20 rounded-(--card-radius) border border-paper-300 bg-paper-50 p-5 sm:p-7">
       <h2 className="font-display text-xl font-medium text-stone-900">Change of plans?</h2>
       <p className="mt-1 text-sm text-stone-600">
         Your batch is confirmed and runs on these dates whatever the numbers. If you cancel, your seats go back to the
@@ -539,7 +539,7 @@ function CancelSection({ booking, onKeep }: { booking: Booking; onKeep: () => vo
           <button
             type="button"
             onClick={onKeep}
-            className="rounded-(--field-radius) bg-pine-600 px-5 py-2 text-sm font-medium text-white hover:bg-pine-700"
+            className="rounded-full bg-pine-600 px-5 py-2 text-sm font-medium text-white hover:bg-pine-700"
           >
             Keep my booking
           </button>
@@ -552,7 +552,7 @@ function CancelSection({ booking, onKeep }: { booking: Booking; onKeep: () => vo
           </button>
         </div>
       ) : (
-        <div className="mt-4 rounded-(--field-radius) border border-paper-300 bg-paper-100 p-4">
+        <div className="mt-4 rounded-xl border border-paper-300 bg-paper-100 p-4">
           {quote.isPending ? (
             <p className="text-sm text-stone-600">Working out your refund…</p>
           ) : quote.isError ? (
@@ -580,7 +580,7 @@ function CancelSection({ booking, onKeep }: { booking: Booking; onKeep: () => vo
                   type="button"
                   onClick={onKeep}
                   disabled={cancel.isPending}
-                  className="rounded-(--field-radius) bg-pine-600 px-5 py-2 text-sm font-medium text-white hover:bg-pine-700 disabled:opacity-50"
+                  className="rounded-full bg-pine-600 px-5 py-2 text-sm font-medium text-white hover:bg-pine-700 disabled:opacity-50"
                 >
                   Keep my booking
                 </button>
@@ -588,7 +588,7 @@ function CancelSection({ booking, onKeep }: { booking: Booking; onKeep: () => vo
                   type="button"
                   onClick={() => cancel.mutate()}
                   disabled={cancel.isPending}
-                  className="rounded-(--field-radius) border border-laterite-400/60 bg-paper-50 px-5 py-2 text-sm font-medium text-laterite-600 hover:border-laterite-600 disabled:opacity-50"
+                  className="rounded-full border border-laterite-400/60 bg-paper-50 px-5 py-2 text-sm font-medium text-laterite-600 hover:border-laterite-600 disabled:opacity-50"
                 >
                   {cancel.isPending ? 'Cancelling…' : 'Yes, cancel my booking'}
                 </button>
@@ -617,7 +617,7 @@ function Banner({ tone, title, children }: { tone: 'good' | 'warn' | 'muted'; ti
     muted: 'border-paper-300 bg-paper-200/60 text-stone-700',
   }
   return (
-    <div role="status" className={`rounded-(--field-radius) border px-5 py-4 text-sm ${tones[tone]}`}>
+    <div role="status" className={`rounded-(--card-radius) border px-5 py-4 text-sm ${tones[tone]}`}>
       <p className="font-semibold">{title}</p>
       <p className="mt-0.5">{children}</p>
     </div>

@@ -16,14 +16,14 @@ export function Fact({ label, children, dark = false }: { label: string; childre
   return (
     <div>
       <p className={`text-xs ${dark ? 'text-ink-400' : 'text-stone-500'}`}>{label}</p>
-      <p className={`mt-1 text-sm ${dark ? 'text-stone-100' : 'text-stone-900'}`}>{children}</p>
+      <p className={`mt-1 text-sm ${dark ? 'text-white/90' : 'text-stone-900'}`}>{children}</p>
     </div>
   )
 }
 
 /** Paper card used for trip arrangements and gear. */
 export function PaperCard({ className = '', children }: { className?: string; children: ReactNode }) {
-  return <div className={`rounded-(--field-radius) border border-paper-300 bg-paper-50 p-4 ${className}`}>{children}</div>
+  return <div className={`rounded-(--card-radius) border border-paper-300 bg-paper-50 p-4 ${className}`}>{children}</div>
 }
 
 /** Chips that pick one upcoming trek (My treks, Gear). */
@@ -53,7 +53,7 @@ export function TrekPicker<T extends { id: string }>({
             onClick={() => onSelect(item.id)}
             className={`shrink-0 rounded-(--field-radius) border px-4 py-2 text-left transition ${
               active
-                ? 'border-ink-900 bg-ink-900 text-stone-100'
+                ? 'border-ink-900 bg-ink-900 text-white/90'
                 : 'border-paper-300 bg-paper-50 text-stone-800 hover:border-pine-600'
             }`}
           >

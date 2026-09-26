@@ -100,7 +100,7 @@ function Page({ trek }: { trek: Trek }) {
           <Link to="/treks" viewTransition className="text-sm text-brand-700 hover:text-brand-900">
             ← All treks
           </Link>
-          <h1 className="mt-2 font-serif text-5xl leading-none tracking-tight text-stone-900 sm:text-7xl">{track.name}</h1>
+          <h1 className="mt-2 font-serif text-5xl font-light leading-none tracking-tight text-stone-900 sm:text-7xl">{track.name}</h1>
           <hr className="mt-6 border-paper-300 sm:mt-8" />
         </header>
 

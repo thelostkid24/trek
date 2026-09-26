@@ -119,7 +119,7 @@ function Row({
       </div>
       {note && <div className="mt-3 sm:ml-[8.5rem]">{note}</div>}
       {expanded && (
-        <div className="mt-5 rounded-(--field-radius) border border-paper-300 bg-paper-100/70 p-5 sm:ml-[8.5rem] sm:p-6">
+        <div className="mt-5 rounded-xl border border-paper-300 bg-paper-100/70 p-5 sm:ml-[8.5rem] sm:p-6">
           <div className="max-w-md">{children}</div>
         </div>
       )}

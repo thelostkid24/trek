@@ -76,7 +76,7 @@ export function VerifyEmailPage() {
 
   return (
     <AuthCard title="Email verified" subtitle="Booking confirmations will reach you here." footer={nextLink}>
-      <p className="rounded-sm bg-pine-400/15 px-3 py-2 text-center font-medium text-pine-700">{result.data.email}</p>
+      <p className="rounded-(--field-radius) bg-pine-400/15 px-3 py-2 text-center font-medium text-pine-700">{result.data.email}</p>
     </AuthCard>
   )
 }

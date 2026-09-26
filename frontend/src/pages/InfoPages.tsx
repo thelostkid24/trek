@@ -8,9 +8,9 @@ import { SITE_LINKS } from '../lib/siteLinks.ts'
 /** Plain text pages linked from the header and footer, in the landing page's style. */
 function InfoPage({ title, intro, children }: { title: string; intro: string; children?: ReactNode }) {
   return (
-    <div className="min-h-[calc(100dvh-4rem)] bg-paper-100 font-plex text-ink-900">
+    <div className="min-h-[calc(100dvh-4rem)] bg-paper-50 font-plex text-ink-900">
       <section className="mx-auto max-w-[44rem] px-5 py-16 sm:px-10 sm:py-20">
-        <h1 className="font-serif text-4xl tracking-tight sm:text-[2.8rem]">{title}</h1>
+        <h1 className="font-serif text-4xl font-light tracking-tight sm:text-[2.8rem]">{title}</h1>
         <p className="mt-3 text-base leading-relaxed text-ink-700">{intro}</p>
         {children}
       </section>
@@ -129,7 +129,7 @@ export function ContactPage() {
       title="Contact"
       intro="Have a question about a booking? Open it from My treks — your booking page has your guide, dates and payment details in one place."
     >
-      <dl className="mt-8 grid gap-4 rounded-sm border border-paper-300 bg-paper-50 p-6 text-sm sm:grid-cols-[10rem_1fr]">
+      <dl className="mt-8 grid gap-4 rounded-(--card-radius) border border-paper-300 bg-paper-50 p-6 text-sm sm:grid-cols-[10rem_1fr]">
         <dt className="text-ink-400">Email</dt>
         <dd>
           <a href={`mailto:${BUSINESS.supportEmail}`} className={linkClass}>
