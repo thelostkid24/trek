@@ -158,6 +158,11 @@ Defined per feature. Each feature appends a subsection: tables/columns added, co
 - **`guide_profiles`** — `user_id UUID PK FK → users ON DELETE CASCADE`, `leading_since INT CHECK 1950..2100`, `languages TEXT`, `certification TEXT`, `certification_number TEXT`, `quote TEXT`, `created_at`, `updated_at`. Row created on first save.
 - **`reviews`** — `id UUID PK`, `booking_id UUID UNIQUE FK → bookings`, `user_id`, `departure_id`, `guide_id`, `track_id` (FKs), `rating INT NOT NULL CHECK 1..5`, `body TEXT NULL CHECK length 1..2000`, `author_name TEXT NOT NULL` (first name from the booking), `created_at`, `updated_at`. Index `(guide_id, created_at DESC)`.
 
+### 6.11 Acquisition, consent, last seen — `V11__acquisition.sql`
+NULL everywhere = not captured (rows made before V11, or nothing sent). Tracking values come from URLs we don't control, so the server cleans them rather than rejecting the request: trims, drops control characters, truncates to the column limit, lower-cases UTM tags, keeps only `http(s)` referrers and landing paths starting with `/`, and turns a future `seen_at` into now.
+- **`users`** — first touch, written once when the account is created and never rewritten: `signup_method TEXT CHECK IN ('EMAIL','PHONE','GOOGLE','GUEST_CHECKOUT')`, `utm_source`, `utm_medium`, `utm_campaign`, `utm_term`, `utm_content TEXT CHECK length 1..200`, `gclid`, `fbclid TEXT CHECK length 1..500`, `referrer TEXT CHECK length 1..1000`, `landing_path TEXT CHECK length 1..500`, `first_seen_at TIMESTAMPTZ`, `device_type TEXT CHECK IN ('MOBILE','TABLET','DESKTOP')`, `heard_from TEXT CHECK IN ('INSTAGRAM','YOUTUBE','GOOGLE_SEARCH','FRIEND_FAMILY','WHATSAPP_GROUP','BLOG_FORUM','OTHER')`, `heard_from_note TEXT CHECK length 1..200`. Also `last_seen_at TIMESTAMPTZ` (sign-in and token refresh, at most hourly), `marketing_email_consent_at`, `marketing_whatsapp_consent_at TIMESTAMPTZ` (NULL = no consent; every change is also an `audit_events` row). Index `(created_at)`.
+- **`bookings`** — last touch, the visit that led to the booking: the same UTM, click-id, `referrer`, `landing_path` and `device_type` columns, plus `touch_seen_at TIMESTAMPTZ`. Partial index `(confirmed_at) WHERE confirmed_at IS NOT NULL`.
+
 ## 7. Feature log
 Each feature appends: scope, endpoints, tables, screens, tests.
 
@@ -942,6 +947,51 @@ Gear rental and its payment, add-ons (offload, transport), per-trek food option 
 - Frontend: "How was it with <guide>?" on a completed booking (`components/booking/ReviewSection.tsx`); reviews on the guide page; rating on the trek page's guide intro. No moderation yet.
 - The local dev mock (`src/devMock.ts`, gitignored) seeds sample reviews, the Kedarkantha page and a snow report history.
 - Tests: `ReviewTests`.
+
+### 7.15 Acquisition tracking and admin Insights
+**Status:** backend and frontend implemented. Columns in §6.11. Plan and rationale: the "User data & acquisition analytics plan" doc.
+
+**Scope:** record where every account and booking came from, how people heard of us, and marketing consent, and show the funnel, sources and business health to admins. Everything on the dashboard is computed at read time; nothing aggregated is stored.
+
+**Capture (frontend, `src/analytics/attribution.ts`):** `captureVisit()` runs once per page load (before the router) and reads `utm_source|medium|campaign|term|content`, `gclid`, `fbclid`, the outside referrer and the landing path. The first visit is kept in `localStorage` (`tev.first_touch`) and never replaced; `tev.last_touch` is replaced by any visit with tags or an outside referrer. Storage failures are swallowed. Sign-up, OTP verify, Google, guest checkout and signed-in booking requests all send:
+
+```
+acquisition?: {
+  first_touch?: Touch, last_touch?: Touch,        // Touch = { utm_*?, gclid?, fbclid?, referrer?, landing_path?, seen_at? }
+  device_type?: "MOBILE" | "TABLET" | "DESKTOP",  // anything else is ignored
+  heard_from?: HeardFrom, heard_from_note?: ≤ 200,
+  marketing_email?: boolean, marketing_whatsapp?: boolean
+}
+```
+
+- A **new** account (any of the four ways in) keeps the first touch (else the last), device, `signup_method`, heard-from (the note only with a `heard_from`) and consent; consent given here is audited with `via: SIGNUP`. An existing account signing in ignores all of it.
+- A booking keeps the last touch (else the first) and the device.
+- Only `heard_from` (unknown value) and `heard_from_note` (> 200) can fail validation → `400 VALIDATION_FAILED`.
+- `UserResponse` gains `marketing_email`, `marketing_whatsapp` (booleans).
+
+| Method & path | Auth | Request | Success | Errors |
+|---|---|---|---|---|
+| `PATCH /api/account/marketing-consent` | any signed-in | `{ email?: boolean, whatsapp?: boolean }` (left out = unchanged) | `200 UserResponse` | `401` |
+| `GET /api/admin/insights?days=30` | ADMIN | `days` 1..365, default 30 | `200 InsightsResponse` (below) | `400 VALIDATION_FAILED`, `403` |
+
+Every actual consent change writes `MARKETING_CONSENT_GRANTED` / `MARKETING_CONSENT_WITHDRAWN` (`entity_type USER`, `data { channel: EMAIL|WHATSAPP, via: SIGNUP|ACCOUNT }`).
+
+**`InsightsResponse`** — `days`, `from`, `to`, and ("accounts" = trekker accounts; days are IST):
+- `headline` — `new_accounts`, `bookings_held` (created in window), `bookings_confirmed`, `gross_paise` (amount of bookings confirmed in window, before refunds), `hold_to_paid_bps` (of holds made in window and no longer `HELD`), `avg_group_size`, `cancellations`.
+- `daily[]` — `{ date, accounts, confirmed }` for every day of the window.
+- `funnel[]` — one cohort, trekkers who signed up in the window: `ACCOUNT` → `HELD` → `PAID` → `TREKKED` (confirmed on a `COMPLETED` departure) → `REVIEWED`, distinct people.
+- `sources[]`, `campaigns[]` — `{ source, accounts, confirmed_bookings, gross_paise }`, top 20 by gross. Accounts by first touch; bookings and gross by each booking's last touch. Source = UTM source, else `google-ads`/`meta-ads` from a click id, else the referrer's host, else `direct`; rows with nothing captured are `unknown`.
+- `heard_from[]`, `signup_methods[]`, `devices[]` — `{ key, count }` over new accounts (`NO_ANSWER` / `UNKNOWN` for missing).
+- `payments` — orders created in window: `attempts`, `paid`, `failed`, `success_bps` (paid ÷ not `CREATED`), `methods[]`, `failures[]` (top 5 reasons).
+- `treks[]` — per trek, bookings confirmed in window: `confirmed_bookings`, `seats`, `gross_paise`, with all-time `avg_rating`, `reviews`. Top 10.
+- `upcoming[]` — published departures starting in the next 60 days with `seats_taken` / `max_group_size`.
+- `guides[]` — all-time, computed at read time (law 8): `departures_completed`, `avg_fill_bps` (over completed), `avg_rating`, `reviews`.
+- `marketing_reach` — active trekker accounts, and how many opted in by email / WhatsApp.
+
+**Privacy:** safety data (emergency contact, blood group, medical notes, allergies, height, weight) never feeds analytics or marketing. No IP addresses or precise location are stored. The dashboard returns aggregates only.
+
+- Frontend: "How did you hear about us?" + two unticked consent boxes on sign-up (all three methods) and guest checkout (`components/auth/SignupChoicesFields.tsx`); "Communication preferences" on the profile (`components/profile/CommunicationSection.tsx`); admin **Insights** tab (`/admin/insights`, `pages/admin/InsightsPage.tsx`) with a 7/30/90-day switch; the Privacy page lists what we collect.
+- Tests: `AcquisitionTests`, `InsightsTests`.
 
 ### Charity share
 `app.charity` (`CHARITY_NAME`, `CHARITY_BPS`, default 100 = 1%) is part of the price, never added on top. It only shows as a line on the trek page ("1% goes to …, and the rest runs the company"); no money is split or recorded per booking yet.

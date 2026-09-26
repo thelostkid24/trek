@@ -9,6 +9,7 @@ import com.sahyatri.auth.dto.OtpVerifyRequest;
 import com.sahyatri.auth.dto.SignupRequest;
 import com.sahyatri.auth.dto.UserResponse;
 import com.sahyatri.auth.entity.OtpPurpose;
+import com.sahyatri.auth.entity.SignupMethod;
 import com.sahyatri.auth.entity.User;
 import com.sahyatri.auth.repository.UserRepository;
 import com.sahyatri.common.exception.ApiException;
@@ -18,6 +19,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
 import java.util.UUID;
@@ -29,6 +31,9 @@ import java.util.UUID;
 @Service
 public class AuthService {
 
+    /** {@code last_seen_at} is written at most this often per user. */
+    private static final Duration SEEN_EVERY = Duration.ofHours(1);
+
     private final UserRepository users;
     private final PasswordEncoder passwordEncoder;
     private final TokenService tokens;
@@ -37,12 +42,13 @@ public class AuthService {
     private final LoginAttemptLimiter loginLimiter;
     private final CurrentUser currentUser;
     private final AvatarFiles avatars;
+    private final AccountAcquisition acquisition;
     /** Compared against when the email is unknown so response time doesn't reveal account existence. */
     private final String dummyHash;
 
     public AuthService(UserRepository users, PasswordEncoder passwordEncoder, TokenService tokens, OtpService otp,
                        GoogleTokenVerifier google, LoginAttemptLimiter loginLimiter, CurrentUser currentUser,
-                       AvatarFiles avatars) {
+                       AvatarFiles avatars, AccountAcquisition acquisition) {
         this.users = users;
         this.passwordEncoder = passwordEncoder;
         this.tokens = tokens;
@@ -51,6 +57,7 @@ public class AuthService {
         this.loginLimiter = loginLimiter;
         this.currentUser = currentUser;
         this.avatars = avatars;
+        this.acquisition = acquisition;
         this.dummyHash = passwordEncoder.encode(UUID.randomUUID().toString());
     }
 
@@ -63,11 +70,13 @@ public class AuthService {
         user.setFullName(req.fullName().trim());
         user.setEmail(email);
         user.setPasswordHash(passwordEncoder.encode(req.password()));
+        acquisition.apply(user, SignupMethod.EMAIL, req.acquisition());
         try {
             user = users.saveAndFlush(user);
         } catch (DataIntegrityViolationException e) {
             throw emailTaken();
         }
+        acquisition.recordSignupConsent(user);
         return session(user, true);
     }
 
@@ -96,6 +105,7 @@ public class AuthService {
         if (isNew) {
             user = User.newTrekker();
             user.setPhone(req.phone());
+            acquisition.apply(user, SignupMethod.PHONE, req.acquisition());
         }
         ensureActive(user);
         if (user.getPhoneVerifiedAt() == null) {
@@ -104,7 +114,7 @@ public class AuthService {
         if (user.getFullName() == null && req.fullName() != null && !req.fullName().isBlank()) {
             user.setFullName(req.fullName().trim());
         }
-        return session(users.save(user), isNew);
+        return newOrExisting(users.save(user), isNew);
     }
 
     public AuthSession google(GoogleRequest req) {
@@ -124,13 +134,14 @@ public class AuthService {
             if (identity.emailVerified() && email != null) {
                 user.setEmail(email);
             }
+            acquisition.apply(user, SignupMethod.GOOGLE, req.acquisition());
         }
         ensureActive(user);
         user.setGoogleSubject(identity.subject());
         if (identity.emailVerified() && email != null && email.equals(user.getEmail()) && user.getEmailVerifiedAt() == null) {
             user.setEmailVerifiedAt(Instant.now());
         }
-        return session(users.save(user), isNew);
+        return newOrExisting(users.save(user), isNew);
     }
 
     public AuthSession refresh(String refreshToken) {
@@ -141,6 +152,7 @@ public class AuthService {
             tokens.revokeAll(user.getId());
             throw disabled();
         }
+        markSeen(user);
         return new AuthSession(authResponse(user, tokens.accessToken(user), false), rotation.refreshToken());
     }
 
@@ -166,13 +178,26 @@ public class AuthService {
         return session(user, true);
     }
 
+    private AuthSession newOrExisting(User user, boolean isNew) {
+        if (isNew) {
+            acquisition.recordSignupConsent(user);
+        }
+        return session(user, isNew);
+    }
+
     private AuthSession session(User user, boolean isNew) {
+        markSeen(user);
         TokenService.IssuedTokens issued = tokens.issue(user);
         return new AuthSession(authResponse(user, issued.accessToken(), isNew), issued.refreshToken());
     }
 
     private AuthResponse authResponse(User user, String accessToken, boolean isNew) {
         return new AuthResponse(accessToken, "Bearer", tokens.accessTtlSeconds(), isNew, toResponse(user));
+    }
+
+    private void markSeen(User user) {
+        Instant now = Instant.now();
+        users.markSeen(user.getId(), now, now.minus(SEEN_EVERY));
     }
 
     private static void ensureActive(User user) {

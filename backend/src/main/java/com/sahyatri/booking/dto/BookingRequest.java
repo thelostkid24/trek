@@ -2,6 +2,7 @@ package com.sahyatri.booking.dto;
 
 import com.sahyatri.auth.dto.ValidationPatterns;
 import com.sahyatri.catalog.entity.Departure;
+import com.sahyatri.common.acquisition.AcquisitionRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Max;
@@ -24,5 +25,6 @@ public record BookingRequest(
         @Pattern(regexp = ValidationPatterns.INDIAN_MOBILE, message = ValidationPatterns.INDIAN_MOBILE_MESSAGE)
         String phone,
         @Email @Size(max = 254) String email,
-        @Size(max = Departure.MAX_GROUP_SIZE) List<@Valid @NotNull TravellerRequest> travellers) {
+        @Size(max = Departure.MAX_GROUP_SIZE) List<@Valid @NotNull TravellerRequest> travellers,
+        @Valid AcquisitionRequest acquisition) {
 }

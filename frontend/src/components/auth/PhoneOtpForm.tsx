@@ -1,4 +1,5 @@
-import { useState, type FormEvent } from 'react'
+import { useState, type FormEvent, type ReactNode } from 'react'
+import type { SignupChoices } from '../../analytics/attribution.ts'
 import { requestOtp, verifyOtp, type AuthResponse } from '../../api/auth.ts'
 import { fieldErrors, messageFor, retryAfter } from '../../auth/errorMessages.ts'
 import { useCountdown } from '../../auth/useCountdown.ts'
@@ -8,9 +9,20 @@ import { TextField } from './TextField.tsx'
 
 /**
  * Two steps: send a code to +91 number, then verify it. Unknown numbers get an account on verify,
- * so the same form serves sign-in and sign-up; `askName` adds the optional name field for sign-up.
+ * so the same form serves sign-in and sign-up; `askName` adds the optional name field for sign-up, and
+ * `extraFields` (shown with the number) collect the `choices` sent with the code.
  */
-export function PhoneOtpForm({ onSuccess, askName = false }: { onSuccess: (r: AuthResponse) => void; askName?: boolean }) {
+export function PhoneOtpForm({
+  onSuccess,
+  askName = false,
+  choices,
+  extraFields,
+}: {
+  onSuccess: (r: AuthResponse) => void
+  askName?: boolean
+  choices?: SignupChoices
+  extraFields?: ReactNode
+}) {
   const [digits, setDigits] = useState('')
   const [fullName, setFullName] = useState('')
   const [code, setCode] = useState('')
@@ -56,7 +68,7 @@ export function PhoneOtpForm({ onSuccess, askName = false }: { onSuccess: (r: Au
     setFields({})
     try {
       const name = fullName.trim()
-      onSuccess(await verifyOtp({ phone: sentTo, code, ...(name ? { full_name: name } : {}) }))
+      onSuccess(await verifyOtp({ phone: sentTo, code, ...(name ? { full_name: name } : {}) }, choices))
     } catch (err) {
       setError(messageFor(err))
       setFields(fieldErrors(err))
@@ -105,6 +117,7 @@ export function PhoneOtpForm({ onSuccess, askName = false }: { onSuccess: (r: Au
             error={fields.phone}
             hint="We'll text you a 6-digit code."
           />
+          {extraFields}
           <FormError>{error}</FormError>
           <SubmitButton pending={pending} disabled={cooldown > 0}>{cooldown > 0 ? `Send code (${cooldown}s)` : 'Send code'}</SubmitButton>
         </>

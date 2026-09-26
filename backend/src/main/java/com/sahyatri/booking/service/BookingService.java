@@ -1,8 +1,10 @@
 package com.sahyatri.booking.service;
 
 import com.sahyatri.auth.dto.AuthSession;
+import com.sahyatri.auth.entity.SignupMethod;
 import com.sahyatri.auth.entity.User;
 import com.sahyatri.auth.repository.UserRepository;
+import com.sahyatri.auth.service.AccountAcquisition;
 import com.sahyatri.auth.service.AuthService;
 import com.sahyatri.auth.service.CurrentUser;
 import com.sahyatri.booking.dto.BookingContact;
@@ -22,6 +24,8 @@ import com.sahyatri.catalog.dto.TrackBrief;
 import com.sahyatri.catalog.entity.Departure;
 import com.sahyatri.catalog.repository.DepartureRepository;
 import com.sahyatri.catalog.service.CatalogService;
+import com.sahyatri.common.acquisition.AcquisitionRequest;
+import com.sahyatri.common.acquisition.Touch;
 import com.sahyatri.common.audit.AuditLog;
 import com.sahyatri.common.config.BookingProperties;
 import com.sahyatri.common.exception.ApiException;
@@ -69,6 +73,7 @@ public class BookingService {
     private final CatalogService catalog;
     private final UserRepository users;
     private final AuthService auth;
+    private final AccountAcquisition acquisition;
     private final CurrentUser currentUser;
     private final RefundPolicy refundPolicy;
     private final BookingProperties props;
@@ -77,7 +82,8 @@ public class BookingService {
 
     public BookingService(BookingRepository bookings, DepartureRepository departures, PaymentRepository payments,
                           PaymentRefundRepository refundRows, PaymentService paymentService, RefundService refunds,
-                          CatalogService catalog, UserRepository users, AuthService auth, CurrentUser currentUser,
+                          CatalogService catalog, UserRepository users, AuthService auth,
+                          AccountAcquisition acquisition, CurrentUser currentUser,
                           RefundPolicy refundPolicy, BookingProperties props, AuditLog audit,
                           ApplicationEventPublisher events) {
         this.bookings = bookings;
@@ -89,6 +95,7 @@ public class BookingService {
         this.catalog = catalog;
         this.users = users;
         this.auth = auth;
+        this.acquisition = acquisition;
         this.currentUser = currentUser;
         this.refundPolicy = refundPolicy;
         this.props = props;
@@ -111,7 +118,8 @@ public class BookingService {
         if (!travellers.isEmpty() && travellers.size() != req.seats()) {
             throw ApiException.validation("travellers", "must list exactly " + req.seats() + " traveller(s)");
         }
-        return toResponse(hold(userId, req.departureId(), req.seats(), contact, travellers));
+        return toResponse(hold(userId, req.departureId(), req.seats(), contact, travellers,
+                lastTouch(req.acquisition())));
     }
 
     /**
@@ -120,10 +128,14 @@ public class BookingService {
      */
     @Transactional
     public GuestBooking createForGuest(GuestBookingRequest req) {
-        User guest = users.saveAndFlush(User.newGuest(req.fullName().trim()));
+        User guest = User.newGuest(req.fullName().trim());
+        acquisition.apply(guest, SignupMethod.GUEST_CHECKOUT, req.acquisition());
+        guest = users.saveAndFlush(guest);
+        acquisition.recordSignupConsent(guest);
         BookingContact contact = new BookingContact(req.fullName().trim(), req.phone(),
                 req.email().trim().toLowerCase(Locale.ROOT));
-        Booking booking = hold(guest.getId(), req.departureId(), req.seats(), contact, List.of());
+        Booking booking = hold(guest.getId(), req.departureId(), req.seats(), contact, List.of(),
+                lastTouch(req.acquisition()));
         return new GuestBooking(toResponse(booking), auth.firstSession(guest));
     }
 
@@ -151,7 +163,7 @@ public class BookingService {
     }
 
     private Booking hold(UUID userId, UUID departureId, int seats, BookingContact contact,
-                         List<TravellerRequest> travellers) {
+                         List<TravellerRequest> travellers, Touch lastTouch) {
         Departure departure = departures.findByIdForUpdate(departureId)
                 .filter(d -> !d.isDraft())
                 .orElseThrow(CatalogService::departureNotFound);
@@ -170,11 +182,16 @@ public class BookingService {
 
         Booking booking = Booking.hold(userId, departure, seats, contact.fullName(), contact.phone(), contact.email(),
                 Instant.now().plus(props.holdTtl()));
+        booking.setLastTouch(lastTouch);
         addTravellers(booking, travellers);
         departure.takeSeats(seats);
         departures.save(departure);
         bookings.saveAndFlush(booking);
         return booking;
+    }
+
+    private static Touch lastTouch(AcquisitionRequest req) {
+        return req == null ? null : Touch.from(req.lastOrFirst(), req.device());
     }
 
     private static void addTravellers(Booking booking, List<TravellerRequest> travellers) {

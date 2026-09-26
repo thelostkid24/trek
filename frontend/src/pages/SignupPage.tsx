@@ -1,5 +1,6 @@
-import { useState, type FormEvent } from 'react'
+import { useState, type FormEvent, type ReactNode } from 'react'
 import { Link, Navigate } from 'react-router-dom'
+import type { SignupChoices } from '../analytics/attribution.ts'
 import { googleSignIn, signup } from '../api/auth.ts'
 import { fieldErrors, messageFor } from '../auth/errorMessages.ts'
 import { useAuth } from '../auth/useAuth.ts'
@@ -9,6 +10,7 @@ import { AuthCard, FormError, SubmitButton } from '../components/auth/AuthCard.t
 import { GoogleSignInButton } from '../components/auth/GoogleSignInButton.tsx'
 import { MethodTabs, type AuthMethodTab } from '../components/auth/MethodTabs.tsx'
 import { PhoneOtpForm } from '../components/auth/PhoneOtpForm.tsx'
+import { SignupChoicesFields } from '../components/auth/SignupChoicesFields.tsx'
 import { TextField } from '../components/auth/TextField.tsx'
 
 export function SignupPage() {
@@ -17,13 +19,15 @@ export function SignupPage() {
   const complete = useCompleteSignIn()
   const [tab, setTab] = useState<AuthMethodTab>('email')
   const [googleError, setGoogleError] = useState('')
+  // Shared by all three methods, so switching tabs keeps the answers.
+  const [choices, setChoices] = useState<SignupChoices>({})
 
   if (auth.status === 'authenticated') return <Navigate to={target} replace />
 
   async function onGoogle(idToken: string) {
     setGoogleError('')
     try {
-      complete(await googleSignIn(idToken))
+      complete(await googleSignIn(idToken, choices))
     } catch (err) {
       setGoogleError(messageFor(err))
     }
@@ -46,13 +50,22 @@ export function SignupPage() {
         <GoogleSignInButton onCredential={(token) => void onGoogle(token)} />
         <FormError>{googleError}</FormError>
         <MethodTabs value={tab} onChange={setTab} />
-        {tab === 'email' ? <EmailSignupForm /> : <PhoneOtpForm onSuccess={complete} askName />}
+        {tab === 'email' ? (
+          <EmailSignupForm choices={choices} extraFields={<SignupChoicesFields value={choices} onChange={setChoices} />} />
+        ) : (
+          <PhoneOtpForm
+            onSuccess={complete}
+            askName
+            choices={choices}
+            extraFields={<SignupChoicesFields value={choices} onChange={setChoices} />}
+          />
+        )}
       </div>
     </AuthCard>
   )
 }
 
-function EmailSignupForm() {
+function EmailSignupForm({ choices, extraFields }: { choices: SignupChoices; extraFields: ReactNode }) {
   const complete = useCompleteSignIn()
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
@@ -78,7 +91,7 @@ function EmailSignupForm() {
 
     setPending(true)
     try {
-      complete(await signup({ full_name: fullName.trim(), email: email.trim(), password }))
+      complete(await signup({ full_name: fullName.trim(), email: email.trim(), password }, choices))
     } catch (err) {
       setError(messageFor(err))
       setFields(fieldErrors(err))
@@ -121,6 +134,7 @@ function EmailSignupForm() {
         error={fields.password}
         hint="At least 8 characters, with a letter and a digit."
       />
+      {extraFields}
       <FormError>{error}</FormError>
       <SubmitButton pending={pending}>Create account</SubmitButton>
     </form>

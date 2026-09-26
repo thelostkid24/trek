@@ -1,3 +1,4 @@
+import { acquisition, type SignupChoices } from '../analytics/attribution.ts'
 import type { AuthResponse } from './auth'
 import type { DepartureStatus, GuideBrief, Items, RefundTier, TrackBrief } from './catalog'
 import { apiFetch } from './client'
@@ -107,12 +108,17 @@ export type CancellationQuote = {
   refund_paise: number
 }
 
+// Both carry where the visitor came from (docs/TRD.md §7.15); the booking keeps the latest visit.
 export const createBooking = (token: string, body: NewBooking) =>
-  apiFetch<Booking>('/api/trekker/bookings', { method: 'POST', token, body })
+  apiFetch<Booking>('/api/trekker/bookings', { method: 'POST', token, body: { ...body, acquisition: acquisition() } })
 
 /** Public. Signs the guest in (refresh cookie + `auth`); never call it while signed in. */
-export const createGuestBooking = (body: NewGuestBooking) =>
-  apiFetch<GuestBookingResult>('/api/public/bookings', { method: 'POST', body, credentials: 'include' })
+export const createGuestBooking = (body: NewGuestBooking, choices?: SignupChoices) =>
+  apiFetch<GuestBookingResult>('/api/public/bookings', {
+    method: 'POST',
+    body: { ...body, acquisition: acquisition(choices) },
+    credentials: 'include',
+  })
 
 export const updateTravellers = (token: string, id: string, travellers: TravellerInput[]) =>
   apiFetch<Booking>(`/api/trekker/bookings/${id}/travellers`, { method: 'PUT', token, body: { travellers } })

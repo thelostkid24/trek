@@ -239,14 +239,24 @@ export function PrivacyPage() {
             weight and trekking experience.
           </li>
           <li>Payments: status and method from Razorpay. Card numbers never reach us.</li>
+          <li>
+            How you found us: the campaign tags and ad click ids in the link you arrived by, the website that sent you,
+            the first page you saw, when, and whether you were on a phone, tablet or computer. If you choose to tell us,
+            how you heard about us. We keep this with your account and your bookings, and remember it in your browser
+            until you sign up or book.
+          </li>
+          <li>Your choices about trek offers by email or WhatsApp, and when you made them.</li>
+          <li>When you last used your account.</li>
           <li>Technical: IP address and request logs, kept for security and abuse prevention.</li>
         </ul>
       </Section>
       <Section title="Why we use it">
         <p>
           To run your booking, keep you safe on the trail (your guide sees the safety details for their departure), process
-          payments and refunds, contact you about your trip, and meet legal and tax obligations. We don’t sell your data or
-          use it for third-party advertising.
+          payments and refunds, contact you about your trip, and meet legal and tax obligations. We use how you found us,
+          in totals only, to learn which channels bring trekkers and where our booking steps lose people. We send trek
+          offers only if you tick the box for that channel. Your safety details are never used for marketing or analysis.
+          We don’t sell your data or use it for third-party advertising.
         </p>
       </Section>
       <Section title="Who we share it with">
@@ -263,7 +273,8 @@ export function PrivacyPage() {
       </Section>
       <Section title="Your rights">
         <p>
-          You can see and correct most of your data on your profile. You can also ask us for a summary of your data, to
+          You can see and correct most of your data on your profile, and switch trek offers on or off there at any time.
+          You can also ask us for a summary of your data, to
           correct or erase it, or to withdraw consent, by writing to our grievance officer. We reply within 30 days. If
           you’re not satisfied, you may complain to the Data Protection Board of India.
         </p>

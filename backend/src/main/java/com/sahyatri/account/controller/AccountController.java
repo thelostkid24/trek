@@ -2,10 +2,12 @@ package com.sahyatri.account.controller;
 
 import com.sahyatri.account.dto.EmailChangeRequest;
 import com.sahyatri.account.dto.EmailChangeResponse;
+import com.sahyatri.account.dto.MarketingConsentRequest;
 import com.sahyatri.account.dto.PasswordChangeRequest;
 import com.sahyatri.account.dto.PhoneVerifyRequest;
 import com.sahyatri.account.service.AvatarService;
 import com.sahyatri.account.service.EmailChangeService;
+import com.sahyatri.account.service.MarketingConsentService;
 import com.sahyatri.account.service.PasswordService;
 import com.sahyatri.account.service.PhoneChangeService;
 import com.sahyatri.auth.dto.AuthResponse;
@@ -22,6 +24,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -41,14 +44,16 @@ public class AccountController {
     private final EmailChangeService email;
     private final PhoneChangeService phone;
     private final PasswordService password;
+    private final MarketingConsentService consent;
     private final RefreshCookie cookie;
 
     public AccountController(AvatarService avatars, EmailChangeService email, PhoneChangeService phone,
-                             PasswordService password, RefreshCookie cookie) {
+                             PasswordService password, MarketingConsentService consent, RefreshCookie cookie) {
         this.avatars = avatars;
         this.email = email;
         this.phone = phone;
         this.password = password;
+        this.consent = consent;
         this.cookie = cookie;
     }
 
@@ -86,6 +91,12 @@ public class AccountController {
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, cookie.set(session.refreshToken()))
                 .body(session.body());
+    }
+
+    @PatchMapping("/marketing-consent")
+    public UserResponse updateMarketingConsent(@AuthenticationPrincipal Jwt jwt,
+                                               @RequestBody MarketingConsentRequest req) {
+        return consent.update(userId(jwt), req);
     }
 
     private static UUID userId(Jwt jwt) {

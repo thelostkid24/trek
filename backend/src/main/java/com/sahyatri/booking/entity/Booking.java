@@ -1,9 +1,12 @@
 package com.sahyatri.booking.entity;
 
 import com.sahyatri.catalog.entity.Departure;
+import com.sahyatri.common.acquisition.Touch;
+import jakarta.persistence.AttributeOverride;
 import com.sahyatri.profile.entity.Gender;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
+import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -69,6 +72,11 @@ public class Booking {
 
     private Instant cancelledAt;
 
+    /** Last touch (§6.11): the visit that led to this booking. */
+    @Embedded
+    @AttributeOverride(name = "seenAt", column = @Column(name = "touch_seen_at", updatable = false))
+    private Touch lastTouch;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -99,6 +107,15 @@ public class Booking {
         booking.createdAt = Instant.now();
         booking.updatedAt = booking.createdAt;
         return booking;
+    }
+
+    /** Set at hold time only. */
+    public void setLastTouch(Touch lastTouch) {
+        this.lastTouch = lastTouch;
+    }
+
+    public Touch getLastTouch() {
+        return lastTouch;
     }
 
     @PreUpdate
