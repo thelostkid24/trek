@@ -202,13 +202,30 @@ export function TermsPage() {
       <Section title="Accounts">
         <p>
           Keep your sign-in details to yourself. You’re responsible for bookings made from your account. We may suspend
-          accounts used for fraud or abuse.
+          accounts used for fraud or abuse. How we handle your data, including when you sign in with Google, is in our{' '}
+          <Link to={SITE_LINKS.privacy} className={linkClass}>
+            privacy policy
+          </Link>
+          .
+        </p>
+      </Section>
+      <Section title="Reviews">
+        <p>
+          After a trek you can rate your guide and write a review. Reviews are shown publicly with your first name, and you
+          can edit yours later. Keep them honest and about the trek. We may remove reviews that are abusive, share other
+          people’s personal details, or have nothing to do with the trek.
         </p>
       </Section>
       <Section title="Liability">
         <p>
           To the extent the law allows, our liability for any booking is limited to the amount you paid for it. Nothing
           in these terms limits rights you have under Indian consumer law.
+        </p>
+      </Section>
+      <Section title="Changes to these terms">
+        <p>
+          We may update these terms and will change the date at the top when we do. Changes never apply to a booking you’ve
+          already paid for.
         </p>
       </Section>
       <Section title="Law and disputes">
@@ -232,7 +249,9 @@ export function PrivacyPage() {
     >
       <Section title="What we collect">
         <ul className="list-disc space-y-2 pl-5">
-          <li>Account: name, email, mobile number, password (stored only as a hash), or your Google sign-in.</li>
+          <li>
+            Account: name, email, mobile number, password (stored only as a hash), and a profile photo if you upload one.
+          </li>
           <li>Bookings: contact details and, for each traveller, name, date of birth, gender and optionally a phone number.</li>
           <li>
             Trek safety (only if you provide it): emergency contact, blood group, medical notes, allergies, diet, height,
@@ -247,8 +266,30 @@ export function PrivacyPage() {
           </li>
           <li>Your choices about trek offers by email or WhatsApp, and when you made them.</li>
           <li>When you last used your account.</li>
+          <li>Reviews you write after a trek, shown publicly with your first name.</li>
           <li>Technical: IP address and request logs, kept for security and abuse prevention.</li>
         </ul>
+      </Section>
+      <Section title="Signing in with Google">
+        <p>
+          If you choose “Sign in with Google”, Google sends us your name, email address, whether Google has verified that
+          email, and your Google account id. We ask for nothing else: no contacts, calendar, files or
+          other Google data, and we never see your Google password.
+        </p>
+        <p>
+          We use this only to create your account or sign you in, and to link Google to an existing account with the same
+          verified email. It is not shared with anyone, not used for advertising, and deleted along with your account. You
+          can remove our access at any time from your Google Account’s security settings; your account here stays, and you
+          can sign in another way.
+        </p>
+      </Section>
+      <Section title="Cookies and browser storage">
+        <p>
+          We set one cookie, which keeps you signed in. It is only sent to our own servers and can’t be read by page
+          scripts. Your browser also remembers your light or dark theme, and the link you first arrived by until you sign up
+          or book. We don’t use advertising or third-party tracking cookies. Our pages load fonts from Google Fonts, which
+          sees your IP address when your browser fetches them.
+        </p>
       </Section>
       <Section title="Why we use it">
         <p>
@@ -262,14 +303,18 @@ export function PrivacyPage() {
       <Section title="Who we share it with">
         <p>
           Your trek’s guide; Razorpay (payments); Amazon Web Services in Mumbai (hosting, storage and email); our SMS provider
-          (sign-in codes); and authorities where the law requires it. Your data is stored in India.
+          (sign-in codes); Google (only if you sign in with Google); and authorities where the law requires it. Your data
+          is stored in India.
         </p>
       </Section>
       <Section title="How long we keep it">
         <p>
           Account data is kept while your account is open. Booking and payment records are kept for 8 years for tax and
-          accounting. Medical notes are kept only until you delete them or close your account.
+          accounting. Medical notes are kept only until you delete them or ask us to close your account.
         </p>
+      </Section>
+      <Section title="Children">
+        <p>Our treks and accounts are for people 18 and older. We don’t knowingly collect data about children.</p>
       </Section>
       <Section title="Your rights">
         <p>
@@ -286,6 +331,12 @@ export function PrivacyPage() {
             {BUSINESS.grievanceEmail}
           </a>
           , {BUSINESS.address}.
+        </p>
+      </Section>
+      <Section title="Changes to this policy">
+        <p>
+          When we change this policy we update the date at the top. If a change affects how we use data you’ve already given
+          us, we’ll tell you by email before it applies.
         </p>
       </Section>
     </InfoPage>

@@ -821,6 +821,7 @@ Payments: §7.4 endpoints, with the changes listed there. Checkout `prefill` com
 - "Lead a trek" is a footer link only. It opens the external guide sign-up form (Tally, `SITE_LINKS.leadATrek`) in a new tab. The `/lead-a-trek` placeholder page is gone.
 - Header, once signed in: the avatar opens a profile menu. Trekkers see "My profile" and "Sign out"; other roles see only "Sign out". The other account pages are reached from the account sidebar. Admins keep the "Admin" link beside it. There's no separate "My treks" or "Sign out" in the bar.
 - Business details live in `lib/business.ts`. **It holds placeholders that must be filled in before launch.**
+- The privacy policy has a "Signing in with Google" section (which Google data we receive and how it's used) and a "Cookies and browser storage" section. Google's OAuth consent screen links to `/privacy` and `/terms`, and the app can't be published there without them.
 - New error copy for `RATE_LIMITED` and `SMS_UNAVAILABLE`.
 
 **CI/CD:**

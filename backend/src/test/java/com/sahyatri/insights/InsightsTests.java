@@ -44,7 +44,9 @@ class InsightsTests extends AuthTestSupport {
 
     @Test
     void countsAccountsBookingsSourcesAndTheFunnel() throws Exception {
-        UUID departure = publishedDeparture();
+        // The treks list is the top 10 by gross and upcoming is the first 30 by date, over a database other test
+        // classes also fill. The top price and an early start keep this departure in both, whatever ran first.
+        UUID departure = publishedDeparture(today().plusDays(2), 10_000_000, 6);
         UUID guide = jdbc.queryForObject("SELECT guide_id FROM departures WHERE id = ?", UUID.class, departure);
         UUID track = jdbc.queryForObject("SELECT track_id FROM departures WHERE id = ?", UUID.class, departure);
         String admin = adminToken();
@@ -76,7 +78,7 @@ class InsightsTests extends AuthTestSupport {
         assertThat(num(after, "$.headline.bookings_held") - num(before, "$.headline.bookings_held")).isEqualTo(1);
         assertThat(num(after, "$.headline.bookings_confirmed") - num(before, "$.headline.bookings_confirmed"))
                 .isEqualTo(1);
-        assertThat(num(after, "$.headline.gross_paise") - num(before, "$.headline.gross_paise")).isEqualTo(439_800);
+        assertThat(num(after, "$.headline.gross_paise") - num(before, "$.headline.gross_paise")).isEqualTo(20_000_000);
 
         List<Object> daily = after.read("$.daily");
         assertThat(daily).hasSize(31);
@@ -91,7 +93,7 @@ class InsightsTests extends AuthTestSupport {
         assertThat(rowValue(after, "sources", "source", signupSource, "confirmed_bookings")).isZero();
         assertThat(rowValue(after, "sources", "source", bookingSource, "accounts")).isZero();
         assertThat(rowValue(after, "sources", "source", bookingSource, "confirmed_bookings")).isEqualTo(1);
-        assertThat(rowValue(after, "sources", "source", bookingSource, "gross_paise")).isEqualTo(439_800);
+        assertThat(rowValue(after, "sources", "source", bookingSource, "gross_paise")).isEqualTo(20_000_000);
         assertThat(rowValue(after, "campaigns", "source", campaign, "accounts")).isEqualTo(1);
         assertThat(rowValue(after, "campaigns", "source", campaign, "confirmed_bookings")).isEqualTo(1);
 
