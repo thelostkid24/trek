@@ -1,5 +1,6 @@
 # Build: docker build -t sahyatri-backend backend/
-FROM eclipse-temurin:21-jdk AS build
+# The build stage runs on the builder's own CPU (the jar is portable); only the runtime stage follows --platform.
+FROM --platform=$BUILDPLATFORM eclipse-temurin:21-jdk AS build
 WORKDIR /src
 COPY .mvn .mvn
 COPY mvnw pom.xml ./
