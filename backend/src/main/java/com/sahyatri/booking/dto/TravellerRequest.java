@@ -9,11 +9,18 @@ import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
 
-/** Age (18–100 on the start date) is checked in the service. */
+/**
+ * Age (18–100 on the start date) is checked in the service. Add-ons are per traveller: {@code insurance} takes ours,
+ * {@code insuranceId} is their own policy instead (one or the other); left out = not taken.
+ */
 public record TravellerRequest(
         @NotBlank @Size(max = 100) String fullName,
         @Pattern(regexp = ValidationPatterns.INDIAN_MOBILE, message = ValidationPatterns.INDIAN_MOBILE_MESSAGE)
         String phone,
         @NotNull LocalDate dateOfBirth,
-        @NotNull Gender gender) {
+        @NotNull Gender gender,
+        Boolean insurance,
+        @Size(max = 60) String insuranceId,
+        Boolean offloading,
+        Boolean transport) {
 }

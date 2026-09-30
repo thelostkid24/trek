@@ -14,7 +14,7 @@ const NAV = [
 const joinedFormat = new Intl.DateTimeFormat('en-IN', { month: 'long', year: 'numeric' })
 
 /**
- * Trekker account area: the trekker's name over pill tabs, then the account page, on the landing page's paper.
+ * Trekker account area: the trekker's name with left-aligned pill tabs beneath, then the account page, on the landing page's paper.
  * Rendered inside <RequireAuth role="TREKKER">. The `account-area` class restyles form fields (index.css).
  */
 export function AccountLayout() {
@@ -26,7 +26,7 @@ export function AccountLayout() {
   return (
     <div className="account-area min-h-[calc(100dvh-4rem)] bg-paper-50 text-ink-900">
       <div className="mx-auto max-w-[90rem] px-5 pt-10 sm:px-10 sm:pt-14">
-        <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex flex-col gap-6">
           <div className="flex items-center gap-4">
             <Avatar url={user.avatar_url} name={name} size="md" className="ring-paper-50!" />
             <div className="min-w-0">

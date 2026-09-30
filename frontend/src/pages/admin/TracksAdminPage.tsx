@@ -64,6 +64,8 @@ const EMPTY: TrackFields = {
   cloakroom: null,
   offloading: null,
   offloading_price_paise: null,
+  insurance_price_paise: null,
+  transport_price_paise: null,
 }
 
 const EMPTY_DAY: DayDraft = {
@@ -221,6 +223,8 @@ function TrackForm({ track, onDone }: { track: Track | null; onDone: () => void 
     camp: ftText(track?.highest_camp_m ?? null),
   }))
   const [price, setPrice] = useState(() => (track?.offloading_price_paise ? String(track.offloading_price_paise / 100) : ''))
+  const [insurance, setInsurance] = useState(() => (track?.insurance_price_paise ? String(track.insurance_price_paise / 100) : ''))
+  const [transport, setTransport] = useState(() => (track?.transport_price_paise ? String(track.transport_price_paise / 100) : ''))
   // One entry per day; kept apart from `form` so changing the duration doesn't lose what's typed.
   const [days, setDays] = useState<DayDraft[]>(() =>
     (track?.itinerary ?? []).map((d) => ({
@@ -277,6 +281,8 @@ function TrackForm({ track, onDone }: { track: Track | null; onDone: () => void 
       base_altitude_m: metresOrNull(alt.base, track?.base_altitude_m),
       highest_camp_m: metresOrNull(alt.camp, track?.highest_camp_m),
       offloading_price_paise: form.offloading && price.trim() !== '' ? Math.round(Number(price) * 100) : null,
+      insurance_price_paise: insurance.trim() !== '' ? Math.round(Number(insurance) * 100) : null,
+      transport_price_paise: transport.trim() !== '' ? Math.round(Number(transport) * 100) : null,
       itinerary,
     })
   }
@@ -328,7 +334,13 @@ function TrackForm({ track, onDone }: { track: Track | null; onDone: () => void 
             onChange={(e) => set('offloading', textBool(e.target.value))} options={YES_NO} />
           <TextField label="Offloading price" name="offloading_price" type="number" min={1} step={1} prefix="₹"
             disabled={!form.offloading} value={price} onChange={(e) => setPrice(e.target.value)}
-            error={errors.offloading_price_paise} hint="Leave blank until it's fixed; the page says “Available · paid”." />
+            error={errors.offloading_price_paise} hint="Per seat. Leave blank until it's fixed; the page says “Available · paid”." />
+          <TextField label="Insurance price" name="insurance_price" type="number" min={1} step={1} prefix="₹"
+            value={insurance} onChange={(e) => setInsurance(e.target.value)} error={errors.insurance_price_paise}
+            hint="Per seat, added at checkout. Leave blank to not offer it." />
+          <TextField label="Transport price" name="transport_price" type="number" min={1} step={1} prefix="₹"
+            value={transport} onChange={(e) => setTransport(e.target.value)} error={errors.transport_price_paise}
+            hint="Per seat, to and from the road head. Leave blank to not offer it." />
         </fieldset>
 
         <div className="sm:col-span-2">

@@ -1,13 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
 import { snowReportApi, type SnowReportInput } from '../../api/admin.ts'
-import type { SnowReport } from '../../api/catalog.ts'
+import { SNOWFALL_LABEL, type SnowReport, type Snowfall } from '../../api/catalog.ts'
 import { fieldErrors } from '../../auth/errorMessages.ts'
 import { useAuth } from '../../auth/useAuth.ts'
 import { dayLabel, feet, todayIst, toFeet, toMetres } from '../../lib/format.ts'
 import { shrinkPhoto } from '../../lib/photos.ts'
 import { TextField } from '../auth/TextField.tsx'
-import { TextAreaField } from '../profile/fields.tsx'
+import { SelectField, TextAreaField } from '../profile/fields.tsx'
 import { Button, ErrorNote, Loading, Panel } from './AdminUi.tsx'
 
 type Form = {
@@ -15,6 +15,7 @@ type Form = {
   reported_from: string
   snowline_ft: string
   night_temp_c: string
+  snowfall: Snowfall | ''
   conditions: { label: string; value: string }[]
   crowd_place: string
   crowd_tents: string
@@ -28,6 +29,7 @@ function blankForm(last: SnowReport | undefined, place: string): Form {
     reported_from: last?.reported_from ?? place,
     snowline_ft: '',
     night_temp_c: '',
+    snowfall: '',
     conditions: last?.conditions.map((c) => ({ label: c.label, value: '' })) ?? [
       { label: '', value: '' },
       { label: '', value: '' },
@@ -75,6 +77,7 @@ export function SnowReports({ area, trackId, place }: { area: 'admin' | 'guide';
                   </p>
                   <p className="text-stone-600">
                     {[
+                      r.snowfall && SNOWFALL_LABEL[r.snowfall],
                       r.snowline_m !== null && `snowline ${feet(r.snowline_m)}`,
                       r.night_temp_c !== null && `${r.night_temp_c} °C at night`,
                       ...r.conditions.map((c) => `${c.label}: ${c.value}`),
@@ -122,6 +125,7 @@ function NewReport({
         reported_from: form.reported_from,
         snowline_m: form.snowline_ft.trim() === '' ? null : toMetres(Number(form.snowline_ft)),
         night_temp_c: numberOrNull(form.night_temp_c),
+        snowfall: form.snowfall || null,
         conditions: form.conditions.filter((c) => c.label.trim() || c.value.trim()),
         crowd_place: form.crowd_place.trim() || null,
         crowd_tents: numberOrNull(form.crowd_tents),
@@ -155,6 +159,18 @@ function NewReport({
           onChange={(e) => set('reported_on', e.target.value)} error={errors.reported_on} />
         <TextField label="Reported from" name="reported_from" required maxLength={60} value={form.reported_from}
           onChange={(e) => set('reported_from', e.target.value)} error={errors.reported_from} hint="Shown as “Snow report from …”" />
+        <div className="sm:col-span-2">
+          <SelectField
+            label="Has snow fallen on the trek?"
+            name="snowfall"
+            placeholder="Not checked this week"
+            options={(Object.keys(SNOWFALL_LABEL) as Snowfall[]).map((k) => ({ value: k, label: SNOWFALL_LABEL[k] }))}
+            value={form.snowfall}
+            onChange={(e) => set('snowfall', e.target.value as Snowfall | '')}
+            error={errors.snowfall}
+            hint="Shown big on the trek page: it's what trekkers search for most."
+          />
+        </div>
         <TextField label="Snowline altitude" name="snowline_ft" type="number" min={100} max={29000} suffix="ft"
           value={form.snowline_ft} onChange={(e) => set('snowline_ft', e.target.value)} error={errors.snowline_m}
           hint={last?.snowline_m ? `Last week: ${toFeet(last.snowline_m).toLocaleString('en-IN')} ft` : undefined} />

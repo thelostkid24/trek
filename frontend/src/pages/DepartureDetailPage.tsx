@@ -1,20 +1,18 @@
 import { useQuery } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { getDeparture, trekQueryOptions, type DepartureDetail, type TrekPage } from '../api/catalog.ts'
+import { getDeparture, getGuide, trekQueryOptions, type DepartureDetail, type TrekPage } from '../api/catalog.ts'
 import { ApiError } from '../api/client.ts'
 import { messageFor } from '../auth/errorMessages.ts'
-import { DayByDay } from '../components/catalog/DayByDay.tsx'
 import { FillBar } from '../components/catalog/DeparturePieces.tsx'
-import { GuideProfileCard } from '../components/catalog/GuideProfileCard.tsx'
-import { OtherDepartures } from '../components/catalog/OtherDepartures.tsx'
-import { Cancellation, FactGrid, Inclusions, TrekSection } from '../components/catalog/TrekSections.tsx'
+import { CredentialList, GuideProfileCard, ReviewList } from '../components/catalog/GuideProfileCard.tsx'
+import { SectionLabel } from '../components/catalog/TrekSections.tsx'
 import { Ridgeline } from '../components/Ridgeline.tsx'
 import { rupees, shortRange, weekdaysAndYear } from '../lib/format.ts'
 
 /**
- * /departures/:id — public. One dated run: how full it is, who leads it (above the Book button), the full price
- * and what it doesn't cover, the days with their dates, and the refund dates. Lists come from the trek page.
+ * /departures/:id — public. One dated run: who leads it (above the Book button), their certificates and what
+ * trekkers say about them, and the full price. The charity line comes from the trek page.
  */
 export function DepartureDetailPage() {
   const { id = '' } = useParams()
@@ -84,7 +82,7 @@ function Detail({ departure: d }: { departure: DepartureDetail }) {
             {track.duration_days === 1 ? 'day' : 'days'} · with {guideName}
           </p>
           <div className="mt-5 max-w-xl">
-            <FillBar size={d.max_group_size} left={d.seats_left} bookable={d.bookable} />
+            <FillBar left={d.seats_left} />
           </div>
         </header>
 
@@ -93,43 +91,54 @@ function Detail({ departure: d }: { departure: DepartureDetail }) {
         </aside>
 
         <div className="min-w-0 space-y-8 lg:col-start-1">
-          <GuideProfileCard guide={guide} trekName={track.name} />
+          <GuideProfileCard guide={guide} trekName={track.name} departureId={d.id} />
 
           {/* Phones: the full price and Book right under the guide; the bar at the bottom keeps Book in reach. */}
           <div className="lg:hidden">
             <PriceCard departure={d} extras={extras} />
           </div>
 
-          {extras && extras.content.INCLUDED.length + extras.content.NOT_INCLUDED.length > 0 && (
-            <TrekSection id="included" label="What the price covers">
-              <Inclusions included={extras.content.INCLUDED} excluded={extras.content.NOT_INCLUDED} open />
-            </TrekSection>
-          )}
-          <TrekSection id="facts" label="The trek">
-            <FactGrid track={track} />
-          </TrekSection>
-          <DayByDay id="days" days={track.itinerary} startDate={d.start_date} />
-          {extras && extras.refund_tiers.length > 0 && (
-            <TrekSection id="cancellation" label="If your plans change">
-              <Cancellation tiers={extras.refund_tiers} startDate={d.start_date} />
-            </TrekSection>
-          )}
-          <OtherDepartures current={d} title={`Other ${track.name} dates`} />
+          <CredentialList guide={guide} />
+          <GuideReviews departure={d} />
         </div>
       </div>
 
       {d.bookable && (
         <div className="fixed inset-x-0 bottom-0 z-20 flex items-center justify-between gap-4 border-t border-paper-300 bg-paper-50/95 px-4 py-3 backdrop-blur lg:hidden">
-          <div>
-            <p className="font-semibold text-stone-900">{rupees(d.price_paise)} <span className="text-sm font-normal text-stone-500">per person</span></p>
-            <p className="text-xs text-stone-600">{d.seats_left} of {d.max_group_size} seats open</p>
-          </div>
+          <p className="font-semibold text-stone-900">{rupees(d.price_paise)} <span className="text-sm font-normal text-stone-500">per person</span></p>
           <Link to={`/book/${d.id}`} className="rounded-full bg-brand-900 px-5 py-3 font-semibold text-white hover:bg-brand-800">
             Book these dates
           </Link>
         </div>
       )}
     </div>
+  )
+}
+
+/** A few of the guide's latest reviews, then the rest on their page. */
+function GuideReviews({ departure: d }: { departure: DepartureDetail }) {
+  const profile = useQuery({ queryKey: ['public-guide', d.guide.id], queryFn: () => getGuide(d.guide.id) })
+  const first = (d.guide.full_name ?? 'your guide').split(' ')[0]
+  const reviews = profile.data?.reviews ?? []
+  const count = d.guide.review_count
+  return (
+    <section>
+      <SectionLabel aside={count > 0 ? `${count} ${count === 1 ? 'review' : 'reviews'}` : undefined}>What trekkers say</SectionLabel>
+      {profile.isPending ? (
+        <div className="mt-3 h-28 animate-pulse rounded-xl bg-paper-200" aria-busy="true" aria-label="Loading reviews" />
+      ) : reviews.length === 0 ? (
+        <p className="mt-3 text-sm text-stone-600">Reviews appear here after {first}'s treks are completed.</p>
+      ) : (
+        <>
+          <ReviewList reviews={reviews.slice(0, 4)} />
+          {reviews.length > 4 && (
+            <Link to={`/guides/${d.guide.id}?departure=${d.id}`} viewTransition className="mt-3 inline-block text-sm font-semibold text-brand-800 hover:text-brand-900">
+              All {count} reviews on {first}'s page →
+            </Link>
+          )}
+        </>
+      )}
+    </section>
   )
 }
 
@@ -144,8 +153,7 @@ function PriceCard({ departure: d, extras }: { departure: DepartureDetail; extra
         <span className="text-stone-500"> per person</span>
       </p>
       <p className="mt-1 text-sm text-stone-600">
-        {track.pickup_drop ? `${track.pickup_drop}, with everything` : 'Everything'} in “What the price covers”. Nothing is
-        added at checkout.
+        {track.pickup_drop && `${track.pickup_drop}. `}Nothing is added at checkout.
       </p>
       <ul className="mt-4 space-y-2 border-t border-paper-200 pt-4 text-sm text-stone-700">
         {track.offloading && (

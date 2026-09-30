@@ -14,6 +14,8 @@ public record BookingResponse(
         int seats,
         long pricePaisePerSeat,
         long amountPaise,
+        // What the amount is beyond the trek fee (price per seat × seats).
+        BookingAddons addons,
         BookingContact contact,
         // False until every seat has a named traveller; they can be added after payment.
         boolean travellersComplete,

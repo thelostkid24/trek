@@ -4,7 +4,7 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import type { SignupChoices } from '../../analytics/attribution.ts'
 import { googleSignIn, type User } from '../../api/auth.ts'
 import { createBooking, createGuestBooking, listBookings, type Booking } from '../../api/bookings.ts'
-import { getDeparture, type DepartureDetail } from '../../api/catalog.ts'
+import { getDeparture, trekQueryOptions, type DepartureDetail } from '../../api/catalog.ts'
 import { ApiError } from '../../api/client.ts'
 import { fieldErrors, messageFor } from '../../auth/errorMessages.ts'
 import { useAuth } from '../../auth/useAuth.ts'
@@ -16,6 +16,7 @@ import { TextField } from '../../components/auth/TextField.tsx'
 import { DifficultyPill, SeatMeter } from '../../components/catalog/DeparturePieces.tsx'
 import { OtherDepartures } from '../../components/catalog/OtherDepartures.tsx'
 import { GuideLine } from '../../components/catalog/TrekPieces.tsx'
+import { addonsOffered } from '../../lib/addons.ts'
 import { dateRange, rupees } from '../../lib/format.ts'
 
 /** The three checkout fields. `digits` is the 10-digit WhatsApp number without +91. */
@@ -214,7 +215,10 @@ function Checkout({ departure, user }: { departure: DepartureDetail; user: User 
   }
 
   const seatOptions = Array.from({ length: Math.min(departure.seats_left, knownLeft) }, (_, i) => i + 1)
-  const total = departure.price_paise * seats
+  const fee = departure.price_paise * seats
+  const total = fee
+  // Add-ons (insurance compulsory where offered) are picked per traveller once the seats are held.
+  const hasAddons = addonsOffered(departure.track).length > 0
   const busy = book.isPending
   const guide = departure.guide
 
@@ -236,7 +240,7 @@ function Checkout({ departure, user }: { departure: DepartureDetail; user: User 
               <GuideLine guide={guide} trekName={departure.track.name} />
             </div>
             <div className="mt-4">
-              <SeatMeter size={departure.max_group_size} left={departure.seats_left} />
+              <SeatMeter left={departure.seats_left} />
             </div>
 
             <fieldset className="mt-5">
@@ -348,7 +352,7 @@ function Checkout({ departure, user }: { departure: DepartureDetail; user: User 
 
           {/* On phones the summary sits below, so the button lives with the form. */}
           <div className="lg:hidden">
-            <HoldButton formId={formId} seats={seats} total={total} pending={busy} disabled={knownLeft === 0} />
+            <HoldButton formId={formId} seats={seats} total={total} addonsNext={hasAddons} pending={busy} disabled={knownLeft === 0} />
           </div>
         </form>
 
@@ -359,13 +363,20 @@ function Checkout({ departure, user }: { departure: DepartureDetail; user: User 
               <dt className="text-stone-600">
                 Trek fee · {seats} × {rupees(departure.price_paise)}
               </dt>
-              <dd className="font-medium">{rupees(total)}</dd>
+              <dd className="font-medium">{rupees(fee)}</dd>
             </div>
             <div className="flex items-baseline justify-between gap-3 border-t border-stone-100 pt-2">
               <dt className="font-semibold text-stone-900">Total</dt>
               <dd className="text-2xl font-semibold">{rupees(total)}</dd>
             </div>
           </dl>
+          {hasAddons && (
+            <p className="mt-3 rounded-lg bg-paper-100 px-3 py-2 text-xs text-stone-700">
+              Next, for each traveller: trek insurance (required — ours, or your own policy ID), bag offloading and
+              transport. The total updates as you choose.
+            </p>
+          )}
+          <CharityShare slug={departure.track.slug} fee={fee} />
           <ul className="mt-4 space-y-1.5 text-xs text-stone-600">
             <li>✓ Seats are held for 10 minutes once you continue.</li>
             <li>✓ Pay by UPI, card or netbanking.</li>
@@ -373,10 +384,31 @@ function Checkout({ departure, user }: { departure: DepartureDetail; user: User 
             <li>✓ Full refund if weather, permits or safety stop the trek.</li>
           </ul>
           <div className="mt-5 hidden lg:block">
-            <HoldButton formId={formId} seats={seats} total={total} pending={busy} disabled={knownLeft === 0} />
+            <HoldButton formId={formId} seats={seats} total={total} addonsNext={hasAddons} pending={busy} disabled={knownLeft === 0} />
           </div>
         </aside>
       </div>
+    </div>
+  )
+}
+
+/**
+ * Where part of the money goes, set apart just before they pay. The share is of the trek fee only, never the
+ * add-ons: "₹104.50 of your ₹10,450 trek fee goes to …".
+ */
+function CharityShare({ slug, fee }: { slug: string; fee: number }) {
+  const trek = useQuery(trekQueryOptions(slug))
+  const charity = trek.data?.charity
+  if (!charity) return null
+  return (
+    <div className="mt-4 flex gap-3 rounded-xl bg-laterite-100 px-4 py-3 ring-1 ring-laterite-400/40">
+      <svg viewBox="0 0 24 24" className="mt-0.5 size-5 shrink-0 text-laterite-600" fill="currentColor" aria-hidden="true">
+        <path d="M12 20.5s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.7c0 5.6-7.5 10.2-7.5 10.2Z" />
+      </svg>
+      <p className="text-sm text-stone-800">
+        <span className="font-semibold text-laterite-600">{rupees(Math.round((fee * charity.bps) / 10_000))}</span> of your{' '}
+        {rupees(fee)} trek fee goes to <span className="font-semibold">{charity.name}</span> ({charity.bps / 100}%), from the price, not on top.
+      </p>
     </div>
   )
 }
@@ -386,12 +418,15 @@ function HoldButton({
   formId,
   seats,
   total,
+  addonsNext,
   pending,
   disabled,
 }: {
   formId: string
   seats: number
   total: number
+  /** Add-ons come on the next step, so the final amount isn't known yet. */
+  addonsNext: boolean
   pending: boolean
   disabled: boolean
 }) {
@@ -402,7 +437,11 @@ function HoldButton({
       disabled={pending || disabled}
       className="w-full rounded-full bg-laterite-500 px-6 py-3 font-medium text-white shadow-lg shadow-laterite-600/20 hover:bg-laterite-600 disabled:cursor-not-allowed disabled:opacity-50"
     >
-      {pending ? 'Holding your seats…' : `Hold ${seats === 1 ? 'seat' : `${seats} seats`} & pay ${rupees(total)}`}
+      {pending
+        ? 'Holding your seats…'
+        : addonsNext
+          ? `Hold ${seats === 1 ? 'seat' : `${seats} seats`} & continue`
+          : `Hold ${seats === 1 ? 'seat' : `${seats} seats`} & pay ${rupees(total)}`}
     </button>
   )
 }

@@ -39,11 +39,21 @@ public class BookingTraveller {
     @Column(nullable = false)
     private Gender gender;
 
+    /** Takes our insurance add-on. Otherwise {@code ownInsuranceId} says they have their own. */
+    private boolean takesInsurance;
+
+    /** Policy number of their own insurance, when they don't take ours. */
+    private String ownInsuranceId;
+
+    private boolean takesOffloading;
+
+    private boolean takesTransport;
+
     protected BookingTraveller() {
     }
 
     BookingTraveller(Booking booking, int position, String fullName, String phone, LocalDate dateOfBirth,
-                     Gender gender) {
+                     Gender gender, TravellerAddons addons) {
         this.id = UUID.randomUUID();
         this.booking = booking;
         this.position = position;
@@ -51,6 +61,10 @@ public class BookingTraveller {
         this.phone = phone;
         this.dateOfBirth = dateOfBirth;
         this.gender = gender;
+        this.takesInsurance = addons.insurance();
+        this.ownInsuranceId = addons.ownInsuranceId();
+        this.takesOffloading = addons.offloading();
+        this.takesTransport = addons.transport();
     }
 
     public int getPosition() {
@@ -71,5 +85,9 @@ public class BookingTraveller {
 
     public Gender getGender() {
         return gender;
+    }
+
+    public TravellerAddons getAddons() {
+        return new TravellerAddons(takesInsurance, ownInsuranceId, takesOffloading, takesTransport);
     }
 }

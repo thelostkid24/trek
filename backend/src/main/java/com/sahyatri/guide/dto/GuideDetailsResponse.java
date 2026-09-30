@@ -16,14 +16,19 @@ public record GuideDetailsResponse(
         String languages,
         String certification,
         String certificationNumber,
+        String bmcInstitute,
+        String bmcCertificateNumber,
+        String amcInstitute,
+        String amcCertificateNumber,
         String quote) {
 
     public static GuideDetailsResponse of(UUID guideId, GuideDetails d, LocalDate today) {
         if (d == null) {
-            return new GuideDetailsResponse(guideId, null, null, null, null, null, null);
+            return new GuideDetailsResponse(guideId, null, null, null, null, null, null, null, null, null, null);
         }
         Integer years = d.getLeadingSince() == null ? null : Math.max(0, today.getYear() - d.getLeadingSince());
         return new GuideDetailsResponse(guideId, d.getLeadingSince(), years, d.getLanguages(), d.getCertification(),
-                d.getCertificationNumber(), d.getQuote());
+                d.getCertificationNumber(), d.getBmcInstitute(), d.getBmcCertificateNumber(), d.getAmcInstitute(),
+                d.getAmcCertificateNumber(), d.getQuote());
     }
 }

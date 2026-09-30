@@ -23,7 +23,7 @@ export function DepartureCard({ departure: d }: { departure: DepartureSummary })
       </p>
 
       <div className="mt-5">
-        <SeatMeter size={d.max_group_size} left={d.seats_left} />
+        <SeatMeter left={d.seats_left} />
       </div>
 
       <div className="mt-5 flex items-end justify-between border-t border-stone-100 pt-4">

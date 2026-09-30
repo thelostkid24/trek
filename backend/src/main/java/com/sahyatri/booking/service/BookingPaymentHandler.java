@@ -46,6 +46,11 @@ public class BookingPaymentHandler implements CaptureHandler {
     @Override
     public void onCaptured(Departure departure, UUID bookingId, Payment payment) {
         Booking booking = bookings.findById(bookingId).orElseThrow();
+        if (payment.getAmountPaise() != booking.getAmountPaise()) {
+            // An order made before the add-ons changed: it can't pay for this booking.
+            refundAll(payment, "Payment was for an earlier amount of this booking");
+            return;
+        }
         switch (booking.getStatus()) {
             case HELD -> confirm(booking, false);
             case EXPIRED, RELEASED -> {

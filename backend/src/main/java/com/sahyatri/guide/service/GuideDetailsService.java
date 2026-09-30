@@ -46,7 +46,9 @@ public class GuideDetailsService {
         }
         GuideDetails d = details.findById(guideId).orElseGet(() -> new GuideDetails(guideId));
         d.update(req.leadingSince(), blankToNull(req.languages()), blankToNull(req.certification()),
-                blankToNull(req.certificationNumber()), blankToNull(req.quote()));
+                blankToNull(req.certificationNumber()), blankToNull(req.bmcInstitute()),
+                blankToNull(req.bmcCertificateNumber()), blankToNull(req.amcInstitute()),
+                blankToNull(req.amcCertificateNumber()), blankToNull(req.quote()));
         return GuideDetailsResponse.of(guideId, details.saveAndFlush(d), today());
     }
 

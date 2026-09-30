@@ -85,6 +85,7 @@ class TrekPageTests extends AuthTestSupport {
 
         mockMvc.perform(get("/api/public/departures/" + sooner))
                 .andExpect(jsonPath("$.guide.home_city").value("Sankri"))
+                .andExpect(jsonPath("$.guide.bio").value("Grew up under the ridge."))
                 .andExpect(jsonPath("$.guide.led_this_trek").value(1))
                 .andExpect(jsonPath("$.track.itinerary", hasSize(3)));
 

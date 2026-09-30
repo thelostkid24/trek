@@ -77,8 +77,14 @@ public class Track {
     /** Paid bag offloading. Null = not stated. */
     private Boolean offloading;
 
-    /** Null with offloading = paid, price not fixed yet. */
+    /** Null with offloading = paid, price not fixed yet. Also the per-seat price of the offloading add-on. */
     private Long offloadingPricePaise;
+
+    /** Per-seat price of the insurance add-on; null = not offered. */
+    private Long insurancePricePaise;
+
+    /** Per-seat price of the transport add-on (to and from the road head); null = not offered. */
+    private Long transportPricePaise;
 
     /** Shown in the public catalog even with no upcoming dates. Tracks with dates are shown regardless. */
     @Column(nullable = false)
@@ -137,11 +143,14 @@ public class Track {
         this.seasonLabel = seasonLabel;
     }
 
-    public void updateServices(String pickupDrop, Boolean cloakroom, Boolean offloading, Long offloadingPricePaise) {
+    public void updateServices(String pickupDrop, Boolean cloakroom, Boolean offloading, Long offloadingPricePaise,
+                               Long insurancePricePaise, Long transportPricePaise) {
         this.pickupDrop = pickupDrop;
         this.cloakroom = cloakroom;
         this.offloading = offloading;
         this.offloadingPricePaise = offloadingPricePaise;
+        this.insurancePricePaise = insurancePricePaise;
+        this.transportPricePaise = transportPricePaise;
     }
 
     public void setListed(boolean listed) {
@@ -234,6 +243,14 @@ public class Track {
 
     public Long getOffloadingPricePaise() {
         return offloadingPricePaise;
+    }
+
+    public Long getInsurancePricePaise() {
+        return insurancePricePaise;
+    }
+
+    public Long getTransportPricePaise() {
+        return transportPricePaise;
     }
 
     public boolean isListed() {

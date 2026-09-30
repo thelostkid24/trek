@@ -139,13 +139,16 @@ function UpcomingTrek({ booking: b }: { booking: Booking }) {
         </div>
       </div>
 
-      <TripArrangements />
+      <TripArrangements booking={b} />
     </article>
   )
 }
 
-/** Add-ons, food, medical documents and coordinator have no backend yet (docs/TRD.md §7.10): laid out as designed, controls disabled. */
-function TripArrangements() {
+/**
+ * Add-ons already booked say so. Adding one later, food, medical documents and coordinator have no backend yet
+ * (docs/TRD.md §7.10): laid out as designed, controls disabled.
+ */
+function TripArrangements({ booking: b }: { booking: Booking }) {
   const pill = 'rounded-(--field-radius) border px-3 py-1.5 text-sm disabled:cursor-not-allowed'
   return (
     <div className="border-t border-paper-300 bg-paper-100/60 p-5 sm:p-6">
@@ -159,17 +162,21 @@ function TripArrangements() {
         <PaperCard>
           <p className="text-xs text-stone-500">Add-ons</p>
           {[
-            { name: 'Offload', note: 'Porter carries your main bag' },
-            { name: 'Transport', note: 'Shared cab to the base village and back' },
+            { name: 'Offload', note: 'Porter carries your main bag', added: b.addons.offloading_seats > 0 },
+            { name: 'Transport', note: 'Shared cab to the base village and back', added: b.addons.transport_seats > 0 },
           ].map((addOn, i) => (
             <div key={addOn.name} className={`flex items-start justify-between gap-3 ${i ? 'mt-3 border-t border-paper-300 pt-3' : 'mt-2'}`}>
               <div>
                 <p className="text-sm text-stone-900">{addOn.name}</p>
                 <p className="text-xs text-stone-500">{addOn.note}</p>
               </div>
-              <button type="button" disabled className={`${pill} shrink-0 border-pine-600/40 px-2.5 py-1 text-xs text-pine-700/70`}>
-                Request
-              </button>
+              {addOn.added ? (
+                <span className="shrink-0 rounded-full bg-pine-600/10 px-2.5 py-1 text-xs font-medium text-pine-700">Already added</span>
+              ) : (
+                <button type="button" disabled className={`${pill} shrink-0 border-pine-600/40 px-2.5 py-1 text-xs text-pine-700/70`}>
+                  Add
+                </button>
+              )}
             </div>
           ))}
         </PaperCard>

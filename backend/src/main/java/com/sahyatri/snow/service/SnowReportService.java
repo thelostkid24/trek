@@ -103,7 +103,7 @@ public class SnowReportService {
                 .map(c -> new Condition(c.label().trim(), c.value().trim()))
                 .toList();
         SnowReport report = new SnowReport(trackId, userId, req.reportedOn(), req.reportedFrom().trim(),
-                req.snowlineM(), req.nightTempC(), json.writeValueAsString(conditions), crowdPlace, req.crowdTents(),
+                req.snowlineM(), req.nightTempC(), req.snowfall(), json.writeValueAsString(conditions), crowdPlace, req.crowdTents(),
                 blankToNull(req.note()));
         return toResponses(List.of(reports.saveAndFlush(report))).getFirst();
     }
@@ -154,7 +154,7 @@ public class SnowReportService {
         users.findAllById(rows.stream().map(SnowReport::getReportedBy).distinct().toList())
                 .forEach(u -> names.put(u.getId(), u.getFullName()));
         return rows.stream().map(r -> new SnowReportResponse(r.getId(), r.getReportedOn(), r.getReportedFrom(),
-                r.getSnowlineM(), r.getNightTempC(),
+                r.getSnowlineM(), r.getNightTempC(), r.getSnowfall(),
                 json.readValue(r.getConditions(), new TypeReference<List<Condition>>() {
                 }),
                 r.getCrowdPlace(), r.getCrowdTents(), r.getNote(), r.hasPhoto() ? photoFiles.url(r.getId()) : null,

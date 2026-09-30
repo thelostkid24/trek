@@ -10,5 +10,9 @@ public record GuideDetailsRequest(
         @Size(max = 120) String languages,
         @Size(max = 160) String certification,
         @Size(max = 60) String certificationNumber,
+        @Size(max = 160) String bmcInstitute,
+        @Size(max = 60) String bmcCertificateNumber,
+        @Size(max = 160) String amcInstitute,
+        @Size(max = 60) String amcCertificateNumber,
         @Size(max = 240) String quote) {
 }

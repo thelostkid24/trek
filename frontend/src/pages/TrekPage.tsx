@@ -9,7 +9,6 @@ import { SnowReportPanel } from '../components/catalog/SnowReportPanel.tsx'
 import { TrailPhotos } from '../components/catalog/TrailPhotos.tsx'
 import { TrekDepartures } from '../components/catalog/TrekDepartures.tsx'
 import {
-  Cancellation,
   FactGrid,
   Inclusions,
   Overview,
@@ -17,7 +16,6 @@ import {
   TabBar,
   TrekFaqs,
   TrekSection,
-  WhyUs,
 } from '../components/catalog/TrekSections.tsx'
 import { Ridgeline } from '../components/Ridgeline.tsx'
 
@@ -66,10 +64,9 @@ function Page({ trek }: { trek: Trek }) {
         { id: 'days', label: 'Day by day', show: track.itinerary.length > 0 },
         { id: 'included', label: "What's included", show: content.INCLUDED.length + content.NOT_INCLUDED.length > 0 },
         { id: 'safety', label: 'Safety', show: hasSafety },
-        { id: 'cancellation', label: 'Cancellation', show: trek.refund_tiers.length > 0 },
         { id: 'faq', label: 'FAQ', show: content.FAQ.length > 0 },
       ].filter((t) => t.show),
-    [track, content, hasSafety, trek.refund_tiers],
+    [track, content, hasSafety],
   )
 
   return (
@@ -88,11 +85,6 @@ function Page({ trek }: { trek: Trek }) {
         ) : (
           <Ridgeline className="absolute inset-0 -z-10 h-full w-full" />
         )}
-        <div className="mx-auto flex h-full max-w-6xl items-start px-4 pt-5">
-          {track.season_label && (
-            <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-stone-800">{track.season_label}</span>
-          )}
-        </div>
       </section>
 
       <div className="mx-auto grid max-w-6xl gap-x-12 gap-y-8 px-4 py-8 sm:py-12 lg:grid-cols-[minmax(0,1fr)_22rem]">
@@ -110,7 +102,7 @@ function Page({ trek }: { trek: Trek }) {
 
         <div className="min-w-0 space-y-8 lg:col-start-1">
           <FactGrid track={track} />
-          <SnowReportPanel report={trek.snow_report} crowd={trek.crowd} place={track.meeting_point} />
+          <SnowReportPanel report={trek.snow_report} place={track.meeting_point} trekName={track.name} />
           <TabBar tabs={tabs} />
 
           <TrekSection id="overview" label="Overview">
@@ -119,7 +111,7 @@ function Page({ trek }: { trek: Trek }) {
           <TrailPhotos id="photos" photos={track.photos} trekName={track.name} />
           <DayByDay id="days" days={track.itinerary} />
           {tabs.some((t) => t.id === 'included') && (
-            <TrekSection id="included" label="What's included">
+            <TrekSection id="included" label="What's included and not included">
               <Inclusions included={content.INCLUDED} excluded={content.NOT_INCLUDED} />
             </TrekSection>
           )}
@@ -128,19 +120,9 @@ function Page({ trek }: { trek: Trek }) {
               <Safety callouts={content.SAFETY_CALLOUT} checklist={content.SAFETY} notes={content.SAFETY_NOTE} />
             </TrekSection>
           )}
-          {trek.refund_tiers.length > 0 && (
-            <TrekSection id="cancellation" label="Cancellation policy">
-              <Cancellation tiers={trek.refund_tiers} />
-            </TrekSection>
-          )}
           {content.FAQ.length > 0 && (
             <TrekSection id="faq" label="FAQ">
               <TrekFaqs items={content.FAQ} />
-            </TrekSection>
-          )}
-          {content.WHY_US.length > 0 && (
-            <TrekSection id="why-us" label="Why choose The Empty Valley">
-              <WhyUs items={content.WHY_US} />
             </TrekSection>
           )}
         </div>

@@ -125,7 +125,9 @@ class TrekContentTests extends AuthTestSupport {
                 .andExpect(jsonPath("$.years_leading").value(nullValue()));
         authed(put("/api/admin/guides/" + guide + "/details"), admin, """
                 {"leading_since":%d,"languages":"Hindi, Garhwali, English","certification":"NIM Basic",
-                 "certification_number":"NIM-1234","quote":"The mountain sets the pace."}"""
+                 "certification_number":"NIM-1234","bmc_institute":"Nehru Institute of Mountaineering, Uttarkashi",
+                 "bmc_certificate_number":"BMC-0412","amc_institute":"ABVIMAS, Manali",
+                 "amc_certificate_number":"AMC-0187","quote":"The mountain sets the pace."}"""
                 .formatted(today().getYear() - 6))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.years_leading").value(6));
@@ -139,11 +141,15 @@ class TrekContentTests extends AuthTestSupport {
                 .andExpect(jsonPath("$.departures[0].guide.years_leading").value(6))
                 .andExpect(jsonPath("$.departures[0].guide.languages").value("Hindi, Garhwali, English"))
                 .andExpect(jsonPath("$.departures[0].guide.certification_number").value("NIM-1234"))
+                .andExpect(jsonPath("$.departures[0].guide.bmc_institute").value("Nehru Institute of Mountaineering, Uttarkashi"))
+                .andExpect(jsonPath("$.departures[0].guide.bmc_certificate_number").value("BMC-0412"))
+                .andExpect(jsonPath("$.departures[0].guide.amc_institute").value("ABVIMAS, Manali"))
                 .andExpect(jsonPath("$.departures[0].guide.quote").value("The mountain sets the pace."))
                 .andExpect(jsonPath("$.departures[0].guide.rating").value(nullValue()))
                 .andExpect(jsonPath("$.departures[0].guide.review_count").value(0));
         mockMvc.perform(get("/api/public/guides/" + guide))
                 .andExpect(jsonPath("$.certification").value("NIM Basic"))
+                .andExpect(jsonPath("$.amc_certificate_number").value("AMC-0187"))
                 .andExpect(jsonPath("$.reviews", hasSize(0)));
     }
 

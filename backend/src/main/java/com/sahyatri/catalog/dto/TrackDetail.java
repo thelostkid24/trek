@@ -27,6 +27,8 @@ public record TrackDetail(
         Boolean cloakroom,
         Boolean offloading,
         Long offloadingPricePaise,
+        Long insurancePricePaise,
+        Long transportPricePaise,
         List<ItineraryDay> itinerary,
         List<TrackPhotoResponse> photos) {
 
@@ -34,7 +36,7 @@ public record TrackDetail(
         return new TrackDetail(t.getSlug(), t.getName(), t.getRegion(), t.getDifficulty(), t.getDurationDays(),
                 t.getSummary(), t.getDescription(), t.getMaxAltitudeM(), t.getMeetingPoint(), t.getDistanceKm(),
                 t.getBaseAltitudeM(), t.getHighestCampM(), t.getStay(), t.getSeasonLabel(), t.getPickupDrop(),
-                t.getCloakroom(), t.getOffloading(), t.getOffloadingPricePaise(),
+                t.getCloakroom(), t.getOffloading(), t.getOffloadingPricePaise(), t.getInsurancePricePaise(), t.getTransportPricePaise(),
                 t.getItinerary().stream().map(ItineraryDay::of).toList(),
                 t.getPhotos().stream().map(p -> TrackPhotoResponse.of(p, photoFiles)).toList());
     }

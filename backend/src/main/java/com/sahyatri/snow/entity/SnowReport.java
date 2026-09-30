@@ -2,6 +2,8 @@ package com.sahyatri.snow.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import org.hibernate.annotations.ColumnTransformer;
@@ -37,6 +39,10 @@ public class SnowReport {
     @Column(name = "night_temp_c")
     private Integer nightTempC;
 
+    /** Has snow fallen on the trek this week; null when not reported. */
+    @Enumerated(EnumType.STRING)
+    private Snowfall snowfall;
+
     /** JSON array of {label, value}, e.g. Juda ka Talab: Frozen. */
     @Column(columnDefinition = "jsonb", nullable = false)
     @ColumnTransformer(write = "?::jsonb")
@@ -58,7 +64,8 @@ public class SnowReport {
     }
 
     public SnowReport(UUID trackId, UUID reportedBy, LocalDate reportedOn, String reportedFrom, Integer snowlineM,
-                      Integer nightTempC, String conditions, String crowdPlace, Integer crowdTents, String note) {
+                      Integer nightTempC, Snowfall snowfall, String conditions, String crowdPlace, Integer crowdTents,
+                      String note) {
         this.id = UUID.randomUUID();
         this.trackId = trackId;
         this.reportedBy = reportedBy;
@@ -66,6 +73,7 @@ public class SnowReport {
         this.reportedFrom = reportedFrom;
         this.snowlineM = snowlineM;
         this.nightTempC = nightTempC;
+        this.snowfall = snowfall;
         this.conditions = conditions;
         this.crowdPlace = crowdPlace;
         this.crowdTents = crowdTents;
@@ -103,6 +111,10 @@ public class SnowReport {
 
     public Integer getNightTempC() {
         return nightTempC;
+    }
+
+    public Snowfall getSnowfall() {
+        return snowfall;
     }
 
     public String getConditions() {

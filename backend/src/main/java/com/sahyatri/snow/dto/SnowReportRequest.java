@@ -1,5 +1,6 @@
 package com.sahyatri.snow.dto;
 
+import com.sahyatri.snow.entity.Snowfall;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -16,6 +17,7 @@ public record SnowReportRequest(
         @NotBlank @Size(max = 60) String reportedFrom,
         @Min(1) @Max(9000) Integer snowlineM,
         @Min(-60) @Max(50) Integer nightTempC,
+        Snowfall snowfall,
         @Size(max = 4) List<@Valid @NotNull Condition> conditions,
         @Size(max = 60) String crowdPlace,
         @Min(0) @Max(2000) Integer crowdTents,
