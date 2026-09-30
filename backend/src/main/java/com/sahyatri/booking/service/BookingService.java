@@ -7,6 +7,7 @@ import com.sahyatri.auth.repository.UserRepository;
 import com.sahyatri.auth.service.AccountAcquisition;
 import com.sahyatri.auth.service.AuthService;
 import com.sahyatri.auth.service.CurrentUser;
+import com.sahyatri.booking.dto.BookingAddons;
 import com.sahyatri.booking.dto.BookingContact;
 import com.sahyatri.booking.dto.BookingDepartureRef;
 import com.sahyatri.booking.dto.BookingRequest;
@@ -16,12 +17,15 @@ import com.sahyatri.booking.dto.GuestBookingRequest;
 import com.sahyatri.booking.dto.TravellerRequest;
 import com.sahyatri.booking.dto.TravellerResponse;
 import com.sahyatri.booking.dto.TravellersRequest;
+import com.sahyatri.booking.entity.AddonChoice;
 import com.sahyatri.booking.entity.Booking;
 import com.sahyatri.booking.entity.BookingStatus;
+import com.sahyatri.booking.entity.TravellerAddons;
 import com.sahyatri.booking.notify.BookingNotice;
 import com.sahyatri.booking.repository.BookingRepository;
 import com.sahyatri.catalog.dto.TrackBrief;
 import com.sahyatri.catalog.entity.Departure;
+import com.sahyatri.catalog.entity.Track;
 import com.sahyatri.catalog.repository.DepartureRepository;
 import com.sahyatri.catalog.service.CatalogService;
 import com.sahyatri.common.acquisition.AcquisitionRequest;
@@ -44,6 +48,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.EnumSet;
@@ -142,7 +147,10 @@ public class BookingService {
     public record GuestBooking(BookingResponse booking, AuthSession session) {
     }
 
-    /** Names every seat. Allowed on a live booking until the start date, so it can happen after payment. */
+    /**
+     * Names every seat with their add-ons. Allowed on a live booking until the start date. While held, the add-ons
+     * reprice the booking (and any open payment order for the old amount is expired); once paid they can't change.
+     */
     @Transactional
     public BookingResponse updateTravellers(UUID userId, UUID bookingId, TravellersRequest req) {
         currentUser.require(userId);
@@ -155,12 +163,25 @@ public class BookingService {
             throw ApiException.validation("travellers", "must list exactly " + booking.getSeats() + " traveller(s)");
         }
         checkAges(req.travellers(), locked.departure.getStartDate());
+        Track track = locked.departure.getTrack();
+        List<TravellerAddons> wanted = travellerAddons(req.travellers(), track);
+        if (booking.getStatus() == BookingStatus.HELD) {
+            AddonChoice addons = addonChoice(wanted, track);
+            if (addons.totalPaise() != booking.getAddonsPaise()) {
+                payments.findByBookingIdForUpdate(bookingId).forEach(paymentService::expire);
+            }
+            booking.reprice(addons);
+        } else if (!sameCounts(addonChoice(wanted, track), booking)) {
+            throw ApiException.conflict("ADDONS_LOCKED", "Add-ons can't be changed after payment");
+        }
         booking.clearTravellers();
         bookings.saveAndFlush(booking);
-        addTravellers(booking, req.travellers());
+        addTravellers(booking, req.travellers(), wanted);
         bookings.saveAndFlush(booking);
         return toResponse(booking);
     }
+
+
 
     private Booking hold(UUID userId, UUID departureId, int seats, BookingContact contact,
                          List<TravellerRequest> travellers, Touch lastTouch) {
@@ -180,23 +201,78 @@ public class BookingService {
                     Map.of("seats_left", departure.seatsLeft()));
         }
 
+        List<TravellerAddons> wanted = travellerAddons(travellers, departure.getTrack());
         Booking booking = Booking.hold(userId, departure, seats, contact.fullName(), contact.phone(), contact.email(),
-                Instant.now().plus(props.holdTtl()));
+                addonChoice(wanted, departure.getTrack()), Instant.now().plus(props.holdTtl()));
         booking.setLastTouch(lastTouch);
-        addTravellers(booking, travellers);
+        addTravellers(booking, travellers, wanted);
         departure.takeSeats(seats);
         departures.save(departure);
         bookings.saveAndFlush(booking);
         return booking;
     }
 
+    /**
+     * Each traveller's add-ons, checked against the trek: an add-on it doesn't offer (no price, or offloading not
+     * available) can't be taken, and our insurance and their own policy ID are one or the other.
+     */
+    private static List<TravellerAddons> travellerAddons(List<TravellerRequest> travellers, Track track) {
+        List<TravellerAddons> out = new ArrayList<>();
+        for (int i = 0; i < travellers.size(); i++) {
+            TravellerRequest t = travellers.get(i);
+            String prefix = "travellers[" + i + "].";
+            boolean insurance = Boolean.TRUE.equals(t.insurance());
+            boolean offloading = Boolean.TRUE.equals(t.offloading());
+            boolean transport = Boolean.TRUE.equals(t.transport());
+            String ownId = blankToNull(t.insuranceId());
+            if (insurance && track.getInsurancePricePaise() == null) {
+                throw ApiException.validation(prefix + "insurance", "isn't offered on this trek");
+            }
+            if (insurance && ownId != null) {
+                throw ApiException.validation(prefix + "insurance_id", "leave blank when taking our insurance");
+            }
+            if (offloading && offloadingPrice(track) == null) {
+                throw ApiException.validation(prefix + "offloading", "isn't offered on this trek");
+            }
+            if (transport && track.getTransportPricePaise() == null) {
+                throw ApiException.validation(prefix + "transport", "isn't offered on this trek");
+            }
+            out.add(new TravellerAddons(insurance, insurance ? null : ownId, offloading, transport));
+        }
+        return out;
+    }
+
+    /** The booking's add-on counts and prices, from its travellers and today's trek prices. */
+    private static AddonChoice addonChoice(List<TravellerAddons> travellers, Track track) {
+        int insurance = (int) travellers.stream().filter(TravellerAddons::insurance).count();
+        int offloading = (int) travellers.stream().filter(TravellerAddons::offloading).count();
+        int transport = (int) travellers.stream().filter(TravellerAddons::transport).count();
+        return new AddonChoice(insurance, insurance > 0 ? track.getInsurancePricePaise() : null,
+                offloading, offloading > 0 ? offloadingPrice(track) : null,
+                transport, transport > 0 ? track.getTransportPricePaise() : null);
+    }
+
+    private static Long offloadingPrice(Track track) {
+        return Boolean.TRUE.equals(track.getOffloading()) ? track.getOffloadingPricePaise() : null;
+    }
+
+    /** After payment: the same number of seats take each add-on as were paid for. */
+    private static boolean sameCounts(AddonChoice wanted, Booking booking) {
+        return wanted.insuranceSeats() == booking.getInsuranceSeats()
+                && wanted.offloadingSeats() == booking.getOffloadingSeats()
+                && wanted.transportSeats() == booking.getTransportSeats();
+    }
+
     private static Touch lastTouch(AcquisitionRequest req) {
         return req == null ? null : Touch.from(req.lastOrFirst(), req.device());
     }
 
-    private static void addTravellers(Booking booking, List<TravellerRequest> travellers) {
-        for (TravellerRequest t : travellers) {
-            booking.addTraveller(t.fullName().trim(), blankToNull(t.phone()), t.dateOfBirth(), t.gender());
+    private static void addTravellers(Booking booking, List<TravellerRequest> travellers,
+                                      List<TravellerAddons> addons) {
+        for (int i = 0; i < travellers.size(); i++) {
+            TravellerRequest t = travellers.get(i);
+            booking.addTraveller(t.fullName().trim(), blankToNull(t.phone()), t.dateOfBirth(), t.gender(),
+                    addons.get(i));
         }
     }
 
@@ -341,7 +417,7 @@ public class BookingService {
                 : refundRows.findByPaymentIdInOrderByCreatedAt(bookingPayments.stream().map(Payment::getId).toList())
                 .stream().map(RefundResponse::of).toList();
         return new BookingResponse(b.getId(), b.getStatus(), b.getSeats(), b.getPricePaisePerSeat(),
-                b.getAmountPaise(), new BookingContact(b.getContactName(), b.getContactPhone(), b.getContactEmail()),
+                b.getAmountPaise(), BookingAddons.of(b), new BookingContact(b.getContactName(), b.getContactPhone(), b.getContactEmail()),
                 b.getTravellers().size() == b.getSeats(), b.getHoldExpiresAt(), b.getConfirmedAt(), b.getCancelledAt(), departure,
                 b.getTravellers().stream().map(TravellerResponse::of).toList(),
                 bookingPayments.stream().findFirst().map(paymentService::toResponse).orElse(null),

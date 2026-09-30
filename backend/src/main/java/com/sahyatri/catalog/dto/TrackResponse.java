@@ -29,6 +29,8 @@ public record TrackResponse(
         Boolean cloakroom,
         Boolean offloading,
         Long offloadingPricePaise,
+        Long insurancePricePaise,
+        Long transportPricePaise,
         boolean listed,
         List<ItineraryDay> itinerary,
         List<TrackPhotoResponse> photos,
@@ -39,7 +41,7 @@ public record TrackResponse(
         return new TrackResponse(t.getId(), t.getSlug(), t.getName(), t.getRegion(), t.getDifficulty(),
                 t.getDurationDays(), t.getMaxAltitudeM(), t.getSummary(), t.getDescription(), t.getMeetingPoint(),
                 t.getDistanceKm(), t.getBaseAltitudeM(), t.getHighestCampM(), t.getStay(), t.getSeasonLabel(),
-                t.getPickupDrop(), t.getCloakroom(), t.getOffloading(), t.getOffloadingPricePaise(),
+                t.getPickupDrop(), t.getCloakroom(), t.getOffloading(), t.getOffloadingPricePaise(), t.getInsurancePricePaise(), t.getTransportPricePaise(),
                 t.isListed(), t.getItinerary().stream().map(ItineraryDay::of).toList(),
                 t.getPhotos().stream().map(p -> TrackPhotoResponse.of(p, photoFiles)).toList(),
                 t.getCreatedAt(), t.getUpdatedAt());

@@ -197,25 +197,22 @@ function Footer() {
   return (
     <footer className="overflow-hidden bg-ink-950 font-grotesk text-ink-400">
       <div className="mx-auto max-w-[90rem] px-5 pt-14 sm:px-10 sm:pt-20">
-        <div className="grid gap-10 border-b border-white/10 pb-12 md:grid-cols-[1.4fr_1fr_1fr]">
-          <div className="max-w-sm">
-            <p className="text-2xl leading-snug font-light text-white/90 sm:text-3xl">
-              Ten people, one guide you chose, and a mountain that still feels empty.
-            </p>
-            <a
-              href={SITE_LINKS.leadATrek}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group mt-6 inline-flex items-center gap-3 rounded-full border border-white/20 py-1.5 pr-1.5 pl-5 text-sm text-white/90 transition hover:border-white/50"
-            >
-              Lead a trek with us
-              <span className="flex size-8 items-center justify-center rounded-full bg-white text-ink-950 transition-transform duration-300 group-hover:rotate-45">
-                ↗
-              </span>
-            </a>
+        <div className="flex flex-col gap-10 border-b border-white/10 pb-12 md:flex-row md:items-start md:justify-between">
+          <div className="grid grid-cols-2 gap-10 sm:gap-20">
+            <FooterColumn title="Explore" links={[{ label: 'All treks', href: '/treks' }, ...NAV.slice(1)]} />
+            <FooterColumn title="The fine print" hideTitle links={FOOTER_LINKS} />
           </div>
-          <FooterColumn title="Explore" links={[{ label: 'All treks', href: '/treks' }, ...NAV.slice(1)]} />
-          <FooterColumn title="The fine print" links={FOOTER_LINKS} />
+          <a
+            href={SITE_LINKS.leadATrek}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group inline-flex shrink-0 items-center gap-3 self-start rounded-full border border-white/20 py-1.5 pr-1.5 pl-5 text-sm text-white/90 transition hover:border-white/50"
+          >
+            Lead a trek with us
+            <span className="flex size-8 items-center justify-center rounded-full bg-white text-ink-950 transition-transform duration-300 group-hover:rotate-45">
+              ↗
+            </span>
+          </a>
         </div>
         <div className="flex flex-col gap-2 py-6 text-xs sm:flex-row sm:items-center sm:justify-between">
           <p>Fair-trade, micro-batch trekking. Registered in Mumbai, Maharashtra.</p>
@@ -233,10 +230,11 @@ function Footer() {
   )
 }
 
-function FooterColumn({ title, links }: { title: string; links: { label: string; href: string }[] }) {
+function FooterColumn({ title, hideTitle = false, links }: { title: string; hideTitle?: boolean; links: { label: string; href: string }[] }) {
   return (
     <nav aria-label={title}>
-      <p className="text-xs tracking-[0.14em] text-white/45 uppercase">{title}</p>
+      {/* A hidden title still takes its line, so the links stay level with the neighbouring column. */}
+      <p className={`text-xs tracking-[0.14em] text-white/45 uppercase ${hideTitle ? 'invisible' : ''}`}>{title}</p>
       <ul className="mt-4 space-y-2.5 text-sm">
         {links.map((item) => (
           <li key={item.label}>

@@ -107,6 +107,14 @@ function DetailsForm({ guideId, onDone }: { guideId: string; onDone: () => void 
   return <DetailsFields guideId={guideId} initial={input} onDone={onDone} />
 }
 
+/** IMF-recognised mountaineering institutes, offered as suggestions for the BMC and AMC fields. */
+const INSTITUTES = [
+  'Nehru Institute of Mountaineering (NIM), Uttarkashi',
+  'Atal Bihari Vajpayee Institute of Mountaineering and Allied Sports (ABVIMAS), Manali',
+  'Himalayan Mountaineering Institute (HMI), Darjeeling',
+  'Jawahar Institute of Mountaineering and Winter Sports (JIM&WS), Pahalgam',
+]
+
 function DetailsFields({ guideId, initial, onDone }: { guideId: string; initial: GuideDetailsInput; onDone: () => void }) {
   const { withAuth } = useAuth()
   const queryClient = useQueryClient()
@@ -135,9 +143,24 @@ function DetailsFields({ guideId, initial, onDone }: { guideId: string; initial:
         error={errors.leading_since} hint="Year. The page shows “6 years leading”." />
       <TextField label="Languages" name="languages" maxLength={120} value={form.languages ?? ''} onChange={text('languages')}
         error={errors.languages} hint="E.g. Hindi, Garhwali, English" />
-      <TextField label="Certification" name="certification" maxLength={160} value={form.certification ?? ''}
-        onChange={text('certification')} error={errors.certification} hint="E.g. NIM Basic Mountaineering Course" />
-      <TextField label="Certificate number" name="certification_number" maxLength={60} value={form.certification_number ?? ''}
+      <datalist id="mountaineering-institutes">
+        {INSTITUTES.map((i) => (
+          <option key={i} value={i} />
+        ))}
+      </datalist>
+      <TextField label="BMC institute" name="bmc_institute" maxLength={160} list="mountaineering-institutes"
+        value={form.bmc_institute ?? ''} onChange={text('bmc_institute')} error={errors.bmc_institute}
+        hint="Basic Mountaineering Course. Pick or type the institute." />
+      <TextField label="BMC certificate number" name="bmc_certificate_number" maxLength={60}
+        value={form.bmc_certificate_number ?? ''} onChange={text('bmc_certificate_number')} error={errors.bmc_certificate_number} />
+      <TextField label="AMC institute" name="amc_institute" maxLength={160} list="mountaineering-institutes"
+        value={form.amc_institute ?? ''} onChange={text('amc_institute')} error={errors.amc_institute}
+        hint="Advanced Mountaineering Course." />
+      <TextField label="AMC certificate number" name="amc_certificate_number" maxLength={60}
+        value={form.amc_certificate_number ?? ''} onChange={text('amc_certificate_number')} error={errors.amc_certificate_number} />
+      <TextField label="Other certification" name="certification" maxLength={160} value={form.certification ?? ''}
+        onChange={text('certification')} error={errors.certification} hint="Optional. E.g. Wilderness First Responder" />
+      <TextField label="Other certificate number" name="certification_number" maxLength={60} value={form.certification_number ?? ''}
         onChange={text('certification_number')} error={errors.certification_number} />
       <div className="sm:col-span-2">
         <TextAreaField label="In their own words" name="quote" maxLength={240} rows={2} value={form.quote ?? ''}

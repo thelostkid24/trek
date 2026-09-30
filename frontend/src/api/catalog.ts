@@ -68,6 +68,9 @@ export type TrackDetail = TrackBrief & {
   /** Paid bag offloading; `offloading_price_paise` null = price not fixed yet. */
   offloading: boolean | null
   offloading_price_paise: number | null
+  /** Per-seat add-on prices at checkout; null = not offered. Offloading's uses `offloading_price_paise`. */
+  insurance_price_paise: number | null
+  transport_price_paise: number | null
   itinerary: ItineraryDay[]
   /** Photos from past runs, oldest upload first. */
   photos: TrackPhoto[]
@@ -89,16 +92,21 @@ export type GuideCredentials = {
   languages: string | null
   certification: string | null
   certification_number: string | null
+  bmc_institute: string | null
+  bmc_certificate_number: string | null
+  amc_institute: string | null
+  amc_certificate_number: string | null
   quote: string | null
 }
 
 /**
- * A departure's guide with their home, how often they've led this trek (completed runs), credentials and
+ * A departure's guide with their home, bio, how often they've led this trek (completed runs), credentials and
  * rating (null until reviewed). Computed at read time.
  */
 export type GuideCard = GuideBrief &
   GuideCredentials & {
     home_city: string | null
+    bio: string | null
     led_this_trek: number
     rating: number | null
     review_count: number
@@ -119,12 +127,22 @@ export type ContentItem = { badge: string | null; title: string | null; body: st
 export type TrekContent = Record<ContentKind, ContentItem[]>
 
 /** A weekly trail report (docs/TRD.md §7.13). */
+/** Has snow fallen on the trek this week, as a guide reports it. */
+export type Snowfall = 'NONE' | 'LIGHT' | 'HEAVY'
+
+export const SNOWFALL_LABEL: Record<Snowfall, string> = {
+  NONE: 'No snow',
+  LIGHT: 'Light snow',
+  HEAVY: 'Heavy snow',
+}
+
 export type SnowReport = {
   id: string
   reported_on: string
   reported_from: string
   snowline_m: number | null
   night_temp_c: number | null
+  snowfall: Snowfall | null
   conditions: { label: string; value: string }[]
   crowd_place: string | null
   crowd_tents: number | null

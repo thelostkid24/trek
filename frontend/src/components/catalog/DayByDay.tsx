@@ -1,11 +1,7 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import type { ItineraryDay } from '../../api/catalog.ts'
 import { addDays, dayLabel, toFeet } from '../../lib/format.ts'
 import { TrekSection } from './TrekSections.tsx'
-
-/** The day's bar: its high point or where you end, whichever is higher. The start is last night's camp. */
-const chartAltitude = (d: ItineraryDay) =>
-  Math.max(d.high_altitude_m ?? 0, d.end_altitude_m ?? 0) || d.start_altitude_m || null
 
 const ft = (m: number) => toFeet(m).toLocaleString('en-IN')
 
@@ -29,95 +25,94 @@ function dayMeta(d: ItineraryDay): string {
 }
 
 /**
- * "Day by day": an altitude bar per day (the summit day dark, the chosen day in laterite) over the day cards.
- * Tapping a bar or a card picks that day.
+ * "Day by day": pick a day, read it. On wide screens the days are a list on the left with an oval highlight that
+ * slides to the chosen day; on phones they're a row of chips that scrolls sideways. One compact panel shows the
+ * chosen day.
  */
 export function DayByDay({ id, days, startDate }: { id: string; days: ItineraryDay[]; startDate?: string }) {
-  const [selected, setSelected] = useState(1)
-  const cards = useRef<HTMLOListElement>(null)
+  const [selected, setSelected] = useState(0)
   if (days.length === 0) return null
-
-  const heights = days.map(chartAltitude)
-  const top = Math.max(...heights.map((h) => h ?? 0))
-  const pick = (day: number, scroll: boolean) => {
-    setSelected(day)
-    if (scroll) cards.current?.children[day - 1]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
-  }
+  const d = days[Math.min(selected, days.length - 1)]
+  const meta = dayMeta(d)
 
   return (
-    <TrekSection id={id} label="Day by day" aside={top > 0 ? 'tap a bar to highlight the day' : undefined}>
-      {top > 0 && (
-        <div className="rounded-2xl bg-white/80 p-4 ring-1 ring-paper-300 sm:p-5">
-          <div className="flex h-44 items-end gap-2 border-b border-paper-300 sm:gap-3">
-            {days.map((d, i) => {
-              const h = heights[i]
-              const chosen = d.day === selected
-              const tone = chosen ? 'bg-laterite-600' : h === top ? 'bg-brand-900' : 'bg-sage-200'
-              return (
-                <button
-                  key={d.day}
-                  type="button"
-                  onClick={() => pick(d.day, true)}
-                  aria-pressed={chosen}
-                  aria-label={`Day ${d.day}${h ? `, ${ft(h)} ft` : ''}`}
-                  className="flex h-full min-w-0 flex-1 flex-col items-stretch justify-end gap-1"
-                >
-                  {h && (
-                    <span className={`truncate text-center text-xs font-semibold ${chosen ? 'text-laterite-600' : 'text-stone-700'}`}>
-                      {ft(h)} ft
-                    </span>
-                  )}
-                  <span
-                    className={`rounded-t-lg transition-colors ${tone}`}
-                    style={{ height: h ? `${Math.max(8, (h / top) * 78)}%` : '0' }}
-                  />
-                </button>
-              )
-            })}
-          </div>
-          <div className="mt-2 flex gap-2 sm:gap-3">
-            {days.map((d) => (
-              <span
-                key={d.day}
-                className={`flex-1 text-center text-sm font-semibold ${d.day === selected ? 'text-laterite-600' : 'text-stone-800'}`}
-              >
-                Day {d.day}
-              </span>
-            ))}
-          </div>
+    <TrekSection id={id} label="Day by day">
+      <div className="grid gap-4 md:grid-cols-[9rem_1fr] md:gap-6">
+        {/* Phones: a sideways-scrolling row of days. */}
+        <div role="tablist" aria-label="Days" className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] md:hidden [&::-webkit-scrollbar]:hidden">
+          {days.map((x, i) => (
+            <button
+              key={x.day}
+              type="button"
+              role="tab"
+              aria-selected={i === selected}
+              onClick={() => setSelected(i)}
+              className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition ${
+                i === selected ? 'bg-brand-900 text-white' : 'bg-white/80 text-stone-700 ring-1 ring-paper-300'
+              }`}
+            >
+              Day {x.day}
+            </button>
+          ))}
         </div>
-      )}
 
-      <ol ref={cards} className="mt-3 space-y-3">
-        {days.map((d) => {
-          const chosen = d.day === selected
-          const meta = dayMeta(d)
-          return (
-            <li key={d.day}>
+        {/* Wide screens: an oval highlight slides behind the chosen day. */}
+        <nav aria-label="Days" className="hidden md:block">
+          <div className="relative">
+            <span
+              aria-hidden="true"
+              className="absolute inset-x-0 h-9 rounded-full bg-brand-900 shadow-sm transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)]"
+              style={{ transform: `translateY(${selected * 2.25}rem)` }}
+            />
+            <ul className="relative">
+              {days.map((x, i) => (
+                <li key={x.day}>
+                  <button
+                    type="button"
+                    aria-current={i === selected ? 'step' : undefined}
+                    onClick={() => setSelected(i)}
+                    className={`flex h-9 w-full items-center rounded-full px-4 text-left text-sm transition-colors ${
+                      i === selected ? 'font-medium text-white' : 'text-stone-500 hover:text-stone-800'
+                    }`}
+                  >
+                    Day {x.day}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </nav>
+
+        <article aria-live="polite" className="min-w-0 rounded-xl bg-white/80 p-4 ring-1 ring-paper-300 sm:p-5">
+          <p className="text-xs font-semibold tracking-[0.14em] text-laterite-600 uppercase">
+            Day {d.day}
+            {startDate && <span className="font-normal tracking-normal text-stone-500 normal-case"> · {dayLabel(addDays(startDate, d.day - 1))}</span>}
+          </p>
+          <h3 className="mt-1 text-lg font-semibold text-stone-900">{d.summary}</h3>
+          {meta && <p className="mt-0.5 text-sm text-stone-500">{meta}</p>}
+          {d.description && <p className="mt-2 text-stone-700">{d.description}</p>}
+          {days.length > 1 && (
+            <div className="mt-4 flex justify-between gap-3 border-t border-paper-200 pt-3 text-sm">
               <button
                 type="button"
-                onClick={() => pick(d.day, false)}
-                aria-pressed={chosen}
-                className={`grid w-full grid-cols-[4rem_1fr] gap-3 rounded-xl p-4 text-left ring-1 transition sm:grid-cols-[5rem_1fr] ${
-                  chosen ? 'bg-white ring-laterite-600' : 'bg-white/60 ring-paper-300 hover:ring-stone-400'
-                }`}
+                disabled={selected === 0}
+                onClick={() => setSelected(selected - 1)}
+                className="font-medium text-brand-800 hover:text-brand-900 disabled:invisible"
               >
-                <span className={`text-sm font-semibold ${chosen ? 'text-laterite-600' : 'text-stone-800'}`}>
-                  Day {d.day}
-                  {startDate && (
-                    <span className="mt-0.5 block text-xs font-normal text-stone-500">{dayLabel(addDays(startDate, d.day - 1))}</span>
-                  )}
-                </span>
-                <span className="min-w-0">
-                  <span className="block font-semibold text-stone-900">{d.summary}</span>
-                  {meta && <span className="mt-0.5 block text-sm text-stone-500">{meta}</span>}
-                  {d.description && <span className="mt-1.5 block text-stone-700">{d.description}</span>}
-                </span>
+                ← Day {d.day - 1}
               </button>
-            </li>
-          )
-        })}
-      </ol>
+              <button
+                type="button"
+                disabled={selected === days.length - 1}
+                onClick={() => setSelected(selected + 1)}
+                className="font-medium text-brand-800 hover:text-brand-900 disabled:invisible"
+              >
+                Day {d.day + 1} →
+              </button>
+            </div>
+          )}
+        </article>
+      </div>
     </TrekSection>
   )
 }

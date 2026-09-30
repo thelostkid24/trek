@@ -26,7 +26,7 @@ export function GearPage() {
   const selected = upcoming.find((b) => b.id === params.get('booking')) ?? upcoming[0]
 
   return (
-    <div className="max-w-5xl px-5 py-8 sm:px-10 sm:py-10">
+    <div className="px-5 py-8 sm:px-10 sm:py-10">
       <h1 className="sr-only">Gear</h1>
 
       {bookings.isPending ? (
@@ -58,8 +58,8 @@ export function GearPage() {
         </div>
       )}
 
-      <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_18rem] lg:items-start">
-        <ul className="grid gap-4 sm:grid-cols-2">
+      <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_20rem] lg:items-start xl:gap-10">
+        <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {GEAR.map((item) => (
             <li key={item.name} className="overflow-hidden rounded-(--card-radius) border border-paper-300 bg-paper-50">
               <div className="flex aspect-[4/3] items-center justify-center bg-paper-200 text-xs text-stone-400">Photo coming soon</div>

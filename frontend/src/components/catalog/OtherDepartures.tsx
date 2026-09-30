@@ -67,7 +67,7 @@ function Row({
         <span className="font-semibold">{rupees(d.price_paise)}</span>
       </div>
       <div className="mt-3">
-        <SeatMeter size={d.max_group_size} left={d.seats_left} />
+        <SeatMeter left={d.seats_left} />
       </div>
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
         <Link to={`/guides/${d.guide.id}`} viewTransition className="flex items-center gap-2 text-sm text-stone-700 hover:text-brand-800">

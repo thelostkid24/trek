@@ -7,6 +7,7 @@ import type {
   ItineraryDay,
   Items,
   SnowReport,
+  Snowfall,
   TrackPhoto,
   TrekContent,
 } from './catalog'
@@ -34,6 +35,9 @@ export type Track = {
   offloading: boolean | null
   /** Null with offloading = paid, price not fixed yet. */
   offloading_price_paise: number | null
+  /** Per-seat add-on prices at checkout; null = not offered. Offloading's uses `offloading_price_paise`. */
+  insurance_price_paise: number | null
+  transport_price_paise: number | null
   /** Shown in the public catalog even with no upcoming dates; treks with dates always show. */
   listed: boolean
   /** One entry per day, day 1 first; empty or exactly `duration_days` entries. */
@@ -166,6 +170,10 @@ export type GuideDetails = {
   languages: string | null
   certification: string | null
   certification_number: string | null
+  bmc_institute: string | null
+  bmc_certificate_number: string | null
+  amc_institute: string | null
+  amc_certificate_number: string | null
   quote: string | null
 }
 
@@ -184,6 +192,7 @@ export type SnowReportInput = {
   reported_from: string
   snowline_m: number | null
   night_temp_c: number | null
+  snowfall: Snowfall | null
   conditions: { label: string; value: string }[]
   crowd_place: string | null
   crowd_tents: number | null

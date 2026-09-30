@@ -310,23 +310,9 @@ form > .profile-card:nth-of-type(5) { --card-i: 5; }
 
 /*
  * Landing page motion.
- * - Hero headline: each word rises out of its own clipped line.
- * - Statement: photo capsules open inside the sentence; words fill from pale to ink as they scroll past.
  * - Photos drift slower than the page (parallax) where scroll-driven animations exist; elsewhere they sit still.
- * - A slow marquee of promises; the "how it works" trail draws itself.
+ * - The "how it works" trail draws itself.
  */
-@keyframes word-rise {
-  from {
-    transform: translateY(105%);
-  }
-}
-
-.word-rise {
-  display: inline-block;
-  animation: word-rise 900ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
-  animation-delay: calc(var(--w, 0) * 70ms + 150ms);
-}
-
 @keyframes fade-rise {
   from {
     opacity: 0;
@@ -339,33 +325,8 @@ form > .profile-card:nth-of-type(5) { --card-i: 5; }
   animation-delay: var(--d, 0ms);
 }
 
-.capsule {
-  transition: width 1100ms cubic-bezier(0.2, 0.8, 0.2, 1);
-  transition-delay: var(--d, 0ms);
-}
-
-@keyframes marquee {
-  to {
-    transform: translateX(-50%);
-  }
-}
-
-.marquee-track {
-  animation: marquee 40s linear infinite;
-}
-
-.marquee:hover .marquee-track {
-  animation-play-state: paused;
-}
-
 .trail-draw {
   stroke-dasharray: 6 8;
-}
-
-@keyframes word-fill {
-  from {
-    color: var(--color-paper-300);
-  }
 }
 
 @keyframes drift {
@@ -378,12 +339,6 @@ form > .profile-card:nth-of-type(5) { --card-i: 5; }
 }
 
 @supports (animation-timeline: view()) {
-  .scroll-fill {
-    animation: word-fill linear both;
-    animation-timeline: view();
-    animation-range: entry 20% cover 45%;
-  }
-
   .parallax {
     animation: drift linear both;
     animation-timeline: view();
@@ -391,15 +346,9 @@ form > .profile-card:nth-of-type(5) { --card-i: 5; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .word-rise,
   .fade-rise,
-  .marquee-track,
-  .scroll-fill,
   .parallax {
     animation: none;
-  }
-  .capsule {
-    transition: none;
   }
 }
 

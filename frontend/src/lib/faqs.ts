@@ -9,10 +9,6 @@ export const FAQS: { q: string; a: string }[] = [
     a: 'A sealed medical kit, an oxygen cylinder and a pulse oximeter, logged with a time and the guide’s name at the road head.',
   },
   {
-    q: 'Why do you cap batches at 10 people?',
-    a: 'One guide can genuinely watch ten people. Above that the group stretches out, the slowest walker sets a pace nobody enjoys, and altitude symptoms get missed. Ten is also what the village kitchens and camps on these routes can host without being overrun.',
-  },
-  {
     q: 'What’s included in the price?',
     a: 'Your guide and the local crew, all meals on trek, stay through the trek including the night before departure, permits and forest fees, and transport from the stated road head. Travel to the road head, gear rental and insurance premiums are not included — and there is no separate booking fee.',
   },

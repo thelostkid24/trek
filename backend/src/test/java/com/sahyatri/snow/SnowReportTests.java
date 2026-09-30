@@ -23,7 +23,7 @@ class SnowReportTests extends AuthTestSupport {
 
     private static String report(String reportedOn, int tents) {
         return """
-                {"reported_on":"%s","reported_from":" Sankri ","snowline_m":2900,"night_temp_c":-8,
+                {"reported_on":"%s","reported_from":" Sankri ","snowline_m":2900,"night_temp_c":-8,"snowfall":"HEAVY",
                  "conditions":[{"label":"Juda ka Talab","value":"Frozen"},{"label":"Road, Purola to Sankri","value":"Open"}],
                  "crowd_place":"Juda ka Talab","crowd_tents":%d,"note":"Microspikes from day 3."}"""
                 .formatted(reportedOn, tents);
@@ -51,6 +51,7 @@ class SnowReportTests extends AuthTestSupport {
                 .andExpect(jsonPath("$.snow_report.id").value((String) JsonPath.read(body, "$.id")))
                 .andExpect(jsonPath("$.snow_report.snowline_m").value(2900))
                 .andExpect(jsonPath("$.snow_report.night_temp_c").value(-8))
+                .andExpect(jsonPath("$.snow_report.snowfall").value("HEAVY"))
                 .andExpect(jsonPath("$.crowd[*].tents", contains(40, 60, 85)))
                 .andExpect(jsonPath("$.crowd[0].place").value("Juda ka Talab"));
 

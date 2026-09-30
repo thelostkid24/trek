@@ -1,17 +1,18 @@
-import type { ReactNode } from 'react'
-import { Link } from 'react-router-dom'
+import { useState, type ReactNode } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { FaqList } from '../components/FaqList.tsx'
+import { Ridgeline } from '../components/Ridgeline.tsx'
 import { BUSINESS } from '../lib/business.ts'
 import { FAQS } from '../lib/faqs.ts'
 import { SITE_LINKS } from '../lib/siteLinks.ts'
 
 /** Plain text pages linked from the header and footer, in the landing page's style. */
-function InfoPage({ title, intro, children }: { title: string; intro: string; children?: ReactNode }) {
+function InfoPage({ title, intro, wide = false, children }: { title: string; intro?: string; wide?: boolean; children?: ReactNode }) {
   return (
     <div className="min-h-[calc(100dvh-4rem)] bg-paper-50 font-plex text-ink-900">
-      <section className="mx-auto max-w-[44rem] px-5 py-16 sm:px-10 sm:py-20">
+      <section className={`mx-auto px-5 py-16 sm:px-10 sm:py-20 ${wide ? 'max-w-5xl' : 'max-w-[44rem]'}`}>
         <h1 className="font-serif text-4xl font-light tracking-tight sm:text-[2.8rem]">{title}</h1>
-        <p className="mt-3 text-base leading-relaxed text-ink-700">{intro}</p>
+        {intro && <p className="mt-3 max-w-[40rem] text-base leading-relaxed text-ink-700">{intro}</p>}
         {children}
       </section>
     </div>
@@ -87,38 +88,169 @@ export function CancellationsPage() {
   )
 }
 
+const VISION_TABS = [
+  { key: 'story', label: 'How it started' },
+  { key: 'founders', label: 'Founders' },
+] as const
+
+/**
+ * Sample founders until the real ones send their photos and words: `sample` puts a "Sample profile" tag on the
+ * card, so nobody reads them as real. `photo` is a path under public/ (a portrait, roughly 4:5); a ridgeline with
+ * initials stands in until there is one. `story` is two or three lines.
+ * TODO: real names, photos, quotes and stories before launch, then drop `sample`.
+ */
+const FOUNDERS = [
+  {
+    name: 'Aditya Rawat',
+    sample: true,
+    photo: null as string | null,
+    role: 'Co-founder',
+    looksAfter: 'Guides, routes and safety',
+    home: 'Uttarkashi',
+    onTrailSince: 2012,
+    story:
+      'Grew up two valleys from Sankri and spent years carrying loads for big trek companies. Every guide on The Empty Valley is someone he has walked with himself, and most of the year he is on the trail, not at a desk.',
+  },
+  {
+    name: 'Nisha Menon',
+    sample: true,
+    photo: null as string | null,
+    role: 'Co-founder',
+    looksAfter: 'Bookings and trekker care',
+    home: 'Mumbai',
+    onTrailSince: 2016,
+    story:
+      'Her first Himalayan trek was cancelled two days out for low numbers. She left a desk job to build the booking side: the guide’s name before you pay, nothing added at checkout, and a paid date that always runs.',
+  },
+]
+
+type Founder = (typeof FOUNDERS)[number]
+
+/** Initials for the stand-in portrait. */
+const initials = (name: string) =>
+  name
+    .split(' ')
+    .filter(Boolean)
+    .map((w) => w[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase()
+
+/** The founder's portrait, or a night-green ridgeline with their initials until there is one. */
+function Portrait({ founder: f, className = '' }: { founder: Founder; className?: string }) {
+  if (f.photo) return <img src={f.photo} alt={`${f.name}'s photo`} className={`object-cover ${className}`} />
+  return (
+    <div className={`relative isolate flex items-center justify-center overflow-hidden bg-brand-900 ${className}`} aria-hidden="true">
+      <Ridgeline className="absolute inset-x-0 bottom-0 -z-10 h-2/3 w-full opacity-60" />
+      <span className="font-serif text-4xl font-light text-white/90">{initials(f.name)}</span>
+    </div>
+  )
+}
+
+/**
+ * Founders in two panels: on the left an "Our founders" list of photo cards (the picked one outlined, with a tick);
+ * on the right just the words: name, role, "About" and their story. On phones the list sits above, side by side.
+ */
+function Founders() {
+  const [picked, setPicked] = useState(0)
+  const f = FOUNDERS[picked]
+  return (
+    <div className="mt-10 grid overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-paper-300 md:grid-cols-[17rem_1fr]">
+      <div className="bg-paper-100 p-5 sm:p-6">
+        <h2 className="font-serif text-2xl">Our founders</h2>
+        <div role="tablist" aria-label="Founders" className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-1 md:gap-4">
+          {FOUNDERS.map((x, i) => {
+            const on = i === picked
+            return (
+              <button
+                key={x.name}
+                type="button"
+                role="tab"
+                aria-selected={on}
+                onClick={() => setPicked(i)}
+                className={`relative rounded-2xl bg-white p-2 text-left transition ${
+                  on ? 'ring-2 ring-brand-700' : 'ring-1 ring-paper-300 hover:ring-stone-400'
+                }`}
+              >
+                <Portrait founder={x} className="aspect-[5/4] w-full rounded-xl" />
+                {on && (
+                  <span className="absolute top-4 right-4 flex size-6 items-center justify-center rounded-full bg-brand-700 text-xs text-white" aria-hidden="true">
+                    ✓
+                  </span>
+                )}
+                <span className="block px-2 pt-3 pb-1 font-medium text-ink-900">{x.name}</span>
+                <span className="block px-2 pb-1 text-xs font-medium text-laterite-600">{x.role}</span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      <article role="tabpanel" aria-label={f.name} className="min-w-0 p-5 sm:p-8">
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="font-serif text-3xl font-light sm:text-4xl">{f.name}</h3>
+          {f.sample && (
+            <span className="rounded-full bg-paper-200 px-2 py-0.5 text-[0.65rem] font-medium text-ink-700">Sample profile</span>
+          )}
+        </div>
+        <p className="mt-1 font-medium text-laterite-600">
+          {f.role} · {f.looksAfter}
+        </p>
+
+        <h4 className="mt-6 flex items-center gap-2 text-lg font-semibold text-ink-900">
+          <svg viewBox="0 0 24 24" className="size-5 text-laterite-600" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" aria-hidden="true">
+            <path d="M12 6.5C10 5 7 4.5 3.5 5v13c3.5-.5 6.5 0 8.5 1.5 2-1.5 5-2 8.5-1.5V5C17 4.5 14 5 12 6.5Zm0 0V19.5" />
+          </svg>
+          About
+        </h4>
+        <p className="mt-3 max-w-[40rem] text-base leading-relaxed text-ink-700">{f.story}</p>
+        <p className="mt-4 text-sm text-ink-700">
+          Based in {f.home} · on the trail since {f.onTrailSince}
+        </p>
+      </article>
+    </div>
+  )
+}
+
 export function VisionPage() {
+  const [params, setParams] = useSearchParams()
+  const tab = params.get('tab') === 'founders' ? 'founders' : 'story'
   return (
     <InfoPage
+      wide
       title="Our vision"
-      intro="Fair-trade, micro-batch trekking: small groups of up to ten, each led by a named local guide, on departures that run whether or not they fill."
     >
-      <Section title="Why we exist">
-        <p>
-          Most trek bookings are a gamble: big groups, a guide you meet on the day, and a departure that is cancelled if
-          not enough people sign up. We think the people who know the mountains best should lead, and that a booked trek
-          should simply happen.
-        </p>
-      </Section>
-      <Section title="What that means for you">
-        <ul className="list-disc space-y-2 pl-5">
-          <li>At most ten trekkers per departure, with one named guide you can read about before you book.</li>
-          <li>Once you’ve paid, your trek runs. We never cancel for low numbers.</li>
-          <li>
-            We only cancel for weather, permits, safety or a guide with no substitute, and then you get a full refund.
-          </li>
-          <li>Most of what you pay goes to the guide who leads you.</li>
-        </ul>
-      </Section>
-      <Section title="Who we are">
-        <p>
-          The Empty Valley is run by {BUSINESS.legalName}, {BUSINESS.address}. Reach us any time through the{' '}
-          <Link to={SITE_LINKS.contact} className={linkClass}>
-            contact page
-          </Link>
-          .
-        </p>
-      </Section>
+      <div role="tablist" aria-label="Our vision" className="mt-8 inline-flex rounded-full bg-paper-200 p-1">
+        {VISION_TABS.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            role="tab"
+            aria-selected={tab === t.key}
+            onClick={() => setParams(t.key === 'story' ? {} : { tab: t.key }, { replace: true })}
+            className={`rounded-full px-5 py-2 text-sm font-medium transition ${
+              tab === t.key ? 'bg-white text-ink-900 shadow-sm' : 'text-ink-700 hover:text-ink-900'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'story' ? (
+        <div role="tabpanel" className="max-w-[40rem]">
+          <Section title="How it started">
+            <p>
+              The Empty Valley began on a crowded night at Juda ka Talab, with close to a hundred tents around one
+              frozen lake. A guide who grew up on these trails and a trekker tired of cancelled dates decided there had
+              to be a quieter, fairer way to walk in the Himalaya: know your guide before you pay, and let every paid
+              date run.
+            </p>
+          </Section>
+        </div>
+      ) : (
+        <Founders />
+      )}
     </InfoPage>
   )
 }

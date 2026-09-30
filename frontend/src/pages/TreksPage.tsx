@@ -9,30 +9,29 @@ import {
   type Difficulty,
 } from '../api/catalog.ts'
 import { messageFor } from '../auth/errorMessages.ts'
-import { Avatar } from '../components/Avatar.tsx'
-import { DifficultyPill, SeatMeter } from '../components/catalog/DeparturePieces.tsx'
+import { DifficultyPill } from '../components/catalog/DeparturePieces.tsx'
 import { Ridgeline } from '../components/Ridgeline.tsx'
-import { feet, monthKey, monthLabel, rupees, shortRange, weekdaysAndYear } from '../lib/format.ts'
+import { feet, monthKey, monthLabel, rupees, shortRange } from '../lib/format.ts'
 
-/** Duration buckets a trekker actually plans around. */
-const LENGTHS = {
-  day: { label: 'One day', fits: (days: number) => days === 1 },
-  weekend: { label: 'Weekend', fits: (days: number) => days === 2 },
-  long: { label: '3 days +', fits: (days: number) => days >= 3 },
-}
-type LengthKey = keyof typeof LENGTHS
+/** The grade filter's options, easiest first. The catalog's "moderate" reads as "Difficult" here. */
+const GRADES: { grade: Difficulty; label: string }[] = [
+  { grade: 'EASY', label: DIFFICULTY_LABEL.EASY },
+  { grade: 'EASY_MODERATE', label: DIFFICULTY_LABEL.EASY_MODERATE },
+  { grade: 'MODERATE', label: 'Difficult' },
+  { grade: 'CHALLENGING', label: DIFFICULTY_LABEL.CHALLENGING },
+]
 
-const GRADES: Difficulty[] = ['EASY', 'EASY_MODERATE', 'MODERATE', 'CHALLENGING']
+/** A filter select, filled in once something is picked. */
+const filterClass = (picked: boolean) =>
+  `rounded-full border px-3 py-1.5 text-sm ${picked ? 'border-brand-900 bg-brand-900 text-white' : 'border-stone-300 bg-white text-stone-800'}`
 
-/** /treks — every trek we run, by trek or by date. Contract: docs/TRD.md §7.9. */
+/** /treks — every trek we run, filtered by grade and month. Contract: docs/TRD.md §7.9. */
 export function TreksPage() {
   const [params, setParams] = useSearchParams()
   const catalog = useQuery({ queryKey: ['public-catalog'], queryFn: listCatalog })
   const treks = useMemo(() => catalog.data?.items ?? [], [catalog.data])
 
-  const byDate = params.get('view') === 'dates'
   const grade = params.get('grade') as Difficulty | null
-  const length = params.get('length') as LengthKey | null
   const month = params.get('month')
 
   /** Keeps the other filters when one changes, and drops a filter when it's picked again. */
@@ -50,7 +49,6 @@ export function TreksPage() {
 
   const matching = treks
     .filter((t) => !grade || t.difficulty === grade)
-    .filter((t) => !length || LENGTHS[length].fits(t.duration_days))
     .map((t) => (month ? { ...t, departures: t.departures.filter((d) => monthKey(d.start_date) === month) } : t))
     // A month filter is about dates, so treks with none left drop out.
     .filter((t) => !month || t.departures.length > 0)
@@ -59,51 +57,40 @@ export function TreksPage() {
     <div className="mx-auto max-w-6xl px-4 py-8 sm:py-10">
       <header>
         <h1 className="font-display text-3xl font-light tracking-[-0.02em] sm:text-4xl">Our treks</h1>
-        <p className="mt-2 max-w-2xl text-stone-600">
-          Every route we run, with the dates open on each. Batches of ten, one guide, no cancellations for low
-          numbers.
-        </p>
       </header>
 
       <div className="mt-6 flex flex-wrap items-center gap-2">
-        {GRADES.map((g) => (
-          <Chip key={g} on={grade === g} onClick={() => setParam('grade', g)}>
-            {DIFFICULTY_LABEL[g]}
-          </Chip>
-        ))}
-        <span className="mx-1 hidden h-5 w-px bg-stone-200 sm:block" />
-        {(Object.keys(LENGTHS) as LengthKey[]).map((key) => (
-          <Chip key={key} on={length === key} onClick={() => setParam('length', key)}>
-            {LENGTHS[key].label}
-          </Chip>
-        ))}
+        <Chip on={!grade && !month} onClick={() => setParams(new URLSearchParams(), { replace: true })}>
+          All
+        </Chip>
         {months.length > 0 && (
-          <>
-            <span className="mx-1 hidden h-5 w-px bg-stone-200 sm:block" />
-            <select
-              aria-label="Month"
-              value={month ?? ''}
-              onChange={(e) => setParam('month', e.target.value || null)}
-              className="rounded-full border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-800"
-            >
-              <option value="">Any month</option>
-              {months.map((key) => (
-                <option key={key} value={key}>
-                  {monthLabel(key)}
-                </option>
-              ))}
-            </select>
-          </>
+          <select
+            aria-label="Month"
+            value={month ?? ''}
+            onChange={(e) => setParam('month', e.target.value || null)}
+            className={filterClass(month !== null)}
+          >
+            <option value="">Month</option>
+            {months.map((key) => (
+              <option key={key} value={key}>
+                {monthLabel(key)}
+              </option>
+            ))}
+          </select>
         )}
-
-        <div className="ms-auto flex rounded-full bg-stone-100 p-1 text-sm">
-          <Toggle on={!byDate} onClick={() => setParam('view', null)}>
-            By trek
-          </Toggle>
-          <Toggle on={byDate} onClick={() => setParam('view', 'dates')}>
-            By date
-          </Toggle>
-        </div>
+        <select
+          aria-label="Grade"
+          value={grade ?? ''}
+          onChange={(e) => setParam('grade', e.target.value || null)}
+          className={filterClass(grade !== null)}
+        >
+          <option value="">Grade</option>
+          {GRADES.map((g) => (
+            <option key={g.grade} value={g.grade}>
+              {g.label}
+            </option>
+          ))}
+        </select>
       </div>
 
       {catalog.isPending ? (
@@ -132,8 +119,6 @@ export function TreksPage() {
             {treks.length === 0 ? 'Our guides are planning the season. Check back soon.' : 'Try a different month or grade.'}
           </p>
         </Note>
-      ) : byDate ? (
-        <ByDate treks={matching} />
       ) : (
         <ul className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {matching.map((t) => (
@@ -223,85 +208,10 @@ function TrekCard({ trek }: { trek: CatalogTrek }) {
   )
 }
 
-/** The same departures grouped by month, for trekkers whose dates are fixed. */
-function ByDate({ treks }: { treks: CatalogTrek[] }) {
-  const rows = treks
-    .flatMap((t) => t.departures.map((d) => ({ trek: t, departure: d })))
-    .sort((a, b) => a.departure.start_date.localeCompare(b.departure.start_date))
-  const months = [...new Set(rows.map((r) => monthKey(r.departure.start_date)))]
-
-  if (rows.length === 0) {
-    return (
-      <Note>
-        <p className="font-display text-xl text-stone-900">No dates open yet</p>
-        <p className="mt-1 text-sm text-stone-600">Switch to "By trek" to see the routes we run.</p>
-      </Note>
-    )
-  }
-
-  return (
-    <div className="mt-8 space-y-8">
-      {months.map((key) => (
-        <section key={key}>
-          <h2 className="font-display text-lg font-semibold text-stone-900">{monthLabel(key)}</h2>
-          <ul className="mt-3 space-y-3">
-            {rows
-              .filter((r) => monthKey(r.departure.start_date) === key)
-              .map(({ trek, departure: d }) => (
-                <li
-                  key={d.id}
-                  className="rounded-2xl bg-white p-4 ring-1 ring-stone-200 transition hover:ring-brand-300"
-                >
-                  <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                    <p className="font-display text-lg font-semibold">
-                      <Link to={`/departures/${d.id}`} viewTransition className="hover:text-brand-800">
-                        {shortRange(d.start_date, d.end_date)}
-                      </Link>
-                      <span className="ml-2 text-base font-normal text-stone-600">{trek.name}</span>
-                    </p>
-                    <span className="font-semibold">{rupees(d.price_paise)}</span>
-                  </div>
-                  <p className="text-xs text-stone-500">
-                    {weekdaysAndYear(d.start_date, d.end_date)} · {trek.region} · {DIFFICULTY_LABEL[trek.difficulty]}
-                  </p>
-                  <div className="mt-3 sm:max-w-sm">
-                    <SeatMeter size={d.max_group_size} left={d.seats_left} />
-                  </div>
-                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-stone-100 pt-3">
-                    <Link
-                      to={`/guides/${d.guide.id}`}
-                      viewTransition
-                      className="flex items-center gap-2 text-sm text-stone-700 hover:text-brand-800"
-                    >
-                      <Avatar url={d.guide.avatar_url} name={d.guide.full_name} />
-                      {d.guide.full_name ? `with ${d.guide.full_name}` : 'Local guide'}
-                    </Link>
-                    {d.bookable ? (
-                      <Link
-                        to={`/book/${d.id}`}
-                        className="shrink-0 rounded-full bg-brand-900 px-4 py-2 text-sm font-medium text-white hover:bg-brand-800"
-                      >
-                        Book
-                      </Link>
-                    ) : (
-                      <span className="shrink-0 text-xs font-medium text-stone-500">
-                        {d.seats_left === 0 ? 'Full' : 'Closed'}
-                      </span>
-                    )}
-                  </div>
-                </li>
-              ))}
-          </ul>
-        </section>
-      ))}
-    </div>
-  )
-}
-
 function seatNote(d: CatalogDeparture) {
   if (d.seats_left === 0) return '· full'
   if (!d.bookable) return '· closed'
-  return `· ${d.seats_left} left`
+  return ''
 }
 
 function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; children: ReactNode }) {
@@ -313,19 +223,6 @@ function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; chi
       className={`rounded-full px-3 py-1.5 text-sm transition ${
         on ? 'bg-brand-900 text-white' : 'bg-white text-stone-700 ring-1 ring-stone-300 hover:ring-brand-400'
       }`}
-    >
-      {children}
-    </button>
-  )
-}
-
-function Toggle({ on, onClick, children }: { on: boolean; onClick: () => void; children: ReactNode }) {
-  return (
-    <button
-      type="button"
-      aria-pressed={on}
-      onClick={onClick}
-      className={`rounded-full px-3 py-1 transition ${on ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-600'}`}
     >
       {children}
     </button>

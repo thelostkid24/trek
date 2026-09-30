@@ -76,7 +76,13 @@ public class PaymentService {
             if (booking.getStatus() != BookingStatus.HELD || booking.isHoldExpired(now)) {
                 throw ApiException.conflict("BOOKING_NOT_PAYABLE", "This booking can no longer be paid");
             }
+            if (!booking.isReadyToPay()) {
+                throw ApiException.conflict("TRAVELLERS_NEEDED",
+                        "Add everyone who's coming, with their insurance, before paying");
+            }
+            // An open order is reused only for the amount it was made for; add-ons changes expire the old one.
             Payment payment = payments.findByBookingIdAndStatus(bookingId, PaymentStatus.CREATED).stream()
+                    .filter(p -> p.getAmountPaise() == booking.getAmountPaise())
                     .findFirst()
                     .orElseGet(() -> {
                         UUID paymentId = UUID.randomUUID();

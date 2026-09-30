@@ -1,5 +1,7 @@
 package com.sahyatri.snow.dto;
 
+import com.sahyatri.snow.entity.Snowfall;
+
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -12,6 +14,7 @@ public record SnowReportResponse(
         String reportedFrom,
         Integer snowlineM,
         Integer nightTempC,
+        Snowfall snowfall,
         List<Condition> conditions,
         String crowdPlace,
         Integer crowdTents,

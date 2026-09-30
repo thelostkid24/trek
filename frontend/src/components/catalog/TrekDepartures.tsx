@@ -10,22 +10,25 @@ const COUNT_WORDS = ['No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven'
 const firstName = (g: GuideCard) => g.full_name?.split(' ')[0] ?? 'your guide'
 
 /**
- * The departures column: filter by guide and month, then one card per date. The open card introduces its guide
- * (credentials, rating, quote) and leads on to the departure page, where they book, or the guide's page.
+ * The departures column: one row per month that opens to its dates, one card per date. Each card expands, independently
+ * of the others, to introduce its guide (credentials, rating) and lead on to the departure page, where they book.
  */
 export function TrekDepartures({ trek }: { trek: TrekPage }) {
-  const { track, departures, charity } = trek
-  const [guideId, setGuideId] = useState<string | null>(null)
+  const { track, departures } = trek
   const [month, setMonth] = useState<string | null>(null)
-  const [openId, setOpenId] = useState<string | null>(null)
+  const [openIds, setOpenIds] = useState<ReadonlySet<string>>(new Set())
 
   const guides = [...new Map(departures.map((d) => [d.guide.id, d.guide])).values()]
-  const forGuide = departures.filter((d) => guideId === null || d.guide.id === guideId)
-  const months = [...new Set(forGuide.map((d) => monthKey(d.start_date)))]
-  const activeMonth = month !== null && months.includes(month) ? month : (months[0] ?? null)
-  const shown = forGuide.filter((d) => monthKey(d.start_date) === activeMonth)
-  // The first date starts open, until the trekker picks another (or closes it).
-  const open = openId === null ? shown[0]?.id : openId
+  const months = [...new Set(departures.map((d) => monthKey(d.start_date)))]
+  // The first month starts open; '' means the trekker closed them all.
+  const activeMonth = month !== null && (month === '' || months.includes(month)) ? month : (months[0] ?? null)
+  const shown = departures.filter((d) => monthKey(d.start_date) === activeMonth)
+  const toggle = (id: string) =>
+    setOpenIds((prev) => {
+      const next = new Set(prev)
+      if (!next.delete(id)) next.add(id)
+      return next
+    })
 
   const count = COUNT_WORDS[guides.length] ?? String(guides.length)
   const intro =
@@ -47,71 +50,48 @@ export function TrekDepartures({ trek }: { trek: TrekPage }) {
             going with.
           </p>
 
-          {guides.length > 1 && (
-            <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label="Filter by guide">
-              <Chip on={guideId === null} onClick={() => { setGuideId(null); setOpenId(null) }}>
-                All guides
-              </Chip>
-              {guides.map((g) => (
-                <Chip key={g.id} on={guideId === g.id} onClick={() => { setGuideId(g.id); setOpenId(null) }}>
-                  {firstName(g)}
-                </Chip>
-              ))}
-            </div>
-          )}
-
-          <div role="tablist" aria-label="Month" className="mt-3 flex overflow-x-auto rounded-xl bg-white/80 ring-1 ring-paper-300 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="mt-4 space-y-2">
             {months.map((m) => {
               const on = m === activeMonth
-              const dates = forGuide.filter((d) => monthKey(d.start_date) === m).length
+              const inMonth = departures.filter((d) => monthKey(d.start_date) === m)
               return (
-                <button
-                  key={m}
-                  type="button"
-                  role="tab"
-                  aria-selected={on}
-                  onClick={() => { setMonth(m); setOpenId(null) }}
-                  className={`min-w-[4.5rem] flex-1 rounded-xl px-2 py-2 text-center transition ${on ? 'bg-brand-900 text-white' : 'text-stone-800 hover:bg-paper-100'}`}
-                >
-                  <span className="block text-sm font-semibold">
-                    {parseDate(`${m}-01`).toLocaleDateString('en-IN', { month: 'short' })}
-                  </span>
-                  <span className={`block text-[0.7rem] ${on ? 'text-brand-100' : 'text-stone-500'}`}>
-                    {dates} {dates === 1 ? 'date' : 'dates'}
-                  </span>
-                </button>
+                <div key={m} className={`rounded-xl bg-white/80 ring-1 transition ${on ? 'ring-brand-900' : 'ring-paper-300'}`}>
+                  <button
+                    type="button"
+                    aria-expanded={on}
+                    onClick={() => setMonth(on ? '' : m)}
+                    className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left"
+                  >
+                    <span className="font-semibold text-stone-900">
+                      {parseDate(`${m}-01`).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}
+                    </span>
+                    <span className="flex items-center gap-3 text-sm text-stone-500">
+                      {inMonth.length} {inMonth.length === 1 ? 'date' : 'dates'}
+                      <svg viewBox="0 0 20 20" className={`size-4 text-stone-700 transition-transform ${on ? 'rotate-180' : ''}`} fill="currentColor" aria-hidden="true">
+                        <path d="M5.5 7.5 10 12l4.5-4.5z" />
+                      </svg>
+                    </span>
+                  </button>
+                  {on && (
+                    <ul className="space-y-3 px-3 pb-3">
+                      {shown.map((d) => (
+                        <DepartureCard
+                          key={d.id}
+                          departure={d}
+                          trekName={track.name}
+                          open={openIds.has(d.id)}
+                          onToggle={() => toggle(d.id)}
+                        />
+                      ))}
+                    </ul>
+                  )}
+                </div>
               )
             })}
           </div>
-
-          <ul className="mt-3 space-y-3">
-            {shown.map((d) => (
-              <DepartureCard
-                key={d.id}
-                departure={d}
-                trekName={track.name}
-                open={d.id === open}
-                onToggle={() => setOpenId(d.id === open ? '' : d.id)}
-                charity={charity}
-              />
-            ))}
-          </ul>
         </>
       )}
     </section>
-  )
-}
-
-function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; children: string }) {
-  return (
-    <button
-      type="button"
-      aria-pressed={on}
-      onClick={onClick}
-      className={`rounded-full px-3.5 py-1.5 text-sm transition ${on ? 'bg-brand-900 text-white' : 'bg-white/80 text-stone-800 ring-1 ring-paper-300 hover:ring-stone-400'}`}
-    >
-      {children}
-    </button>
   )
 }
 
@@ -120,16 +100,13 @@ function DepartureCard({
   trekName,
   open,
   onToggle,
-  charity,
 }: {
   departure: TrekDeparture
   trekName: string
   open: boolean
   onToggle: () => void
-  charity: TrekPage['charity']
 }) {
-  const taken = d.max_group_size - d.seats_left
-  const status = d.seats_left === 0 ? 'Batch full' : !d.bookable ? 'Bookings closed' : `${d.seats_left} of ${d.max_group_size} seats left`
+  const status = d.seats_left === 0 ? 'Batch full' : !d.bookable ? 'Bookings closed' : null
   return (
     <li className={`rounded-xl bg-white ring-1 transition ${open ? 'ring-stone-900' : 'ring-paper-300 hover:ring-stone-400'}`}>
       <button type="button" onClick={onToggle} aria-expanded={open} className="block w-full p-4 text-left">
@@ -137,26 +114,45 @@ function DepartureCard({
           <span className="text-lg font-semibold text-stone-900">{shortRange(d.start_date, d.end_date)}</span>
           <span className="font-semibold text-stone-900">{rupees(d.price_paise)}</span>
         </span>
-        <span className="mt-1.5 flex items-center gap-2 text-sm text-stone-600">
-          <Avatar url={d.guide.avatar_url} name={d.guide.full_name} size="xs" />
-          with {d.guide.full_name ?? 'a local guide'}
-        </span>
-        <span className="mt-3 flex gap-1" aria-hidden="true">
-          {Array.from({ length: d.max_group_size }, (_, i) => (
-            <span key={i} className={`h-1.5 flex-1 rounded-full ${i < taken ? 'bg-brand-900' : 'bg-paper-200'}`} />
-          ))}
-        </span>
-        <span className={`mt-2 block text-sm font-medium ${d.bookable && d.seats_left <= 2 ? 'text-laterite-600' : 'text-stone-800'}`}>
-          {status}
+        <span className="mt-1.5 block text-sm text-stone-600">Led by {d.guide.full_name ?? 'a local guide'}</span>
+        <GuideHighlights guide={d.guide} />
+        {status && <span className="mt-2 block text-sm font-medium text-stone-500">{status}</span>}
+        <span className="mt-3 flex items-center gap-1 text-sm font-medium text-brand-800">
+          {open ? 'Show less' : `More about ${firstName(d.guide)} & view departure`}
+          <svg viewBox="0 0 20 20" className={`size-4 transition-transform ${open ? 'rotate-180' : ''}`} fill="currentColor" aria-hidden="true">
+            <path d="M5.5 7.5 10 12l4.5-4.5z" />
+          </svg>
         </span>
       </button>
-      {open && <GuideIntro departure={d} trekName={trekName} charity={charity} />}
+      {open && <GuideIntro departure={d} trekName={trekName} />}
     </li>
   )
 }
 
+/** What sets guides apart at a glance: rating and reviews, times they've led this trek, years leading. */
+function GuideHighlights({ guide: g }: { guide: GuideCard }) {
+  const chip = 'rounded-full px-2.5 py-1 text-xs font-medium'
+  return (
+    <span className="mt-2.5 flex flex-wrap gap-1.5">
+      {g.rating !== null ? (
+        <span className={`${chip} bg-laterite-100 text-laterite-600`}>
+          ★ {g.rating.toFixed(1)} ({g.review_count})
+        </span>
+      ) : (
+        <span className={`${chip} bg-paper-200 text-stone-600`}>New guide</span>
+      )}
+      {g.led_this_trek > 0 && <span className={`${chip} bg-brand-50 text-brand-900`}>Led this trek {g.led_this_trek}×</span>}
+      {g.years_leading !== null && g.years_leading > 0 && (
+        <span className={`${chip} bg-brand-50 text-brand-900`}>
+          {g.years_leading} {g.years_leading === 1 ? 'yr' : 'yrs'} guiding
+        </span>
+      )}
+    </span>
+  )
+}
+
 /** Who leads this date: credentials, rating and their own words, then their page. */
-function GuideIntro({ departure: d, trekName, charity }: { departure: TrekDeparture; trekName: string; charity: TrekPage['charity'] }) {
+function GuideIntro({ departure: d, trekName }: { departure: TrekDeparture; trekName: string }) {
   const g = d.guide
   const name = firstName(g)
   const record = [
@@ -183,10 +179,9 @@ function GuideIntro({ departure: d, trekName, charity }: { departure: TrekDepart
           {record && <p className="mt-0.5 text-sm text-stone-600">{record}</p>}
         </div>
       </div>
-      {g.certification && (
+      {(g.bmc_institute || g.amc_institute) && (
         <p className="mt-3 text-sm text-stone-700">
-          Certification: {g.certification}
-          {g.certification_number && <>, number {g.certification_number}</>}
+          {[g.bmc_institute && `BMC, ${g.bmc_institute}`, g.amc_institute && `AMC, ${g.amc_institute}`].filter(Boolean).join(' · ')}
         </p>
       )}
       <p className="mt-2 text-sm text-stone-600">
@@ -199,32 +194,17 @@ function GuideIntro({ departure: d, trekName, charity }: { departure: TrekDepart
           'No reviews yet'
         )}
       </p>
-      {g.quote && <blockquote className="mt-3 border-l-2 border-paper-300 pl-3 font-serif text-stone-700 italic">“{g.quote}”</blockquote>}
 
-      <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
-        <Link
-          to={`/departures/${d.id}`}
-          viewTransition
-          className="block rounded-full bg-brand-900 px-4 py-3 text-center font-semibold text-white hover:bg-brand-800"
-        >
-          View these dates →
-        </Link>
-        <Link
-          to={`/guides/${g.id}`}
-          viewTransition
-          className="block rounded-full bg-white px-4 py-3 text-center font-semibold text-stone-900 ring-1 ring-paper-300 hover:ring-stone-400"
-        >
-          Get to know {name}
-        </Link>
-      </div>
+      <Link
+        to={`/departures/${d.id}`}
+        viewTransition
+        className="mt-4 block rounded-full bg-brand-900 px-4 py-3 text-center font-semibold text-white hover:bg-brand-800"
+      >
+        View the departure →
+      </Link>
       <p className="mt-3 text-center text-sm text-stone-600">
-        The full price, what's covered and {name}'s record are on the next page. Book from there.
+        The full price and {name}'s profile are on the next page. Book from there.
       </p>
-      {charity && (
-        <p className="mt-2 text-center text-xs text-stone-500">
-          {charity.bps / 100}% goes to {charity.name}, and the rest runs the company.
-        </p>
-      )}
     </div>
   )
 }

@@ -48,7 +48,24 @@ public class Booking {
 
     private long pricePaisePerSeat;
 
+    /** Trek fee plus add-ons: what is charged, and what refunds are worked out on. */
     private long amountPaise;
+
+    /** Add-ons: seats taking each, at the price per seat the booking was held at (null when not offered). */
+    private int insuranceSeats;
+
+    private Long insurancePricePaise;
+
+    private int offloadingSeats;
+
+    private Long offloadingPricePaise;
+
+    private int transportSeats;
+
+    private Long transportPricePaise;
+
+    /** Add-ons total, kept apart from the trek fee: the guide and charity shares are on the trek fee only. */
+    private long addonsPaise;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -91,7 +108,7 @@ public class Booking {
     }
 
     public static Booking hold(UUID userId, Departure departure, int seats, String contactName, String contactPhone,
-                               String contactEmail, Instant holdExpiresAt) {
+                               String contactEmail, AddonChoice addons, Instant holdExpiresAt) {
         Booking booking = new Booking();
         booking.id = UUID.randomUUID();
         booking.userId = userId;
@@ -101,7 +118,8 @@ public class Booking {
         booking.contactPhone = contactPhone;
         booking.contactEmail = contactEmail;
         booking.pricePaisePerSeat = departure.getPricePaise();
-        booking.amountPaise = departure.getPricePaise() * seats;
+        booking.applyAddons(addons);
+        booking.amountPaise = departure.getPricePaise() * seats + booking.addonsPaise;
         booking.status = BookingStatus.HELD;
         booking.holdExpiresAt = holdExpiresAt;
         booking.createdAt = Instant.now();
@@ -123,8 +141,37 @@ public class Booking {
         updatedAt = Instant.now();
     }
 
-    public void addTraveller(String fullName, String phone, LocalDate dateOfBirth, Gender gender) {
-        travellers.add(new BookingTraveller(this, travellers.size(), fullName, phone, dateOfBirth, gender));
+    public void addTraveller(String fullName, String phone, LocalDate dateOfBirth, Gender gender,
+                             TravellerAddons addons) {
+        travellers.add(new BookingTraveller(this, travellers.size(), fullName, phone, dateOfBirth, gender, addons));
+    }
+
+    /**
+     * Insurance is compulsory where the trek offers it: before paying, every seat is named and insured (ours or
+     * their own policy).
+     */
+    public boolean isReadyToPay() {
+        if (departure.getTrack().getInsurancePricePaise() == null) {
+            return true;
+        }
+        return travellers.size() == seats && travellers.stream().allMatch(t -> t.getAddons().covered());
+    }
+
+    /** While held, the add-ons follow the travellers; the amount charged follows them. */
+    public void reprice(AddonChoice addons) {
+        applyAddons(addons);
+        amountPaise = pricePaisePerSeat * seats + addonsPaise;
+        updatedAt = Instant.now();
+    }
+
+    private void applyAddons(AddonChoice addons) {
+        insuranceSeats = addons.insuranceSeats();
+        insurancePricePaise = addons.insurancePricePaise();
+        offloadingSeats = addons.offloadingSeats();
+        offloadingPricePaise = addons.offloadingPricePaise();
+        transportSeats = addons.transportSeats();
+        transportPricePaise = addons.transportPricePaise();
+        addonsPaise = addons.totalPaise();
     }
 
     /** Flush before adding the new list: Hibernate inserts before it deletes, and positions are unique. */
@@ -182,6 +229,34 @@ public class Booking {
 
     public long getAmountPaise() {
         return amountPaise;
+    }
+
+    public int getInsuranceSeats() {
+        return insuranceSeats;
+    }
+
+    public Long getInsurancePricePaise() {
+        return insurancePricePaise;
+    }
+
+    public int getOffloadingSeats() {
+        return offloadingSeats;
+    }
+
+    public Long getOffloadingPricePaise() {
+        return offloadingPricePaise;
+    }
+
+    public int getTransportSeats() {
+        return transportSeats;
+    }
+
+    public Long getTransportPricePaise() {
+        return transportPricePaise;
+    }
+
+    public long getAddonsPaise() {
+        return addonsPaise;
     }
 
     public BookingStatus getStatus() {

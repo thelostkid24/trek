@@ -210,12 +210,13 @@ public class CatalogService {
         return new GuideProfile(guide.getId(), guide.getFullName(), avatars.url(guide.getAvatarKey()),
                 profile == null ? null : profile.getHomeCity(), profile == null ? null : profile.getBio(),
                 treks.stream().mapToLong(GuideProfile.TrekLed::times).sum(), details.yearsLeading(),
-                details.languages(), details.certification(), details.certificationNumber(), details.quote(),
+                details.languages(), details.certification(), details.certificationNumber(), details.bmcInstitute(),
+                details.bmcCertificateNumber(), details.amcInstitute(), details.amcCertificateNumber(), details.quote(),
                 rating.average(), rating.count(), reviews.forGuide(id), treks, upcoming);
     }
 
     /**
-     * Each departure's guide with their home city, how often they've completed that departure's trek, their
+     * Each departure's guide with their home city and bio, how often they've completed that departure's trek, their
      * credentials and rating.
      */
     private Map<UUID, GuideCard> guideCards(List<Departure> list) {
@@ -223,8 +224,8 @@ public class CatalogService {
         if (guideIds.isEmpty()) {
             return Map.of();
         }
-        Map<UUID, String> homes = new HashMap<>();
-        profiles.findAllById(guideIds).forEach(p -> homes.put(p.getUserId(), p.getHomeCity()));
+        Map<UUID, TrekkerProfile> guideProfiles = new HashMap<>();
+        profiles.findAllById(guideIds).forEach(p -> guideProfiles.put(p.getUserId(), p));
         Map<String, Long> led = new HashMap<>();
         departures.countByGuideAndTrack(guideIds, DepartureStatus.COMPLETED)
                 .forEach(c -> led.put(c.getGuideId() + "/" + c.getTrackId(), c.getTimes()));
@@ -237,9 +238,11 @@ public class CatalogService {
             // One trek per list (trek page) or one departure (departure page), so the key is unique per guide.
             GuideDetailsResponse gd = details.get(g.getId());
             RatingSummary rating = ratings.getOrDefault(g.getId(), RatingSummary.NONE);
+            TrekkerProfile home = guideProfiles.get(g.getId());
             cards.putIfAbsent(g.getId(), new GuideCard(g.getId(), g.getFullName(), avatars.url(g.getAvatarKey()),
-                    homes.get(g.getId()), led.getOrDefault(g.getId() + "/" + d.getTrack().getId(), 0L),
-                    gd.yearsLeading(), gd.languages(), gd.certification(), gd.certificationNumber(), gd.quote(),
+                    home == null ? null : home.getHomeCity(), home == null ? null : home.getBio(), led.getOrDefault(g.getId() + "/" + d.getTrack().getId(), 0L),
+                    gd.yearsLeading(), gd.languages(), gd.certification(), gd.certificationNumber(), gd.bmcInstitute(),
+                    gd.bmcCertificateNumber(), gd.amcInstitute(), gd.amcCertificateNumber(), gd.quote(),
                     rating.average(), rating.count()));
         }
         return cards;

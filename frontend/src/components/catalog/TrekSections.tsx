@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { DIFFICULTY_LABEL, type ContentItem, type RefundTier, type TrackDetail } from '../../api/catalog.ts'
-import { addDays, dayLabel, feet, rupees } from '../../lib/format.ts'
+import { DIFFICULTY_LABEL, type ContentItem, type TrackDetail } from '../../api/catalog.ts'
+import { feet, rupees } from '../../lib/format.ts'
+import { IconFacts, type FactIcon } from './IconFacts.tsx'
 
 // The trek page's sections (docs/TRD.md §7.7, §7.11): small, mostly static pieces the page stacks.
 
@@ -28,7 +29,7 @@ export function TrekSection({ id, label, aside, children }: { id: string; label:
   )
 }
 
-/** Duration, altitude, difficulty and the services, as cards. Facts nobody has stated are left out. */
+/** Duration, altitude, difficulty and the services, each with its icon. Facts nobody has stated are left out. */
 export function FactGrid({ track }: { track: TrackDetail }) {
   const offloading =
     track.offloading === null
@@ -38,25 +39,18 @@ export function FactGrid({ track }: { track: TrackDetail }) {
           ? `Available · ${rupees(track.offloading_price_paise)}`
           : 'Available · paid'
         : 'Not available'
-  const facts: [string, string | null][] = [
-    ['Duration', `${track.duration_days} ${track.duration_days === 1 ? 'day' : 'days'}`],
-    ['Maximum altitude', track.max_altitude_m ? feet(track.max_altitude_m) : null],
-    ['Difficulty', DIFFICULTY_LABEL[track.difficulty]],
-    track.pickup_drop ? ['Pickup and drop', track.pickup_drop] : ['Meeting point', track.meeting_point],
-    ['Cloakroom', track.cloakroom === null ? null : track.cloakroom ? 'Available' : 'Not available'],
-    ['Offloading', offloading],
+  const facts: [string, string | null, FactIcon][] = [
+    ['Duration', `${track.duration_days} ${track.duration_days === 1 ? 'day' : 'days'}`, 'clock'],
+    ['Maximum altitude', track.max_altitude_m ? feet(track.max_altitude_m) : null, 'summit'],
+    ['Difficulty', DIFFICULTY_LABEL[track.difficulty], 'gauge'],
+    track.pickup_drop ? ['Pickup and drop', track.pickup_drop, 'route'] : ['Meeting point', track.meeting_point, 'pin'],
+    ['Cloakroom', track.cloakroom === null ? null : track.cloakroom ? 'Available' : 'Not available', 'locker'],
+    ['Offloading', offloading, 'backpack'],
   ]
   return (
-    <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-      {facts
-        .filter((f): f is [string, string] => f[1] !== null)
-        .map(([label, value]) => (
-          <div key={label} className="rounded-xl bg-white/80 px-4 py-3 ring-1 ring-paper-300">
-            <dt className="text-[0.65rem] font-medium tracking-[0.14em] text-stone-500 uppercase">{label}</dt>
-            <dd className="mt-1 font-semibold text-stone-900">{value}</dd>
-          </div>
-        ))}
-    </dl>
+    <IconFacts
+      facts={facts.filter((f): f is [string, string, FactIcon] => f[1] !== null).map(([label, value, icon]) => ({ label, value, icon }))}
+    />
   )
 }
 
@@ -117,39 +111,40 @@ export function Overview({ text }: { text: string }) {
   )
 }
 
-/** "What's included" and "What's not included" as two cards that open to their lists. */
-export function Inclusions({ included, excluded, open = false }: { included: ContentItem[]; excluded: ContentItem[]; open?: boolean }) {
-  return (
-    <div className="grid items-start gap-3 sm:grid-cols-2">
-      {included.length > 0 && <ListCard title="What's included" items={included} mark="✓" startOpen={open} />}
-      {excluded.length > 0 && <ListCard title="What's not included" items={excluded} mark="–" startOpen={open} />}
-    </div>
-  )
-}
-
-function ListCard({ title, items, mark, startOpen }: { title: string; items: ContentItem[]; mark: string; startOpen: boolean }) {
+/** One box that opens to both lists side by side: what's included, and what's not. */
+export function Inclusions({ included, excluded, open: startOpen = false }: { included: ContentItem[]; excluded: ContentItem[]; open?: boolean }) {
   const [open, setOpen] = useState(startOpen)
-  const id = `list-${title.replace(/\W+/g, '-').toLowerCase()}`
+  const counts = [
+    included.length > 0 && `${included.length} included`,
+    excluded.length > 0 && `${excluded.length} not included`,
+  ].filter(Boolean)
   return (
     <div className="rounded-xl bg-white/80 ring-1 ring-paper-300">
       <button
         type="button"
         aria-expanded={open}
-        aria-controls={id}
+        aria-controls="inclusions-lists"
         onClick={() => setOpen(!open)}
         className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
       >
-        <span>
-          <span className="block text-xs font-semibold tracking-[0.14em] text-laterite-600 uppercase">{title}</span>
-          <span className="text-sm text-stone-600">
-            {items.length} {items.length === 1 ? 'item' : 'items'}
-          </span>
-        </span>
+        <span className="text-sm font-medium text-stone-800">{counts.join(' · ')}</span>
         <svg viewBox="0 0 20 20" className={`size-4 text-stone-500 transition ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
           <path d="m5 8 5 5 5-5" />
         </svg>
       </button>
-      <ul id={id} hidden={!open} className="divide-y divide-paper-200 px-4 pb-2">
+      <div id="inclusions-lists" hidden={!open} className="grid gap-x-8 border-t border-paper-200 px-4 pt-3 pb-2 sm:grid-cols-2">
+        {included.length > 0 && <InclusionList title="What's included" items={included} mark="✓" />}
+        {excluded.length > 0 && <InclusionList title="What's not included" items={excluded} mark="–" />}
+      </div>
+    </div>
+  )
+}
+
+function InclusionList({ title, items, mark }: { title: string; items: ContentItem[]; mark: string }) {
+  return (
+    <div>
+      <p className="text-xs font-semibold tracking-[0.14em] text-laterite-600 uppercase">{title}</p>
+      <ul className="mt-1 divide-y divide-paper-200">
         {items.map((item, i) => (
           <li key={i} className="flex gap-3 py-2.5 text-sm text-stone-700">
             <span className="shrink-0 font-semibold text-stone-900" aria-hidden="true">
@@ -194,46 +189,6 @@ export function Safety({ callouts, checklist, notes }: { callouts: ContentItem[]
         </p>
       ))}
     </div>
-  )
-}
-
-/**
- * The refund tiers now in force, highest first (docs/TRD.md §7.6). The first card is dark. With `startDate` (a
- * departure page) each tier also says until when it applies.
- */
-export function Cancellation({ tiers, startDate }: { tiers: RefundTier[]; startDate?: string }) {
-  if (tiers.length === 0) return null
-  return (
-    <>
-      <ul className="grid gap-3 sm:grid-cols-3">
-        {tiers.map((t, i) => {
-          const upper = i > 0 ? tiers[i - 1].min_days_before - 1 : null
-          const when =
-            i === 0
-              ? `${t.min_days_before} days or more before`
-              : t.min_days_before === 0
-                ? `Under ${tiers[i - 1].min_days_before} days`
-                : `${t.min_days_before} to ${upper} days before`
-          const refund = t.refund_bps === 10_000 ? 'Full refund' : t.refund_bps === 0 ? 'No refund' : `${t.refund_bps / 100}% refund`
-          const dark = i === 0
-          return (
-            <li key={t.min_days_before} className={`rounded-xl p-4 ${dark ? 'bg-brand-900 text-white' : 'bg-white/80 ring-1 ring-paper-300'}`}>
-              <p className={`text-xs font-medium tracking-[0.12em] uppercase ${dark ? 'text-brand-100' : 'text-stone-500'}`}>{when}</p>
-              <p className="mt-1 text-2xl font-semibold">{refund}</p>
-              {startDate && t.min_days_before > 0 && (
-                <p className={`mt-1 text-sm font-medium ${dark ? 'text-white' : 'text-stone-800'}`}>
-                  until {dayLabel(addDays(startDate, -t.min_days_before))}
-                </p>
-              )}
-              <p className={`mt-1 text-sm ${dark ? 'text-brand-100' : 'text-stone-600'}`}>
-                {t.refund_bps === 0 && i > 0 ? `inside ${tiers[i - 1].min_days_before} days of the departure` : 'of what you paid'}
-              </p>
-            </li>
-          )
-        })}
-      </ul>
-      <p className="mt-3 text-sm text-stone-600">Cancel from My treks any time before the start date.</p>
-    </>
   )
 }
 

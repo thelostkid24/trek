@@ -98,7 +98,7 @@ public class TrackAdminService {
         track.updateRouteFacts(req.distanceKm(), req.baseAltitudeM(), req.highestCampM(), blankToNull(req.stay()),
                 blankToNull(req.seasonLabel()));
         track.updateServices(blankToNull(req.pickupDrop()), req.cloakroom(), req.offloading(),
-                req.offloadingPricePaise());
+                req.offloadingPricePaise(), req.insurancePricePaise(), req.transportPricePaise());
         track.clearItinerary();
         tracks.saveAndFlush(track);
         itinerary.forEach(day -> track.addItineraryDay(day.summary().trim()).setDetails(blankToNull(day.description()),

@@ -41,5 +41,7 @@ public record TrackRequest(
         Boolean cloakroom,
         Boolean offloading,
         @Positive Long offloadingPricePaise,
+        @Positive Long insurancePricePaise,
+        @Positive Long transportPricePaise,
         @Size(max = 7) List<@Valid ItineraryDayRequest> itinerary) {
 }

@@ -23,9 +23,20 @@ public class GuideDetails {
     /** E.g. "Hindi, Garhwali, English". */
     private String languages;
 
+    /** Any other certificate (first aid, rescue); the two mountaineering courses have their own fields. */
     private String certification;
 
     private String certificationNumber;
+
+    /** Basic Mountaineering Course: the institute that ran it, e.g. "Nehru Institute of Mountaineering, Uttarkashi". */
+    private String bmcInstitute;
+
+    private String bmcCertificateNumber;
+
+    /** Advanced Mountaineering Course. */
+    private String amcInstitute;
+
+    private String amcCertificateNumber;
 
     /** In their own words, one or two lines. */
     private String quote;
@@ -51,11 +62,16 @@ public class GuideDetails {
     }
 
     public void update(Integer leadingSince, String languages, String certification, String certificationNumber,
-                       String quote) {
+                       String bmcInstitute, String bmcCertificateNumber, String amcInstitute,
+                       String amcCertificateNumber, String quote) {
         this.leadingSince = leadingSince;
         this.languages = languages;
         this.certification = certification;
         this.certificationNumber = certificationNumber;
+        this.bmcInstitute = bmcInstitute;
+        this.bmcCertificateNumber = bmcCertificateNumber;
+        this.amcInstitute = amcInstitute;
+        this.amcCertificateNumber = amcCertificateNumber;
         this.quote = quote;
     }
 
@@ -77,6 +93,22 @@ public class GuideDetails {
 
     public String getCertificationNumber() {
         return certificationNumber;
+    }
+
+    public String getBmcInstitute() {
+        return bmcInstitute;
+    }
+
+    public String getBmcCertificateNumber() {
+        return bmcCertificateNumber;
+    }
+
+    public String getAmcInstitute() {
+        return amcInstitute;
+    }
+
+    public String getAmcCertificateNumber() {
+        return amcCertificateNumber;
     }
 
     public String getQuote() {

@@ -25,12 +25,20 @@ export const BOOKING_STATUS_LABEL: Record<BookingStatus, string> = {
   CANCELLED_FORCE_MAJEURE: 'Cancelled — full refund',
 }
 
+/** Per-traveller add-ons: our insurance, or their own policy (`insurance_id`); offloading; transport. */
+export type TravellerAddons = {
+  insurance: boolean
+  insurance_id: string | null
+  offloading: boolean
+  transport: boolean
+}
+
 export type Traveller = {
   full_name: string
   phone: string | null
   date_of_birth: string
   gender: Gender
-}
+} & TravellerAddons
 
 export type RefundStatus = 'PENDING' | 'PROCESSED' | 'FAILED'
 export type RefundKind = 'TREKKER_CANCELLATION' | 'FORCE_MAJEURE' | 'LATE_CAPTURE'
@@ -53,7 +61,17 @@ export type Booking = {
   status: BookingStatus
   seats: number
   price_paise_per_seat: number
+  /** Trek fee plus add-ons: what is charged, and what refunds are worked out on. */
   amount_paise: number
+  addons: {
+    insurance_seats: number
+    insurance_price_paise: number | null
+    offloading_seats: number
+    offloading_price_paise: number | null
+    transport_seats: number
+    transport_price_paise: number | null
+    total_paise: number
+  }
   contact: BookingContact
   /** Every seat has a named traveller. Travellers can be added after payment. */
   travellers_complete: boolean
@@ -78,7 +96,7 @@ export type Booking = {
   created_at: string
 }
 
-export type TravellerInput = { full_name: string; phone: string | null; date_of_birth: string; gender: Gender }
+export type TravellerInput = { full_name: string; phone: string | null; date_of_birth: string; gender: Gender } & TravellerAddons
 
 /** Signed in: contact fields left out come from the account. Travellers can wait until after payment. */
 export type NewBooking = {
