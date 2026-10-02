@@ -9,6 +9,7 @@ import { CredentialList, RatingLine, ReviewList } from '../components/catalog/Gu
 import { IconFacts, type Fact } from '../components/catalog/IconFacts.tsx'
 import { SectionLabel } from '../components/catalog/TrekSections.tsx'
 import { rupees, shortRange, weekdaysAndYear } from '../lib/format.ts'
+import { Seo } from '../components/Seo.tsx'
 
 /**
  * /guides/:id — public. "Know your guide": who they are, their credentials and record, what trekkers say, then the
@@ -36,6 +37,7 @@ export function GuidePage() {
     const missing = guide.error instanceof ApiError && guide.error.status === 404
     return (
       <section className="mx-auto max-w-md px-4 py-16 text-center">
+        <Seo title="Guide not found" noindex />
         <h1 className="font-display text-2xl font-semibold">{missing ? 'Guide not found' : 'Something went wrong'}</h1>
         <p className="mt-2 text-stone-600">{missing ? 'This guide may no longer be leading treks.' : messageFor(guide.error)}</p>
         <Link to="/#treks" className="mt-4 inline-block text-brand-700 underline">
@@ -63,6 +65,7 @@ function Profile({ guide: g, departureId }: { guide: GuideProfile; departureId: 
 
   return (
     <div className="bg-paper-50">
+      <Seo title={`${name}, trek guide`} description={g.bio ?? `${name} leads small-batch treks with The Empty Valley.`} path={`/guides/${g.id}`} />
       <div className="mx-auto max-w-5xl space-y-10 px-4 py-8 sm:py-12">
         <button type="button" onClick={() => window.history.back()} className="text-sm text-brand-700 hover:text-brand-900">
           ← Back

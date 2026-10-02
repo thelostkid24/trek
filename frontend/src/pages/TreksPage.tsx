@@ -12,6 +12,7 @@ import { messageFor } from '../auth/errorMessages.ts'
 import { DifficultyPill } from '../components/catalog/DeparturePieces.tsx'
 import { Ridgeline } from '../components/Ridgeline.tsx'
 import { feet, monthKey, monthLabel, rupees, shortRange } from '../lib/format.ts'
+import { Seo } from '../components/Seo.tsx'
 
 /** The grade filter's options, easiest first. The catalog's "moderate" reads as "Difficult" here. */
 const GRADES: { grade: Difficulty; label: string }[] = [
@@ -55,6 +56,7 @@ export function TreksPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:py-10">
+      <Seo title="Our treks" description="Every trek we run, with upcoming dates, difficulty and the local guide leading each departure." path="/treks" />
       <header>
         <h1 className="font-display text-3xl font-light tracking-[-0.02em] sm:text-4xl">Our treks</h1>
       </header>

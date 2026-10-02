@@ -9,6 +9,7 @@ import { CredentialList, GuideProfileCard, ReviewList } from '../components/cata
 import { SectionLabel } from '../components/catalog/TrekSections.tsx'
 import { Ridgeline } from '../components/Ridgeline.tsx'
 import { rupees, shortRange, weekdaysAndYear } from '../lib/format.ts'
+import { Seo } from '../components/Seo.tsx'
 
 /**
  * /departures/:id — public. One dated run: who leads it (above the Book button), their certificates and what
@@ -34,6 +35,7 @@ export function DepartureDetailPage() {
     const missing = departure.error instanceof ApiError && departure.error.status === 404
     return (
       <section className="mx-auto max-w-md px-4 py-16 text-center">
+        <Seo title="Departure not found" noindex />
         <h1 className="font-display text-2xl font-semibold">
           {missing ? 'This departure is not available' : 'Something went wrong'}
         </h1>
@@ -57,6 +59,7 @@ function Detail({ departure: d }: { departure: DepartureDetail }) {
 
   return (
     <div className="bg-paper-50 pb-24 lg:pb-0">
+      <Seo title={`${track.name} with ${guideName}`} description={track.summary} path={`/departures/${d.id}`} />
       <section className="relative isolate h-44 overflow-hidden bg-brand-950 sm:h-64">
         {cover ? (
           <>

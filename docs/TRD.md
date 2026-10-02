@@ -1007,6 +1007,19 @@ Every actual consent change writes `MARKETING_CONSENT_GRANTED` / `MARKETING_CONS
 - Frontend: "How did you hear about us?" + two unticked consent boxes on sign-up (all three methods) and guest checkout (`components/auth/SignupChoicesFields.tsx`); "Communication preferences" on the profile (`components/profile/CommunicationSection.tsx`); admin **Insights** tab (`/admin/insights`, `pages/admin/InsightsPage.tsx`) with a 7/30/90-day switch; the Privacy page lists what we collect.
 - Tests: `AcquisitionTests`, `InsightsTests`.
 
+### 7.16 Search indexing (sitemap, robots, page metadata)
+Google renders the SPA, so there's no SSR. It needs a sitemap, robots.txt and per-page head tags.
+
+| Method & path | Auth | Request | Success | Errors |
+|---|---|---|---|---|
+| `GET /api/public/sitemap.xml` | — | — | `200 application/xml` `<urlset>`, `Cache-Control: public, max-age=3600` | — |
+
+- `seo.service.SitemapService`: `app.frontend-base-url` + the static public paths (`/`, `/treks`, vision, faqs, cancellations, contact, terms, privacy), `/treks/{slug}` for every trek in the public catalog (`CatalogService.catalog()`), and `/guides/{id}` for each guide leading one of its upcoming departures. Departures are left out because they expire (law 9). No `lastmod`/`priority`.
+- The site (Firebase) and API are on different hosts, so `frontend/public/robots.txt` points to the sitemap on `api.theemptyvalley.com`. It disallows account, admin, guide console, checkout and auth paths.
+- Frontend: `components/Seo.tsx` renders `<title>`, description, canonical (`SITE_ORIGIN` in `lib/siteLinks.ts`) and Open Graph tags through React 19's head hoisting. `index.html` has no title or description of its own. Public pages pass `path`. Not-found and error states, plus every private route (wrapped in `<Private>` in `router.tsx`), are `noindex`.
+- Search Console setup: docs/DEPLOY-FRONTEND-FIREBASE.md B5.
+- Tests: `SitemapTests`.
+
 ### Charity share
 `app.charity` (`CHARITY_NAME`, `CHARITY_BPS`, default 100 = 1%) is part of the price, never added on top. It only shows as a line on the trek page ("1% goes to …, and the rest runs the company"); no money is split or recorded per booking yet.
 

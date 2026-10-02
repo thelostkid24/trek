@@ -3,6 +3,7 @@ import { RequireAuth } from './auth/RequireAuth.tsx'
 import { PROFILE_PATH } from './auth/useCompleteSignIn.ts'
 import { SITE_LINKS } from './lib/siteLinks.ts'
 import { Layout } from './components/Layout.tsx'
+import { Private } from './components/Seo.tsx'
 import { AdminLayout } from './pages/admin/AdminLayout.tsx'
 import { ContentAdminPage } from './pages/admin/ContentAdminPage.tsx'
 import { DeparturesAdminPage } from './pages/admin/DeparturesAdminPage.tsx'
@@ -40,16 +41,18 @@ export const router = createBrowserRouter([
     element: <Layout />,
     children: [
       { path: '/', element: <HomePage /> },
-      { path: '/login', element: <LoginPage /> },
-      { path: '/signup', element: <SignupPage /> },
-      { path: '/forgot-password', element: <ForgotPasswordPage /> },
-      { path: '/reset-password', element: <ResetPasswordPage /> },
+      { path: '/login', element: <Private title="Log in"><LoginPage /></Private> },
+      { path: '/signup', element: <Private title="Sign up"><SignupPage /></Private> },
+      { path: '/forgot-password', element: <Private title="Forgot password"><ForgotPasswordPage /></Private> },
+      { path: '/reset-password', element: <Private title="Reset password"><ResetPasswordPage /></Private> },
       // Trekker account pages share the account layout (name, then pill tabs).
       {
         element: (
-          <RequireAuth role="TREKKER">
-            <AccountLayout />
-          </RequireAuth>
+          <Private title="My account">
+            <RequireAuth role="TREKKER">
+              <AccountLayout />
+            </RequireAuth>
+          </Private>
         ),
         children: [
           { path: '/account', element: <Navigate to="/account/bookings" replace /> },
@@ -59,7 +62,7 @@ export const router = createBrowserRouter([
           { path: '/account/gear', element: <GearPage /> },
         ],
       },
-      { path: '/account/verify-email', element: <VerifyEmailPage /> },
+      { path: '/account/verify-email', element: <Private title="Verify email"><VerifyEmailPage /></Private> },
       { path: '/treks', element: <TreksPage /> },
       { path: '/treks/:slug', element: <TrekPage /> },
       { path: '/departures/:id', element: <DepartureDetailPage /> },
@@ -71,13 +74,15 @@ export const router = createBrowserRouter([
       { path: SITE_LINKS.terms, element: <TermsPage /> },
       { path: SITE_LINKS.privacy, element: <PrivacyPage /> },
       // Public: guest checkout needs no account (docs/TRD.md §7.6).
-      { path: '/book/:departureId', element: <BookPage /> },
+      { path: '/book/:departureId', element: <Private title="Book"><BookPage /></Private> },
       {
         path: '/admin',
         element: (
-          <RequireAuth role="ADMIN">
-            <AdminLayout />
-          </RequireAuth>
+          <Private title="Admin">
+            <RequireAuth role="ADMIN">
+              <AdminLayout />
+            </RequireAuth>
+          </Private>
         ),
         children: [
           { index: true, element: <DeparturesAdminPage /> },
@@ -90,9 +95,11 @@ export const router = createBrowserRouter([
       {
         path: '/guide',
         element: (
-          <RequireAuth role="GUIDE">
-            <GuideReportsPage />
-          </RequireAuth>
+          <Private title="Guide reports">
+            <RequireAuth role="GUIDE">
+              <GuideReportsPage />
+            </RequireAuth>
+          </Private>
         ),
       },
       { path: '*', element: <NotFoundPage /> },

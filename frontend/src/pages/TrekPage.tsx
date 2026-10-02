@@ -18,6 +18,7 @@ import {
   TrekSection,
 } from '../components/catalog/TrekSections.tsx'
 import { Ridgeline } from '../components/Ridgeline.tsx'
+import { Seo } from '../components/Seo.tsx'
 
 /** /treks/:slug — public. One trek, every upcoming departure, each with its own guide. Contract: docs/TRD.md §7.7. */
 export function TrekPage() {
@@ -39,6 +40,7 @@ export function TrekPage() {
     const missing = trek.error instanceof ApiError && trek.error.status === 404
     return (
       <section className="mx-auto max-w-md px-4 py-16 text-center">
+        <Seo title="Trek not found" noindex />
         <h1 className="font-display text-2xl font-semibold">{missing ? 'This trek is not available' : 'Something went wrong'}</h1>
         <p className="mt-2 text-stone-600">{missing ? 'It may have been renamed or removed.' : messageFor(trek.error)}</p>
         <Link to="/treks" className="mt-4 inline-block text-brand-700 underline">
@@ -71,6 +73,7 @@ function Page({ trek }: { trek: Trek }) {
 
   return (
     <div className="bg-paper-50">
+      <Seo title={`${track.name}, ${track.region}`} description={track.summary} path={`/treks/${track.slug}`} />
       {/* The first trek photo leads; until there is one, the ridgeline stands in. */}
       {/* Shares its view-transition name with the catalog card, which grows into it. */}
       <section
