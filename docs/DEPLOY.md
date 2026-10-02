@@ -204,30 +204,56 @@ Route 53: `A` and `AAAA` alias records for `<domain>` and `www.<domain>` → the
 The app buckets live in memory, which is correct for one task. Before running more than one task, move them to Postgres or Redis.
 
 ## 13. CI/CD (GitHub Actions)
-`.github/workflows/ci.yml` runs the tests on every PR. `deploy.yml` deploys `main` once CI passes. One-time setup:
-1. IAM → Identity providers → add **OpenID Connect**, `https://token.actions.githubusercontent.com`, audience `sts.amazonaws.com`.
-2. **Role `sahyatri-github-deploy`:**
-   - Trust: that provider, with condition `token.actions.githubusercontent.com:sub` = `repo:<owner>/<repo>:environment:production`.
-   - Permissions:
-     - ECR push to `sahyatri-backend` (`ecr:GetAuthorizationToken` + the layer and put-image actions).
-     - `ecs:DescribeTaskDefinition`, `ecs:RegisterTaskDefinition`, `ecs:UpdateService`, `ecs:DescribeServices`.
-     - `iam:PassRole` on both task roles.
-     - `s3:ListBucket` / `PutObject` / `DeleteObject` on the web bucket.
-     - `cloudfront:CreateInvalidation`.
-3. GitHub → Settings → Environments → create **production** (optionally with required reviewers).
-4. Add these **repository variables:**
+`.github/workflows/ci.yml` runs the tests on every PR. `deploy.yml` deploys `main` once CI passes: the backend to
+ECS (Flyway migrates on startup), then the frontend to Firebase Hosting (docs/DEPLOY-FRONTEND-FIREBASE.md).
+GitHub signs in to AWS and Google through OIDC, so no keys are stored. Both trust only the `production`
+environment of `thelostkid24/trek`. One-time setup:
+
+1. **AWS** (done 2026-10-02): IAM identity provider `token.actions.githubusercontent.com` (audience
+   `sts.amazonaws.com`) and role **`emptyvalley-github-deploy`**:
+   - Trust: that provider, with `aud` = `sts.amazonaws.com` and `sub` = `repo:thelostkid24/trek:environment:production`.
+   - Inline policy `deploy`: ECR login + push to `emptyvalley-backend`; `ecs:DescribeTaskDefinition`,
+     `ecs:RegisterTaskDefinition`; `ecs:UpdateService` / `DescribeServices` on `emptyvalley/emptyvalley-backend`;
+     `iam:PassRole` on `emptyvalley-task-execution` and `emptyvalley-task` (to ECS only).
+2. **Google** (done 2026-10-02; Workload Identity Federation, needs the `gcloud` CLI logged in as a project owner):
+   ```bash
+   PROJECT=the-empty-valley-da35c
+   PROJECT_NUMBER=$(gcloud projects describe $PROJECT --format='value(projectNumber)')
+   SA=github-deploy@$PROJECT.iam.gserviceaccount.com
+   SUBJECT=repo:thelostkid24/trek:environment:production
+   gcloud services enable iamcredentials.googleapis.com sts.googleapis.com --project $PROJECT
+   gcloud iam service-accounts create github-deploy --display-name "GitHub deploy" --project $PROJECT
+   for ROLE in roles/firebasehosting.admin roles/serviceusage.serviceUsageConsumer; do
+     gcloud projects add-iam-policy-binding $PROJECT --member serviceAccount:$SA --role $ROLE --condition None
+   done
+   gcloud iam workload-identity-pools create github --location global --display-name GitHub --project $PROJECT
+   gcloud iam workload-identity-pools providers create-oidc github --location global --workload-identity-pool github \
+     --issuer-uri https://token.actions.githubusercontent.com \
+     --attribute-mapping google.subject=assertion.sub,attribute.repository=assertion.repository \
+     --attribute-condition "assertion.sub == '$SUBJECT'" --project $PROJECT
+   gcloud iam service-accounts add-iam-policy-binding $SA --role roles/iam.workloadIdentityUser --project $PROJECT \
+     --member "principal://iam.googleapis.com/projects/$PROJECT_NUMBER/locations/global/workloadIdentityPools/github/subject/$SUBJECT"
+   echo "GCP_WORKLOAD_IDENTITY_PROVIDER=projects/$PROJECT_NUMBER/locations/global/workloadIdentityPools/github/providers/github"
+   echo "GCP_SERVICE_ACCOUNT=$SA"
+   ```
+3. GitHub → Settings → Environments → **production** (exists; add required reviewers to approve each deploy).
+4. **Repository variables** (Settings → Secrets and variables → Actions → Variables):
 
    | Variable | Value |
    |---|---|
-   | `AWS_ROLE_ARN` | the deploy role's ARN |
-   | `ECR_REPOSITORY` | `sahyatri-backend` |
-   | `ECS_CLUSTER` | `sahyatri` |
-   | `ECS_SERVICE` | the service name |
-   | `ECS_TASK_FAMILY` | `sahyatri-backend` |
+   | `AWS_ROLE_ARN` | `arn:aws:iam::426197263227:role/emptyvalley-github-deploy` |
+   | `ECR_REPOSITORY` | `emptyvalley-backend` |
+   | `ECS_CLUSTER` | `emptyvalley` |
+   | `ECS_SERVICE` | `emptyvalley-backend` |
+   | `ECS_TASK_FAMILY` | `emptyvalley-backend` |
    | `ECS_CONTAINER` | `backend` |
-   | `SPA_BUCKET` | the web bucket |
-   | `CLOUDFRONT_DISTRIBUTION_ID` | the distribution's ID |
-   | `VITE_GOOGLE_CLIENT_ID` | your OAuth client id |
+   | `VITE_API_BASE_URL` | `https://api.theemptyvalley.com` |
+   | `VITE_GOOGLE_CLIENT_ID` | the OAuth client id |
+   | `FIREBASE_PROJECT` | `the-empty-valley-da35c` |
+   | `GCP_WORKLOAD_IDENTITY_PROVIDER` | printed by step 2 |
+   | `GCP_SERVICE_ACCOUNT` | printed by step 2 |
+
+To redeploy without a new commit: Actions → Deploy → **Run workflow**.
 
 ## 14. Third parties
 - **Razorpay** → Webhooks → `https://<domain>/api/webhooks/razorpay`, events `payment.captured`, `order.paid`, `payment.failed`, `refund.processed`, `refund.failed`, secret = `RAZORPAY_WEBHOOK_SECRET`. Do this once in **test** mode and again in **live** mode; each mode has its own webhooks and keys.

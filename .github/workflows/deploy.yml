@@ -1,9 +1,10 @@
 name: Deploy
 
-# Runs after CI passes on main. Setup (one-time) is in docs/DEPLOY.md: an IAM role GitHub can assume through
-# OIDC, plus these repository variables (Settings → Secrets and variables → Actions → Variables):
+# Runs after CI passes on main: backend to ECS, then frontend to Firebase Hosting. Setup (one-time) is in
+# docs/DEPLOY.md §13: an AWS role and a Google service account GitHub can assume through OIDC (no stored keys),
+# plus these repository variables (Settings → Secrets and variables → Actions → Variables):
 #   AWS_ROLE_ARN, ECR_REPOSITORY, ECS_CLUSTER, ECS_SERVICE, ECS_TASK_FAMILY, ECS_CONTAINER,
-#   SPA_BUCKET, CLOUDFRONT_DISTRIBUTION_ID, VITE_GOOGLE_CLIENT_ID
+#   VITE_API_BASE_URL, VITE_GOOGLE_CLIENT_ID, FIREBASE_PROJECT, GCP_WORKLOAD_IDENTITY_PROVIDER, GCP_SERVICE_ACCOUNT
 on:
   workflow_run:
     workflows: [CI]
@@ -72,20 +73,16 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-      - run: npm ci && npm run build
+      # The site and the API are on different hosts, so an empty base URL would point the site at itself.
+      - run: test -n "$VITE_API_BASE_URL" && npm ci && npm run build
         working-directory: frontend
         env:
-          VITE_API_BASE_URL: ''
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
           VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: google-github-actions/auth@v2
         with:
-          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-      # Hashed assets/ cache forever; everything else (index.html, favicon) revalidates, so a deploy shows up
-      # immediately. Old assets/ files stay a while for tabs still running the previous build.
-      - run: |
-          aws s3 sync frontend/dist/assets "s3://${{ vars.SPA_BUCKET }}/assets" \
-            --cache-control "public,max-age=31536000,immutable"
-          aws s3 sync frontend/dist "s3://${{ vars.SPA_BUCKET }}" --exclude "assets/*" --delete \
-            --cache-control "no-cache"
-          aws cloudfront create-invalidation --distribution-id "${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}" --paths "/index.html" "/favicon.svg" "/icons.svg"
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+      # Firebase swaps the whole site at once and purges its CDN; caching rules are in frontend/firebase.json.
+      - run: npx -y firebase-tools@15 deploy --only hosting --project "${{ vars.FIREBASE_PROJECT }}" --non-interactive
+        working-directory: frontend
