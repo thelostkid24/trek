@@ -207,11 +207,14 @@ The app buckets live in memory, which is correct for one task. Before running mo
 `.github/workflows/ci.yml` runs the tests on every PR. `deploy.yml` deploys `main` once CI passes: the backend to
 ECS (Flyway migrates on startup), then the frontend to Firebase Hosting (docs/DEPLOY-FRONTEND-FIREBASE.md).
 GitHub signs in to AWS and Google through OIDC, so no keys are stored. Both trust only the `production`
-environment of `thelostkid24/trek`. One-time setup:
+environment of this repo. The repo uses GitHub's **immutable** OIDC subject, which carries the owner and repo IDs:
+`repo:thelostkid24@107846176/trek@1382027667:environment:production` (check with
+`gh api repos/thelostkid24/trek/actions/oidc/customization/sub`). A plain `repo:thelostkid24/trek:…` subject is
+refused. One-time setup:
 
 1. **AWS** (done 2026-10-02): IAM identity provider `token.actions.githubusercontent.com` (audience
    `sts.amazonaws.com`) and role **`emptyvalley-github-deploy`**:
-   - Trust: that provider, with `aud` = `sts.amazonaws.com` and `sub` = `repo:thelostkid24/trek:environment:production`.
+   - Trust: that provider, with `aud` = `sts.amazonaws.com` and `sub` = the immutable subject above.
    - Inline policy `deploy`: ECR login + push to `emptyvalley-backend`; `ecs:DescribeTaskDefinition`,
      `ecs:RegisterTaskDefinition`; `ecs:UpdateService` / `DescribeServices` on `emptyvalley/emptyvalley-backend`;
      `iam:PassRole` on `emptyvalley-task-execution` and `emptyvalley-task` (to ECS only).
@@ -220,7 +223,7 @@ environment of `thelostkid24/trek`. One-time setup:
    PROJECT=the-empty-valley-da35c
    PROJECT_NUMBER=$(gcloud projects describe $PROJECT --format='value(projectNumber)')
    SA=github-deploy@$PROJECT.iam.gserviceaccount.com
-   SUBJECT=repo:thelostkid24/trek:environment:production
+   SUBJECT='repo:thelostkid24@107846176/trek@1382027667:environment:production'
    gcloud services enable iamcredentials.googleapis.com sts.googleapis.com --project $PROJECT
    gcloud iam service-accounts create github-deploy --display-name "GitHub deploy" --project $PROJECT
    for ROLE in roles/firebasehosting.admin roles/serviceusage.serviceUsageConsumer; do
