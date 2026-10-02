@@ -1013,6 +1013,7 @@ Google renders the SPA, so there's no SSR. It needs a sitemap, robots.txt and pe
 | Method & path | Auth | Request | Success | Errors |
 |---|---|---|---|---|
 | `GET /api/public/sitemap.xml` | — | — | `200 application/xml` `<urlset>`, `Cache-Control: public, max-age=3600` | — |
+| `GET /robots.txt` (API host) | — | — | `200 text/plain`: allows only `/api/public/sitemap.xml` and `/api/public/files/`, disallows the rest; cached 1 day | — |
 
 - `seo.service.SitemapService`: `app.frontend-base-url` + the static public paths (`/`, `/treks`, vision, faqs, cancellations, contact, terms, privacy), `/treks/{slug}` for every trek in the public catalog (`CatalogService.catalog()`), and `/guides/{id}` for each guide leading one of its upcoming departures. Departures are left out because they expire (law 9). No `lastmod`/`priority`.
 - The site (Firebase) and API are on different hosts, so `frontend/public/robots.txt` points to the sitemap on `api.theemptyvalley.com`. It disallows account, admin, guide console, checkout and auth paths.
