@@ -73,6 +73,19 @@ class RateLimitFilterTests {
         assertThat(filter.clientIp(request)).isEqualTo(request.getRemoteAddr());
     }
 
+    @Test
+    void behindAlbTrustsOnlyTheLastForwardedForEntry() {
+        RateLimitFilter albFilter = new RateLimitFilter(new RateLimitProperties(
+                true, "X-Forwarded-For", 100, List.of(), List.of()), clock);
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/auth/login");
+        request.addHeader("X-Forwarded-For", "6.6.6.6");
+        assertThat(albFilter.clientIp(request)).isEqualTo("6.6.6.6");
+
+        MockHttpServletRequest spoofed = new MockHttpServletRequest("POST", "/api/auth/login");
+        spoofed.addHeader("X-Forwarded-For", "1.2.3.4, 6.6.6.6");
+        assertThat(albFilter.clientIp(spoofed)).isEqualTo("6.6.6.6");
+    }
+
     private MockHttpServletResponse call(String method, String path, String viewer) throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest(method, path);
         request.addHeader("CloudFront-Viewer-Address", viewer);
