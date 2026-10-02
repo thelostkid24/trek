@@ -178,8 +178,8 @@ npx -y firebase-tools@latest deploy --only hosting --project the-empty-valley-da
 Firebase swaps the whole site at once and purges its CDN. **Rollback:** Firebase → Hosting → release history →
 **Rollback** on the previous release.
 
-The GitHub `Deploy` workflow still targets S3 and CloudFront. Its frontend job won't deploy this setup, so
-release by hand until it's changed.
+Normally you don't run this by hand: the GitHub `Deploy` workflow builds and deploys the frontend after the
+backend on every push to `main` (setup in docs/DEPLOY.md §13). The commands above are the manual fallback.
 
 When the API is published, Razorpay's webhook URL is `https://api.theemptyvalley.com/api/webhooks/razorpay`.
 
@@ -195,7 +195,9 @@ us-east-1 WAF). Then:
    `RATE_LIMIT_CLIENT_IP_HEADER` back to `CloudFront-Viewer-Address`.
 3. Remove the ALB's `0.0.0.0/0` rule (CloudFront prefix list only), listener rule 20, the `api` cert, the `api`
    DNS record and the regional WAF. Move the Razorpay webhook to the apex.
-4. Delete the Firebase Hosting site, or downgrade the project to Spark.
+4. Point the `frontend` job in `.github/workflows/deploy.yml` back at S3 + CloudFront invalidation (it did that
+   before 2026-10-02; see git history) and set `VITE_API_BASE_URL` to empty.
+5. Delete the Firebase Hosting site, or downgrade the project to Spark.
 
 Avatars and trek photos already uploaded keep working: their URLs are built from `PUBLIC_BASE_URL` on every
 read, not stored.
