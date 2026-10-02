@@ -1,0 +1,14 @@
+# docs/TRD.md §7.16. Sign-in, account, admin and checkout pages stay out of search; they're noindex too.
+User-agent: *
+Disallow: /account
+Disallow: /admin
+Disallow: /guide/
+Disallow: /guide$
+Disallow: /book/
+Disallow: /login
+Disallow: /signup
+Disallow: /forgot-password
+Disallow: /reset-password
+
+# The sitemap is served by the API, which lists every public trek and guide page.
+Sitemap: https://api.theemptyvalley.com/api/public/sitemap.xml

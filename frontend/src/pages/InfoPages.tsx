@@ -5,11 +5,13 @@ import { Ridgeline } from '../components/Ridgeline.tsx'
 import { BUSINESS } from '../lib/business.ts'
 import { FAQS } from '../lib/faqs.ts'
 import { SITE_LINKS } from '../lib/siteLinks.ts'
+import { Seo } from '../components/Seo.tsx'
 
 /** Plain text pages linked from the header and footer, in the landing page's style. */
-function InfoPage({ title, intro, wide = false, children }: { title: string; intro?: string; wide?: boolean; children?: ReactNode }) {
+function InfoPage({ title, intro, path, wide = false, children }: { title: string; intro?: string; path: string; wide?: boolean; children?: ReactNode }) {
   return (
     <div className="min-h-[calc(100dvh-4rem)] bg-paper-50 font-plex text-ink-900">
+      <Seo title={title} description={intro} path={path} />
       <section className={`mx-auto px-5 py-16 sm:px-10 sm:py-20 ${wide ? 'max-w-5xl' : 'max-w-[44rem]'}`}>
         <h1 className="font-serif text-4xl font-light tracking-tight sm:text-[2.8rem]">{title}</h1>
         {intro && <p className="mt-3 max-w-[40rem] text-base leading-relaxed text-ink-700">{intro}</p>}
@@ -32,7 +34,7 @@ const linkClass = 'font-medium text-pine-600 hover:text-pine-700'
 
 export function FaqsPage() {
   return (
-    <InfoPage title="FAQs" intro="Everything trekkers ask us before they book.">
+    <InfoPage title="FAQs" path={SITE_LINKS.faqs} intro="Everything trekkers ask us before they book.">
       <FaqList items={FAQS} />
       <p className="mt-6 text-sm text-ink-700">
         Refund details are in the{' '}
@@ -57,6 +59,7 @@ export function CancellationsPage() {
   return (
     <InfoPage
       title="Cancellations & refunds"
+      path={SITE_LINKS.cancellations}
       intro="You can cancel a paid booking from its page in My treks, any time before the start date. The whole booking is cancelled together."
     >
       <table className="mt-8 w-full border-collapse text-left text-sm">
@@ -219,6 +222,7 @@ export function VisionPage() {
     <InfoPage
       wide
       title="Our vision"
+      path={SITE_LINKS.vision}
     >
       <div role="tablist" aria-label="Our vision" className="mt-8 inline-flex rounded-full bg-paper-200 p-1">
         {VISION_TABS.map((t) => (
@@ -259,6 +263,7 @@ export function ContactPage() {
   return (
     <InfoPage
       title="Contact"
+      path={SITE_LINKS.contact}
       intro="Have a question about a booking? Open it from My treks — your booking page has your guide, dates and payment details in one place."
     >
       <dl className="mt-8 grid gap-4 rounded-(--card-radius) border border-paper-300 bg-paper-50 p-6 text-sm sm:grid-cols-[10rem_1fr]">
@@ -302,6 +307,7 @@ export function TermsPage() {
   return (
     <InfoPage
       title="Terms of use"
+      path={SITE_LINKS.terms}
       intro={`These terms apply when you use The Empty Valley or book a trek with us. The Empty Valley is operated by ${BUSINESS.legalName}. Last updated ${BUSINESS.lastUpdated}.`}
     >
       <Section title="Bookings and payment">
@@ -377,6 +383,7 @@ export function PrivacyPage() {
   return (
     <InfoPage
       title="Privacy policy"
+      path={SITE_LINKS.privacy}
       intro={`How ${BUSINESS.legalName} (“The Empty Valley”) collects and uses your personal data, under India’s Digital Personal Data Protection Act, 2023. Last updated ${BUSINESS.lastUpdated}.`}
     >
       <Section title="What we collect">

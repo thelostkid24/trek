@@ -10,6 +10,7 @@ import { rupees, shortRange } from '../lib/format.ts'
 import { revealClass, staggerStyle, useInView } from '../lib/reveal.ts'
 import { Ridgeline } from '../components/Ridgeline.tsx'
 import { SITE_LINKS } from '../lib/siteLinks.ts'
+import { Seo } from '../components/Seo.tsx'
 
 /** Same query (and cache) as /treks, so opening "See all treks" from here is instant. */
 const useCatalog = () => useQuery({ queryKey: ['public-catalog'], queryFn: listCatalog })
@@ -17,6 +18,7 @@ const useCatalog = () => useQuery({ queryKey: ['public-catalog'], queryFn: listC
 export function HomePage() {
   return (
     <div className="bg-paper-50 font-grotesk text-ink-900">
+      <Seo path="/" />
       <Hero />
       <Destinations />
       <HowItWorks />

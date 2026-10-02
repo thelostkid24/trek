@@ -165,6 +165,21 @@ curl -sI https://www.theemptyvalley.com/login | grep -i location                
 In a browser: sign up, log out and back in, **reload the page while logged in** (this exercises the refresh
 cookie across origins), sign in with Google, and open a page with a guide photo.
 
+### B5. Google Search Console (docs/TRD.md §7.16)
+```bash
+curl -s https://theemptyvalley.com/robots.txt | head -3                             # plain text, not index.html
+curl -s https://api.theemptyvalley.com/api/public/sitemap.xml | head -4             # <urlset …>
+```
+1. Open https://search.google.com/search-console signed in as `vikhilesh@theemptyvalley.com` → **Add property** →
+   **Domain** → `theemptyvalley.com`. The apex already has a `google-site-verification` TXT record from the Workspace
+   setup, so it may verify straight away. If it doesn't, add the TXT value it shows to the Route 53 apex TXT record
+   (keep the existing values).
+2. **Sitemaps** → submit `https://api.theemptyvalley.com/api/public/sitemap.xml`. It's on the API host, which is
+   allowed because the site's robots.txt names it.
+3. **URL Inspection** → `https://theemptyvalley.com/` and one trek page → **Test live URL** → check the rendered
+   HTML has the page's own `<title>` and canonical link → **Request indexing**.
+4. Optional: Bing Webmaster Tools → **Import from Google Search Console**.
+
 ---
 
 ## Part C: every frontend release

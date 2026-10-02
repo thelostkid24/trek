@@ -1,3 +1,6 @@
+/** The public site's origin, for canonical links (the API lives on another host). */
+export const SITE_ORIGIN = 'https://theemptyvalley.com'
+
 /** Info pages linked from the header, footer and landing page (pages/InfoPages.tsx). */
 export const SITE_LINKS = {
   vision: '/vision',
