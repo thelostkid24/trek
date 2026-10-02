@@ -99,6 +99,9 @@ public class RateLimitFilter extends OncePerRequestFilter {
         if (header != null && !header.isBlank()) {
             String value = request.getHeader(header);
             if (value != null && !value.isBlank()) {
+                // X-Forwarded-For behind the ALB is "<client-supplied>, ..., <client ip>": only the last entry,
+                // appended by the ALB, can be trusted.
+                value = value.substring(value.lastIndexOf(',') + 1).trim();
                 // CloudFront-Viewer-Address is "ip:port" (IPv6 too): strip the port.
                 int colon = value.lastIndexOf(':');
                 return colon > 0 ? value.substring(0, colon) : value;

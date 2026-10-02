@@ -25,3 +25,6 @@ dist-ssr
 
 # Local-only dev mock backend (see src/devMock.ts)
 src/devMock.ts
+
+# Firebase Hosting deploy cache
+.firebase
