@@ -52,6 +52,8 @@ export type AuthErrorCode =
   | 'TOKEN_EXPIRED'
   | 'EMAIL_TOKEN_INVALID'
   | 'EMAIL_TOKEN_EXPIRED'
+  | 'PASSWORD_RESET_INVALID'
+  | 'PASSWORD_RESET_EXPIRED'
 
 export type SignupRequest = { full_name: string; email: string; password: string }
 export type LoginRequest = { email: string; password: string }
@@ -81,6 +83,14 @@ export const logout = () => post<void>('/api/auth/logout')
 
 /** Opens an email-verification link (docs/TRD.md §7.3). Works signed in or not. */
 export const verifyEmail = (token: string) => post<{ email: string }>('/api/auth/email/verify', { token })
+
+/** Emails a reset link if the address has an account. Answers the same either way. */
+export const forgotPassword = (email: string) =>
+  post<{ expires_in: number }>('/api/auth/password/forgot', { email })
+
+/** Opens a reset link: sets the new password and signs in (every other session is signed out). */
+export const resetPassword = (token: string, newPassword: string) =>
+  post<AuthResponse>('/api/auth/password/reset', { token, new_password: newPassword })
 
 export const getMe = (token: string) =>
   apiFetch<User>('/api/auth/me', { token, credentials: 'include' })

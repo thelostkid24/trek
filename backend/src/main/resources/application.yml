@@ -97,7 +97,7 @@ app:
       - /api/public/health
     rules:
       # Credential endpoints only; refresh, logout and /me fall to the default.
-      - patterns: [/api/auth/signup, /api/auth/login, /api/auth/google, /api/auth/otp/**]
+      - patterns: [/api/auth/signup, /api/auth/login, /api/auth/google, /api/auth/otp/**, /api/auth/password/**]
         per-minute: 10
       - patterns: [/api/public/bookings]
         methods: [POST]

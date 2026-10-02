@@ -27,6 +27,20 @@ public class DefaultEmailSender implements EmailSender {
     }
 
     @Override
+    public void sendPasswordResetLink(String to, String link) {
+        mail.send(to, "Reset your password for The Empty Valley", """
+                Hi,
+
+                Set a new password for your account with The Empty Valley:
+                %s
+
+                The link works once and expires in 30 minutes. If you didn't ask for this, you can ignore this
+                email; your password hasn't changed.
+
+                — The Empty Valley team""".formatted(link));
+    }
+
+    @Override
     public void sendEmailChangedNotice(String oldEmail, String newEmail) {
         mail.send(oldEmail, "Your email for The Empty Valley was changed", """
                 Hi,

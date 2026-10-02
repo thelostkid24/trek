@@ -39,6 +39,8 @@ ADMIN=<access_token of an admin>
 | POST | `/api/auth/logout` | cookie | Revoke the refresh token |
 | GET | `/api/auth/me` | Bearer | The signed-in user |
 | POST | `/api/auth/email/verify` | — | Confirm an email from its link |
+| POST | `/api/auth/password/forgot` | — | Email a password-reset link |
+| POST | `/api/auth/password/reset` | — | Set a new password from the link and sign in |
 | GET | `/api/trekker/profile` | TREKKER | Read the trekker profile |
 | PUT | `/api/trekker/profile` | TREKKER | Save the trekker profile |
 | PUT | `/api/account/avatar` | Bearer | Upload a profile photo |
@@ -331,6 +333,25 @@ curl -X POST $API/api/auth/email/verify -H 'Content-Type: application/json' -d '
 { "email": "asha@example.com" }
 ```
 Errors: `400 VALIDATION_FAILED`, `400 EMAIL_TOKEN_INVALID`, `410 EMAIL_TOKEN_EXPIRED`, `409 EMAIL_ALREADY_REGISTERED`.
+
+### POST `/api/auth/password/forgot`
+Emails a reset link (`/reset-password?token=…`, 30 min, single use) if the address has an active account. Always answers the same way, so it doesn't reveal whether an account exists. At most 3 links per account per hour; extra requests are silently dropped.
+```bash
+curl -X POST $API/api/auth/password/forgot -H 'Content-Type: application/json' -d '{"email":"asha@example.com"}'
+```
+`202`
+```json
+{ "expires_in": 1800 }
+```
+Errors: `400 VALIDATION_FAILED`.
+
+### POST `/api/auth/password/reset`
+Sets a new password with the token from the link, signs out every other session and signs the user in.
+```bash
+curl -X POST $API/api/auth/password/reset -H 'Content-Type: application/json' -d '{"token":"<token from the link>","new_password":"newpass123"}'
+```
+`200` AuthResponse, plus the refresh cookie.
+Errors: `400 VALIDATION_FAILED`, `400 PASSWORD_RESET_INVALID`, `410 PASSWORD_RESET_EXPIRED`.
 
 ---
 
