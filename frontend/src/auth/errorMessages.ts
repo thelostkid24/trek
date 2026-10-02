@@ -26,6 +26,8 @@ const MESSAGES: Record<string, string> = {
   EMAIL_TOKEN_EXPIRED: 'This link has expired. Request a new one from your profile.',
   PHONE_ALREADY_REGISTERED: 'Another account already uses this number.',
   PHONE_ALREADY_VERIFIED: 'This number is already verified on your account.',
+  PASSWORD_RESET_INVALID: 'This reset link is invalid or has already been used.',
+  PASSWORD_RESET_EXPIRED: 'This reset link has expired. Request a new one.',
   CURRENT_PASSWORD_INCORRECT: 'Your current password is incorrect.',
   EMAIL_REQUIRED: 'Add an email first — you sign in with it when using a password.',
   // Catalog (§7.5)

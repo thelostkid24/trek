@@ -100,6 +100,11 @@ function EmailLoginForm() {
         onChange={(e) => setPassword(e.target.value)}
         error={fields.password}
       />
+      <p className="-mt-2 text-right text-sm">
+        <Link to="/forgot-password" state={{ email: email.trim() }} className="font-medium text-pine-600 hover:text-pine-700">
+          Forgot password?
+        </Link>
+      </p>
       <FormError>{error}</FormError>
       <SubmitButton pending={pending}>Sign in</SubmitButton>
     </form>

@@ -9,8 +9,9 @@ import { router } from './router.tsx'
 
 // devMock.ts is a local-only, gitignored dev tool; import.meta.glob keeps this a
 // no-op when the file isn't present (e.g. on a fresh clone or in CI). The app renders
-// after it loads, so no first request slips through to a real backend.
-const devMock = import.meta.glob('./devMock.ts')['./devMock.ts']
+// after it loads, so no first request slips through to a real backend. Dev server only:
+// a production build never bundles it, even when built from a checkout that has the file.
+const devMock = import.meta.env.DEV ? import.meta.glob('./devMock.ts')['./devMock.ts'] : undefined
 const ready = devMock ? devMock() : Promise.resolve()
 
 // Before the router can rewrite the URL and drop the campaign tags.

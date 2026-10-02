@@ -165,6 +165,9 @@ NULL everywhere = not captured (rows made before V11, or nothing sent). Tracking
 - **`tracks`** — adds `insurance_price_paise BIGINT CHECK > 0` and `transport_price_paise BIGINT CHECK > 0` (V14): per-seat add-on prices; null = not offered. `offloading_price_paise` doubles as the offloading add-on's price (offered only with `offloading = true`).
 - **`bookings`** — adds add-ons (V14): `insurance_seats`, `offloading_seats`, `transport_seats` (`INT NOT NULL DEFAULT 0`, each `0..seats`), their frozen per-seat prices `insurance_price_paise`, `offloading_price_paise`, `transport_price_paise` (`BIGINT`, required when the count > 0) and `addons_paise BIGINT NOT NULL DEFAULT 0` (CHECK = Σ count × price). `bookings_amount` becomes `amount_paise = price_paise_per_seat * seats + addons_paise`.
 
+### 6.12 Password reset — `V16__password_reset.sql`
+- **`password_resets`** — `id UUID PK`, `user_id UUID FK → users ON DELETE CASCADE`, `email TEXT NOT NULL` (the address the link went to), `token_hash TEXT UNIQUE NOT NULL` (SHA-256; raw token only in the email), `expires_at`, `consumed_at NULL`, `created_at`. Index `(user_id, created_at)`.
+
 ## 7. Feature log
 Each feature appends: scope, endpoints, tables, screens, tests.
 
@@ -234,6 +237,8 @@ Each feature appends: scope, endpoints, tables, screens, tests.
 | `POST /api/auth/refresh` | refresh cookie | — | `200` AuthResponse + rotated cookie | `401 REFRESH_TOKEN_INVALID` |
 | `POST /api/auth/logout` | refresh cookie (optional) | — | `204`, cookie cleared | — |
 | `GET /api/auth/me` | Bearer | — | `200` User | `401 UNAUTHENTICATED`, `401 TOKEN_EXPIRED` |
+| `POST /api/auth/password/forgot` | — | `{ email }` | `202 { expires_in: 1800 }` (always) | `400 VALIDATION_FAILED` |
+| `POST /api/auth/password/reset` | — | `{ token, new_password }` | `200` AuthResponse + cookie | `400 VALIDATION_FAILED`, `400 PASSWORD_RESET_INVALID`, `410 PASSWORD_RESET_EXPIRED` |
 
 All errors use the global `{ code, message, details }` shape. `VALIDATION_FAILED` puts per-field messages in `details.fields`, e.g. `{ "fields": { "password": "must contain a letter and a digit" } }`.
 
@@ -254,12 +259,14 @@ All errors use the global `{ code, message, details }` shape. `VALIDATION_FAILED
 - Google: if the Google email is verified and matches an existing account, Google is linked to that account (`auth_methods` gains `GOOGLE`); otherwise a new TREKKER is created with `email_verified: true`.
 - Email sign-up does not send a verification email automatically (`email_verified: false`); the trekker verifies from the profile page (§7.3).
 - Dev only: OTP codes are not sent by SMS; the backend logs them.
+- Forgot password: `/password/forgot` answers `202` the same way for unknown, disabled and throttled emails, so it can't be used to probe for accounts. A known active email gets a link to `/reset-password?token=…`, valid 30 min, single use; only the newest link works, it dies if the account's email changes first, and at most 3 are sent per account per hour. Works for accounts without a password (e.g. Google-only), which then gain one. `/password/reset` sets the password, marks the email verified, revokes every refresh token, clears the login lockout for that email and signs the user in.
 
 #### Frontend
 - Types + functions: `frontend/src/api/auth.ts`.
 - `src/auth/`: `AuthProvider` keeps the access token in a ref (memory only) and calls `/refresh` on load; `useAuth()` exposes `status` (`loading | anonymous | authenticated`), `user`, `setSession`, `signOut`, and `withAuth(token => call)` which retries once after `TOKEN_EXPIRED`. **Later features make authenticated calls through `withAuth`.** `errorMessages.ts` maps error codes to copy.
 - Screens: `/login` and `/signup` (`pages/LoginPage.tsx`, `pages/SignupPage.tsx`) with Email / Mobile tabs and Google on top (hidden unless `VITE_GOOGLE_CLIENT_ID` is set). Pieces in `components/auth/`. After sign-in the user returns to `location.state.from` (same-origin paths only), else `/`.
 - Header shows "Sign in" or first name + "Sign out".
+- Forgot password (`pages/PasswordResetPages.tsx`): "Forgot password?" under the password field on `/login` (carries the typed email) → `/forgot-password` (email → "Check your email", worded so it doesn't confirm the account exists) → emailed `/reset-password?token=…` (new password + confirm → signed in, then the usual post-sign-in redirect). A dead or expired link offers "Send a new link".
 
 #### Backend
 - `auth/controller/AuthController` → `auth/service/`: `AuthService` (flows), `TokenService` (HS256 access JWT, refresh rotation), `OtpService`, `GoogleTokenVerifier` (Google JWKS, checks `iss` + `aud` = `GOOGLE_CLIENT_ID`), `LoginAttemptLimiter` (in-memory, single instance).
@@ -269,7 +276,8 @@ All errors use the global `{ code, message, details }` shape. `VALIDATION_FAILED
 - `SecurityConfig`: `/api/public/**`, `/api/auth/**` public except `/api/auth/me`; `/api/trekker|guide|admin/**` require matching `role` claim; everything else authenticated. 401/403 from the security layer use the standard error shape (`UNAUTHENTICATED`, `TOKEN_EXPIRED`, `FORBIDDEN`). CORS allows credentials.
 - `GlobalExceptionHandler` now reports `details.fields` keys in snake_case.
 - Config `app.auth.*`: `JWT_SECRET` (≥ 32 bytes, startup fails otherwise; dev default in `application.yml`), `AUTH_COOKIE_SECURE`, `GOOGLE_CLIENT_ID` (Google sign-in returns `GOOGLE_TOKEN_INVALID` until set).
-- Tests (Testcontainers): `AuthControllerTests` (signup/login/throttle/me/expired token/role guard/refresh rotation, grace, reuse detection/logout), `OtpFlowTests` (create + re-login, rate limit, attempts lockout, expiry, validation), `GoogleAuthTests` (create, link by verified email, no link when unverified, bad token).
+- Tests (Testcontainers): `AuthControllerTests` (signup/login/throttle/me/expired token/role guard/refresh rotation, grace, reuse detection/logout), `OtpFlowTests` (create + re-login, rate limit, attempts lockout, expiry, validation), `GoogleAuthTests` (create, link by verified email, no link when unverified, bad token), `PasswordResetTests` (reset + sign in + other sessions revoked, single use / newest only, unknown email, hourly cap, expiry, email changed first, validation).
+- Password reset lives in `account/`: `PasswordResetController`, `PasswordResetService`, `PasswordReset` entity and repository; the email is `EmailSender.sendPasswordResetLink`.
 
 ### 7.3 Trekker profile & account settings
 **Status:** contract agreed; backend (`com.sahyatri.profile`, `com.sahyatri.account`) and frontend implemented.
@@ -806,7 +814,7 @@ Payments: §7.4 endpoints, with the changes listed there. Checkout `prefill` com
 
 | Rule | Limit / min / IP |
 |---|---|
-| `POST /api/auth/{signup,login,google}`, `/api/auth/otp/**` | 10 |
+| `POST /api/auth/{signup,login,google}`, `/api/auth/otp/**`, `/api/auth/password/**` | 10 |
 | `POST /api/public/bookings` | 5 |
 | `/api/account/**` writes | 20 |
 | every other `/api/**` (incl. refresh, `/me`) | 120 |

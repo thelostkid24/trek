@@ -10,6 +10,7 @@ import { GuidesAdminPage } from './pages/admin/GuidesAdminPage.tsx'
 import { InsightsPage } from './pages/admin/InsightsPage.tsx'
 import { TracksAdminPage } from './pages/admin/TracksAdminPage.tsx'
 import { DepartureDetailPage } from './pages/DepartureDetailPage.tsx'
+import { ForgotPasswordPage, ResetPasswordPage } from './pages/PasswordResetPages.tsx'
 import { GuidePage } from './pages/GuidePage.tsx'
 import { GuideReportsPage } from './pages/guide/GuideReportsPage.tsx'
 import { HomePage } from './pages/HomePage.tsx'
@@ -41,6 +42,8 @@ export const router = createBrowserRouter([
       { path: '/', element: <HomePage /> },
       { path: '/login', element: <LoginPage /> },
       { path: '/signup', element: <SignupPage /> },
+      { path: '/forgot-password', element: <ForgotPasswordPage /> },
+      { path: '/reset-password', element: <ResetPasswordPage /> },
       // Trekker account pages share the account layout (name, then pill tabs).
       {
         element: (
