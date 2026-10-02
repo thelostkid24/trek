@@ -215,7 +215,7 @@ environment of `thelostkid24/trek`. One-time setup:
    - Inline policy `deploy`: ECR login + push to `emptyvalley-backend`; `ecs:DescribeTaskDefinition`,
      `ecs:RegisterTaskDefinition`; `ecs:UpdateService` / `DescribeServices` on `emptyvalley/emptyvalley-backend`;
      `iam:PassRole` on `emptyvalley-task-execution` and `emptyvalley-task` (to ECS only).
-2. **Google** (Workload Identity Federation; needs the `gcloud` CLI, logged in as a project owner):
+2. **Google** (done 2026-10-02; Workload Identity Federation, needs the `gcloud` CLI logged in as a project owner):
    ```bash
    PROJECT=the-empty-valley-da35c
    PROJECT_NUMBER=$(gcloud projects describe $PROJECT --format='value(projectNumber)')
