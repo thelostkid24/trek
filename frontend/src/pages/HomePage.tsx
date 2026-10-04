@@ -88,7 +88,14 @@ function Hero() {
 
         <Container className="grid min-h-[44rem] items-end gap-10 pt-28 pb-16 lg:min-h-svh lg:pb-20">
           <div>
-            <p className="fade-rise max-w-md text-sm leading-relaxed text-white/75 sm:text-base" style={{ '--d': '700ms' } as CSSProperties}>
+            {/* The page's one h1: what search engines read as the site's headline. */}
+            <h1
+              className="fade-rise max-w-2xl text-[2.6rem] leading-[1.05] font-light tracking-[-0.02em] sm:text-6xl lg:text-7xl"
+              style={{ '--d': '550ms' } as CSSProperties}
+            >
+              Small-batch treks with guides you choose.
+            </h1>
+            <p className="fade-rise mt-5 max-w-md text-sm leading-relaxed text-white/75 sm:mt-6 sm:text-base" style={{ '--d': '700ms' } as CSSProperties}>
               Small-batch treks led by certified mountaineers you choose by name, with their credentials and reviews in front of you before you pay.
             </p>
             <div className="fade-rise mt-8 flex flex-wrap items-center gap-5" style={{ '--d': '850ms' } as CSSProperties}>
