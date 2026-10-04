@@ -59,7 +59,7 @@ function Detail({ departure: d }: { departure: DepartureDetail }) {
 
   return (
     <div className="bg-paper-50 pb-24 lg:pb-0">
-      <Seo title={`${track.name} with ${guideName}`} description={track.summary} path={`/departures/${d.id}`} />
+      <Seo title={`${track.name} with ${guideName}`} description={track.summary} path={`/departures/${d.id}`} image={cover?.url} />
       <section className="relative isolate h-44 overflow-hidden bg-brand-950 sm:h-64">
         {cover ? (
           <>

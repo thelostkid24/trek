@@ -11,7 +11,8 @@ import java.time.Duration;
 
 /**
  * Contract: docs/TRD.md §7.16. The sitemap is referenced from the site's robots.txt, since the site and the API are on
- * different hosts. The API host's own robots.txt lets crawlers fetch only the sitemap and public photos.
+ * different hosts. The API host's own robots.txt lets crawlers fetch only /api/public/: the sitemap, photos, and the
+ * catalog data Google needs to render trek and guide pages.
  */
 @RestController
 public class SitemapController {
@@ -37,8 +38,7 @@ public class SitemapController {
                 .cacheControl(CacheControl.maxAge(Duration.ofDays(1)).cachePublic())
                 .body("""
                         User-agent: *
-                        Allow: /api/public/sitemap.xml
-                        Allow: /api/public/files/
+                        Allow: /api/public/
                         Disallow: /
                         """);
     }

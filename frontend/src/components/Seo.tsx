@@ -4,6 +4,7 @@ import { SITE_ORIGIN } from '../lib/siteLinks.ts'
 const SITE_NAME = 'The Empty Valley'
 const DEFAULT_TITLE = `${SITE_NAME} — Small batches. Guaranteed departures.`
 const DEFAULT_DESCRIPTION = 'Small-batch treks with vetted local guides and guaranteed departures.'
+const DEFAULT_IMAGE = `${SITE_ORIGIN}/hero.jpg`
 
 type Props = {
   /** Page name; the site name is appended. Omit for the home page. */
@@ -11,15 +12,19 @@ type Props = {
   description?: string
   /** Canonical path, e.g. `/treks/rajmachi`. Omit on pages that shouldn't be indexed. */
   path?: string
+  /** Absolute URL of the link-preview image; the landing photo by default. */
+  image?: string
+  /** Structured data (schema.org) describing the page to search engines, rendered as JSON-LD. */
+  jsonLd?: object
   /** Keeps the page out of search results (private, auth and not-found pages). */
   noindex?: boolean
 }
 
 /**
  * The page's head tags (docs/TRD.md §7.16). React 19 hoists these into <head>; render exactly one per page.
- * index.html has no <title> or description of its own, so every route renders this.
+ * index.html's own head tags are for link previews only and main.tsx removes them on load, so every route renders this.
  */
-export function Seo({ title, description = DEFAULT_DESCRIPTION, path, noindex = false }: Props) {
+export function Seo({ title, description = DEFAULT_DESCRIPTION, path, image = DEFAULT_IMAGE, jsonLd, noindex = false }: Props) {
   const fullTitle = title ? `${title} · ${SITE_NAME}` : DEFAULT_TITLE
   const url = path === undefined ? undefined : SITE_ORIGIN + path
   return (
@@ -32,8 +37,14 @@ export function Seo({ title, description = DEFAULT_DESCRIPTION, path, noindex = 
       <meta property="og:type" content="website" />
       <meta property="og:title" content={fullTitle} />
       <meta property="og:description" content={description} />
-      <meta property="og:image" content={`${SITE_ORIGIN}/hero.jpg`} />
+      <meta property="og:image" content={image} />
       {url && <meta property="og:url" content={url} />}
+      <meta name="twitter:card" content="summary_large_image" />
+      {/* Inline JSON-LD isn't hoisted or run; search engines read it wherever it sits. `<` is escaped so text from
+          the API can't close the script tag. */}
+      {jsonLd && (
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }} />
+      )}
     </>
   )
 }

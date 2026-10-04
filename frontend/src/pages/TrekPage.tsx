@@ -19,6 +19,7 @@ import {
 } from '../components/catalog/TrekSections.tsx'
 import { Ridgeline } from '../components/Ridgeline.tsx'
 import { Seo } from '../components/Seo.tsx'
+import { trekJsonLd } from '../lib/structuredData.ts'
 
 /** /treks/:slug — public. One trek, every upcoming departure, each with its own guide. Contract: docs/TRD.md §7.7. */
 export function TrekPage() {
@@ -73,7 +74,13 @@ function Page({ trek }: { trek: Trek }) {
 
   return (
     <div className="bg-paper-50">
-      <Seo title={`${track.name}, ${track.region}`} description={track.summary} path={`/treks/${track.slug}`} />
+      <Seo
+        title={`${track.name}, ${track.region}`}
+        description={track.summary}
+        path={`/treks/${track.slug}`}
+        image={cover?.url}
+        jsonLd={trekJsonLd(trek)}
+      />
       {/* The first trek photo leads; until there is one, the ridgeline stands in. */}
       {/* Shares its view-transition name with the catalog card, which grows into it. */}
       <section
