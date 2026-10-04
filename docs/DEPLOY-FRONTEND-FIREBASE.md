@@ -123,7 +123,7 @@ billing account and spent against usage. Then add a budget alert (Google Cloud â
 
 ### B2. First deploy
 `frontend/firebase.json` holds the config: SPA fallback to `index.html`, `immutable` caching on Vite's hashed
-`/assets/`, one day on the root images, `no-cache` on everything else so a release shows up at once. When header
+`/assets/` (the landing photos live there too, via `src/assets`), `no-cache` on everything else, root images included, so a release shows up at once. When header
 rules overlap, Firebase lets the **later** rule win, so the catch-all comes first.
 
 Deploy what's on `main`, not a working branch whose backend changes aren't live yet. Vite reads the repo-root `.env`, but
