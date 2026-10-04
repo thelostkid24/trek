@@ -27,7 +27,7 @@ Throughout, `<domain>` is your apex domain (e.g. `sahyatri.com`).
 | SES production access | SES console → Account dashboard → Request production access | New accounts can only email verified addresses |
 | AWS Activate credits | aws.amazon.com/activate | Free credits for startups |
 
-Until DLT is approved, run with `SMS_PROVIDER=log` and tell people to sign in with Google or email. Phone OTP won't deliver.
+Until DLT is approved, run with `SMS_PROVIDER=log` and leave `VITE_PHONE_OTP` unset so the site hides phone sign-in; people use Google or email. Once MSG91 delivers, set `SMS_PROVIDER=msg91` and add the GitHub variable `VITE_PHONE_OTP=true` (passed to the build in `deploy.yml`).
 
 ## 1. AWS account hygiene (30 min)
 1. Enable **MFA on the root user**, then stop using root. Create a user in **IAM Identity Center** with `AdministratorAccess` for daily work.

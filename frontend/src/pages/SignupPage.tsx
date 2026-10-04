@@ -3,6 +3,7 @@ import { Link, Navigate } from 'react-router-dom'
 import type { SignupChoices } from '../analytics/attribution.ts'
 import { googleSignIn, signup } from '../api/auth.ts'
 import { fieldErrors, messageFor } from '../auth/errorMessages.ts'
+import { PHONE_OTP_ENABLED } from '../auth/phoneOtp.ts'
 import { useAuth } from '../auth/useAuth.ts'
 import { useCompleteSignIn, useRedirectTarget } from '../auth/useCompleteSignIn.ts'
 import { EMAIL_RULE, PASSWORD_RULE } from '../auth/validation.ts'
@@ -49,8 +50,8 @@ export function SignupPage() {
       <div className="space-y-5">
         <GoogleSignInButton onCredential={(token) => void onGoogle(token)} />
         <FormError>{googleError}</FormError>
-        <MethodTabs value={tab} onChange={setTab} />
-        {tab === 'email' ? (
+        {PHONE_OTP_ENABLED && <MethodTabs value={tab} onChange={setTab} />}
+        {tab === 'email' || !PHONE_OTP_ENABLED ? (
           <EmailSignupForm choices={choices} extraFields={<SignupChoicesFields value={choices} onChange={setChoices} />} />
         ) : (
           <PhoneOtpForm

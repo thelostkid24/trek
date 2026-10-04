@@ -5,6 +5,7 @@ import type { AuthMethod, User } from '../../api/auth.ts'
 import { ApiError } from '../../api/client.ts'
 import { fieldErrors, messageFor, retryAfter } from '../../auth/errorMessages.ts'
 import { useAuth } from '../../auth/useAuth.ts'
+import { PHONE_OTP_ENABLED } from '../../auth/phoneOtp.ts'
 import { useCountdown } from '../../auth/useCountdown.ts'
 import { formatPhone } from '../../lib/format.ts'
 import { EMAIL_RULE, INDIAN_MOBILE, PASSWORD_HINT, PASSWORD_RULE } from '../../auth/validation.ts'
@@ -42,17 +43,19 @@ export function SecuritySection({ user }: { user: User }) {
           <EmailPanel user={user} onDone={() => setOpen(null)} />
         </Row>
 
-        <Row
-          label="Mobile"
-          value={user.phone ? formatPhone(user.phone) : 'No mobile number yet'}
-          muted={!user.phone}
-          badge={user.phone && <VerifiedBadge verified={user.phone_verified} />}
-          action={user.phone ? 'Change' : 'Add'}
-          expanded={open === 'phone'}
-          onAction={() => toggle('phone')}
-        >
-          <PhonePanel user={user} onDone={() => setOpen(null)} />
-        </Row>
+        {(PHONE_OTP_ENABLED || user.phone) && (
+          <Row
+            label="Mobile"
+            value={user.phone ? formatPhone(user.phone) : 'No mobile number yet'}
+            muted={!user.phone}
+            badge={user.phone && <VerifiedBadge verified={user.phone_verified} />}
+            action={PHONE_OTP_ENABLED ? (user.phone ? 'Change' : 'Add') : undefined}
+            expanded={open === 'phone'}
+            onAction={() => toggle('phone')}
+          >
+            <PhonePanel user={user} onDone={() => setOpen(null)} />
+          </Row>
+        )}
 
         <Row
           label="Password"
@@ -95,7 +98,8 @@ function Row({
   value: string
   muted: boolean
   badge?: ReactNode
-  action: string
+  /** No button when absent. */
+  action?: string
   expanded: boolean
   onAction: () => void
   /** Shown under the value while the row is closed, e.g. the verify-email prompt. */
@@ -113,9 +117,11 @@ function Row({
             {badge}
           </div>
         </div>
-        <SecondaryButton onClick={onAction} aria-expanded={expanded} className="min-w-[5.5rem] shrink-0">
-          {expanded ? 'Cancel' : action}
-        </SecondaryButton>
+        {action && (
+          <SecondaryButton onClick={onAction} aria-expanded={expanded} className="min-w-[5.5rem] shrink-0">
+            {expanded ? 'Cancel' : action}
+          </SecondaryButton>
+        )}
       </div>
       {note && <div className="mt-3 sm:ml-[8.5rem]">{note}</div>}
       {expanded && (

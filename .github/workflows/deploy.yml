@@ -4,7 +4,7 @@ name: Deploy
 # docs/DEPLOY.md §13: an AWS role and a Google service account GitHub can assume through OIDC (no stored keys),
 # plus these repository variables (Settings → Secrets and variables → Actions → Variables):
 #   AWS_ROLE_ARN, ECR_REPOSITORY, ECS_CLUSTER, ECS_SERVICE, ECS_TASK_FAMILY, ECS_CONTAINER,
-#   VITE_API_BASE_URL, VITE_GOOGLE_CLIENT_ID, FIREBASE_PROJECT, GCP_WORKLOAD_IDENTITY_PROVIDER, GCP_SERVICE_ACCOUNT
+#   VITE_API_BASE_URL, VITE_GOOGLE_CLIENT_ID, VITE_PHONE_OTP (optional), FIREBASE_PROJECT, GCP_WORKLOAD_IDENTITY_PROVIDER, GCP_SERVICE_ACCOUNT
 on:
   workflow_run:
     workflows: [CI]
@@ -79,6 +79,7 @@ jobs:
         env:
           VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
           VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
+          VITE_PHONE_OTP: ${{ vars.VITE_PHONE_OTP }}
       # A page per trek with its own link preview, read from the API the backend job just deployed (docs/TRD.md §7.16).
       - run: npm run prerender
         working-directory: frontend
