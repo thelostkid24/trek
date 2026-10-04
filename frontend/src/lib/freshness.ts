@@ -8,6 +8,7 @@ import type { router as appRouter } from '../router.tsx'
  * Dev builds have no hashed script, so this does nothing there.
  */
 const CHECK_EVERY_MS = 5 * 60_000
+const RELOADED_KEY = 'tev.chunk_reload'
 
 const current = document.querySelector<HTMLScriptElement>('script[type="module"][src*="/assets/index-"]')?.getAttribute('src')
 let stale = false
@@ -26,6 +27,20 @@ async function check() {
 }
 
 export function watchForNewRelease(router: typeof appRouter) {
+  // Pages outside the main bundle load on first visit (router.tsx). A deploy deletes the old release's files, so a
+  // tab opened before it fails to load them: reload into the new release instead, at most once a minute so a
+  // genuinely missing file can't loop.
+  window.addEventListener('vite:preloadError', (event) => {
+    try {
+      const last = Number(sessionStorage.getItem(RELOADED_KEY) ?? 0)
+      if (Date.now() - last < 60_000) return
+      sessionStorage.setItem(RELOADED_KEY, String(Date.now()))
+    } catch {
+      // Storage blocked: reloading anyway is better than a broken page.
+    }
+    event.preventDefault()
+    window.location.reload()
+  })
   if (!current) return
   let path = router.state.location.pathname
   router.subscribe((state) => {

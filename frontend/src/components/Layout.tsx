@@ -82,9 +82,9 @@ export function Layout() {
           home ? 'fixed inset-x-0' : 'sticky'
         } ${HEADER_TONES[tone]}`}
       >
-        <div className="mx-auto flex h-16 max-w-[90rem] items-center justify-between gap-6 px-5 sm:px-10">
+        <div className="mx-auto flex h-16 max-w-[90rem] items-center justify-between gap-3 px-5 sm:gap-6 sm:px-10">
           <div className="flex items-center gap-10">
-            <Link to="/" viewTransition className="flex items-center gap-2 text-[1.2rem] font-semibold tracking-tight">
+            <Link to="/" viewTransition className="flex shrink-0 items-center gap-2 text-[1.05rem] font-semibold tracking-tight whitespace-nowrap sm:text-[1.2rem]">
               <Peak className="size-6" />
               The Empty Valley
             </Link>
@@ -102,7 +102,7 @@ export function Layout() {
               ))}
             </nav>
           </div>
-          <div className="flex items-center gap-3 text-sm sm:gap-5">
+          <div className="flex items-center gap-2 text-sm sm:gap-5">
             <ThemeToggle />
             <AccountLink tone={tone} />
             <button
@@ -260,7 +260,7 @@ function AccountLink({ tone }: { tone: HeaderTone }) {
       <Link
         to="/login"
         state={onAuthPage ? undefined : { from: location.pathname + location.search }}
-        className={`rounded-full border px-4 py-1.5 font-medium transition ${
+        className={`rounded-full border px-3.5 py-1.5 font-medium whitespace-nowrap transition sm:px-4 ${
           tone === 'light' ? 'border-ink-900/25 hover:bg-ink-900 hover:text-white' : 'border-white/40 hover:bg-white hover:text-ink-900'
         }`}
       >

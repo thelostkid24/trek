@@ -90,6 +90,6 @@ Vite bakes these in at build time, so changing them needs a rebuild.
 ## Adding a page
 1. Add the API call and its types to the matching `src/api/*.ts` file.
 2. Create the page in `src/pages/` (or `pages/trekker`, `pages/admin`) and use `useQuery` / `useMutation` through `withAuth` where sign-in is needed.
-3. Register the route in `src/router.tsx`, wrapped in `RequireAuth` if it's private.
+3. Register the route in `src/router.tsx`, wrapped in `RequireAuth` if it's private. Public pages that search engines and most visitors reach are imported directly. Pages behind sign-in, checkout and the admin and guide consoles load on first visit through `lazy: page(...)`, which keeps them out of the main bundle.
 4. Run `npm --prefix frontend run build` and `npm --prefix frontend run lint`.
 5. Add the screen to the feature's section in `docs/TRD.md`.
