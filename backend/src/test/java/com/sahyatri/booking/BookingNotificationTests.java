@@ -21,7 +21,7 @@ class BookingNotificationTests extends AuthTestSupport {
     @Test
     void confirmationAndCancellationAreEmailedToTheContact() throws Exception {
         String token = bookingTrekker();
-        UUID departure = publishedDeparture(today().plusDays(20), 219_900, 6);
+        UUID departure = publishedDeparture(today().plusDays(40), 219_900, 6);
         UUID booking = confirmedBooking(token, departure, 2);
 
         List<Mail> sent = sentMails(booking);
