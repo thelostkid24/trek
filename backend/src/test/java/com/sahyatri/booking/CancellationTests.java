@@ -38,7 +38,7 @@ class CancellationTests extends AuthTestSupport {
     TransactionTemplate tx;
 
     @ParameterizedTest
-    @CsvSource({"30, 9000", "15, 9000", "14, 5000", "7, 5000", "6, 0", "1, 0"})
+    @CsvSource({"40, 9000", "31, 9000", "30, 5000", "15, 5000", "14, 0", "1, 0"})
     void quoteFollowsTheTiers(int daysBefore, int bps) throws Exception {
         String token = bookingTrekker();
         UUID departure = publishedDeparture(today().plusDays(40), 219_900, 6);
@@ -56,7 +56,7 @@ class CancellationTests extends AuthTestSupport {
     @Test
     void cancellingFreesSeatsAndRefundsTheTier() throws Exception {
         String token = bookingTrekker();
-        UUID departure = publishedDeparture(today().plusDays(20), 219_900, 2);
+        UUID departure = publishedDeparture(today().plusDays(40), 219_900, 2);
         UUID booking = confirmedBooking(token, departure, 2);
         assertThat(seatsTaken(departure)).isEqualTo(2);
 

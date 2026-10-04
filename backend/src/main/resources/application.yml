@@ -75,9 +75,9 @@ app:
     hold-ttl: ${BOOKING_HOLD_TTL:10m}
     # Trekker cancellation refund by days before the start date (IST). Frozen onto each booking when paid.
     refund-tiers:
-      - min-days-before: 15
+      - min-days-before: 31
         refund-bps: 9000
-      - min-days-before: 7
+      - min-days-before: 15
         refund-bps: 5000
       - min-days-before: 0
         refund-bps: 0

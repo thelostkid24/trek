@@ -100,7 +100,7 @@ class TrekContentTests extends AuthTestSupport {
                 .andExpect(jsonPath("$.track.offloading").value(true))
                 .andExpect(jsonPath("$.snow_report").value(nullValue()))
                 .andExpect(jsonPath("$.crowd", hasSize(0)))
-                .andExpect(jsonPath("$.refund_tiers[*].min_days_before", contains(15, 7, 0)))
+                .andExpect(jsonPath("$.refund_tiers[*].min_days_before", contains(31, 15, 0)))
                 .andExpect(jsonPath("$.refund_tiers[0].refund_bps").value(9000))
                 // No charity name configured in tests, so the line is hidden.
                 .andExpect(jsonPath("$.charity").value(nullValue()));

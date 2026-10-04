@@ -107,7 +107,7 @@ class AddonTests extends AuthTestSupport {
 
     @Test
     void paidAddonsAreLockedAndRefundedAtTheTier() throws Exception {
-        UUID departure = publishedDeparture(today().plusDays(10), 219_900, 6);
+        UUID departure = publishedDeparture(today().plusDays(20), 219_900, 6);
         offerAddons(trackOf(departure));
         String token = bookingTrekker();
         UUID booking = holdWithoutTravellers(token, departure, 2);
@@ -124,7 +124,7 @@ class AddonTests extends AuthTestSupport {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("ADDONS_LOCKED"));
 
-        // 10 days out is the 50% tier, and it covers the add-ons too.
+        // 20 days out is the 50% tier, and it covers the add-ons too.
         authed(get(BOOKINGS + booking + "/cancellation-quote"), token, null)
                 .andExpect(jsonPath("$.refund_bps").value(5000))
                 .andExpect(jsonPath("$.refund_paise").value((2 * 219_900 + 2 * 50_000 + 2 * 120_000) / 2));
