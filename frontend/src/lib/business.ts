@@ -3,12 +3,12 @@
  * TODO(before launch): replace the remaining [bracketed] placeholders with the registered details.
  */
 export const BUSINESS = {
-  legalName: '[Registered business name]',
+  legalName: 'The Empty Valley',
   address: '[Registered address], Mumbai, Maharashtra, India',
-  supportEmail: 'support@theemptyvalley.com',
+  supportEmail: 'info@theemptyvalley.com',
   supportPhone: '+91 [support number]',
   supportHours: 'Monday to Saturday, 10 am – 7 pm IST',
   grievanceOfficer: '[Grievance officer name]',
-  grievanceEmail: 'grievance@theemptyvalley.com',
-  lastUpdated: '27 September 2026',
+  grievanceEmail: 'info@theemptyvalley.com',
+  lastUpdated: '5 October 2026',
 }

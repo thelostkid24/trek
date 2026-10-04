@@ -227,7 +227,7 @@ export function ProfileForm({ user, profile }: { user: User; profile: TrekkerPro
 
   return (
     <form onSubmit={onSubmit} noValidate className="space-y-6">
-      <ProfileSection id="personal" title="Personal details" description="Treks are for adults, so your date of birth must make you 18 or over.">
+      <ProfileSection id="personal" title="Personal details" description="Accounts are for adults, so your date of birth must make you 18 or over. Children aged 12 to 17 can come on your booking.">
         <div className="grid gap-5 sm:grid-cols-2">
           <div className="sm:col-span-2">
             <TextField

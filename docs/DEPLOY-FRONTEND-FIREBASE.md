@@ -203,7 +203,7 @@ When the API is published, Razorpay's webhook URL is `https://api.theemptyvalley
 ## Part D: moving to CloudFront later
 Once AWS allows CloudFront, create the distribution as in docs/DEPLOY.md §11 (the S3 bucket
 `emptyvalley-web-bucket` and the OAC, function and origin request policy already exist; recreate the
-us-east-1 WAF). Then:
+us-east-1 WAF with the regional ACL's rules, docs/DEPLOY.md §10). Then:
 1. Build with `VITE_API_BASE_URL=''`, upload to S3, and point the Route 53 apex and www records at the
    distribution (A + AAAA, replacing Firebase's records and removing its TXT line).
 2. Put `FRONTEND_BASE_URL`, `PUBLIC_BASE_URL` and `CORS_ALLOWED_ORIGINS` back to the apex, and set

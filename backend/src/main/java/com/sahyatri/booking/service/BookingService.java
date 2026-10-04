@@ -393,16 +393,25 @@ public class BookingService {
         return new Locked(departure, booking);
     }
 
+    /** Travellers aged 12 to 17 on the start date may come with a parent or guardian: an adult on the same booking. */
+    static final int TRAVELLER_MIN_AGE = 12;
+    static final int ADULT_AGE = 18;
+
     private static void checkAges(List<TravellerRequest> travellers, LocalDate startDate) {
+        LocalDate adultBorn = startDate.minusYears(ADULT_AGE);
+        boolean anyAdult = travellers.stream().anyMatch(t -> !t.dateOfBirth().isAfter(adultBorn));
         for (int i = 0; i < travellers.size(); i++) {
             LocalDate dob = travellers.get(i).dateOfBirth();
             String field = "travellers[" + i + "].date_of_birth";
-            if (dob.isAfter(startDate.minusYears(TrekkerProfileService.MIN_AGE))) {
-                throw ApiException.validation(field, "must be at least " + TrekkerProfileService.MIN_AGE
-                        + " on the trek date");
+            if (dob.isAfter(startDate.minusYears(TRAVELLER_MIN_AGE))) {
+                throw ApiException.validation(field, "must be at least " + TRAVELLER_MIN_AGE + " on the trek date");
             }
             if (!dob.isAfter(startDate.minusYears(TrekkerProfileService.MAX_AGE + 1))) {
                 throw ApiException.validation(field, "must be a real date of birth");
+            }
+            if (dob.isAfter(adultBorn) && !anyAdult) {
+                throw ApiException.validation(field, "under " + ADULT_AGE
+                        + " must trek with a parent or guardian on the same booking");
             }
         }
     }

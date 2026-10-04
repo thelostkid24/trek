@@ -433,7 +433,7 @@ function TravellersSection({ booking: b, offered }: { booking: Booking; offered:
     >
       <h2 className="font-display text-xl font-medium text-stone-900">Who's coming?</h2>
       <p className="mt-1 text-sm text-stone-600">
-        Your guide plans tents, rooms and permits from this. Everyone must be 18 or older on the trek date.
+        Your guide plans tents, rooms and permits from this. Everyone must be 12 or older on the trek date, and anyone under 18 comes with a parent or guardian on this booking.
       </p>
       {errors.travellers && <p className="mt-2 text-sm text-laterite-600">{errors.travellers}</p>}
       <ol className="mt-5 space-y-6">
@@ -654,7 +654,7 @@ function HeldCheckout({ booking: b, offered, children }: { booking: Booking; off
         >
           <h2 className="font-display text-xl font-medium text-stone-900">Who's coming?</h2>
           <p className="mt-1 text-sm text-stone-600">
-            Everyone must be 18 or older on the trek date and insured: take ours, or give your own policy ID.
+            Everyone must be 12 or older on the trek date (under 18 only with a parent or guardian on this booking) and insured: take ours, or give your own policy ID.
           </p>
           {errors.travellers && <p className="mt-2 text-sm text-laterite-600">{errors.travellers}</p>}
           <ol className="mt-5 space-y-6">

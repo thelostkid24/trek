@@ -7,6 +7,10 @@ import { FAQS } from '../lib/faqs.ts'
 import { SITE_LINKS } from '../lib/siteLinks.ts'
 import { Seo } from '../components/Seo.tsx'
 
+const BRAND = 'The Empty Valley'
+/** Names the operator only once the registered name differs from the brand (e.g. a "Pvt Ltd"). */
+const operatedBy = BUSINESS.legalName === BRAND ? '' : ` ${BRAND} is operated by ${BUSINESS.legalName}.`
+
 /** Plain text pages linked from the header and footer, in the landing page's style. */
 function InfoPage({ title, intro, path, wide = false, children }: { title: string; intro?: string; path: string; wide?: boolean; children?: ReactNode }) {
   return (
@@ -114,37 +118,25 @@ const VISION_TABS = [
 ] as const
 
 /**
- * Sample founders until the real ones send their photos and words: `sample` puts a "Sample profile" tag on the
- * card, so nobody reads them as real. `photo` is a path under public/ (a portrait, roughly 4:5); a ridgeline with
- * initials stands in until there is one. `story` is two or three lines.
- * TODO: real names, photos, quotes and stories before launch, then drop `sample`.
+ * The founders. `photo` is a path under public/ (a portrait, roughly 4:5); a ridgeline with initials stands in until
+ * there is one. `looksAfter`, `home`, `onTrailSince` and `story` (two or three lines) show only once they're filled in.
+ * TODO: photos and stories before launch.
  */
-const FOUNDERS = [
-  {
-    name: 'Aditya Rawat',
-    sample: true,
-    photo: null as string | null,
-    role: 'Co-founder',
-    looksAfter: 'Guides, routes and safety',
-    home: 'Uttarkashi',
-    onTrailSince: 2012,
-    story:
-      'Grew up two valleys from Sankri and spent years carrying loads for big trek companies. Every guide on The Empty Valley is someone he has walked with himself, and most of the year he is on the trail, not at a desk.',
-  },
-  {
-    name: 'Nisha Menon',
-    sample: true,
-    photo: null as string | null,
-    role: 'Co-founder',
-    looksAfter: 'Bookings and trekker care',
-    home: 'Mumbai',
-    onTrailSince: 2016,
-    story:
-      'Her first Himalayan trek was cancelled two days out for low numbers. She left a desk job to build the booking side: the guide’s name before you pay, nothing added at checkout, and a paid date that always runs.',
-  },
+type Founder = {
+  name: string
+  photo: string | null
+  role: string
+  looksAfter: string | null
+  home: string | null
+  onTrailSince: number | null
+  story: string | null
+}
+
+const FOUNDERS: Founder[] = [
+  { name: 'Priyanshu Singh', photo: null, role: 'Co-founder', looksAfter: null, home: null, onTrailSince: null, story: null },
+  { name: 'Vikhilesh Sakhare', photo: null, role: 'Co-founder', looksAfter: null, home: null, onTrailSince: null, story: null },
 ]
 
-type Founder = (typeof FOUNDERS)[number]
 
 /** Initials for the stand-in portrait. */
 const initials = (name: string) =>
@@ -209,24 +201,28 @@ function Founders() {
       <article role="tabpanel" aria-label={f.name} className="min-w-0 p-5 sm:p-8">
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="font-serif text-3xl font-light sm:text-4xl">{f.name}</h3>
-          {f.sample && (
-            <span className="rounded-full bg-paper-200 px-2 py-0.5 text-[0.65rem] font-medium text-ink-700">Sample profile</span>
-          )}
         </div>
         <p className="mt-1 font-medium text-laterite-600">
-          {f.role} · {f.looksAfter}
+          {f.role}
+          {f.looksAfter && ` · ${f.looksAfter}`}
         </p>
 
-        <h4 className="mt-6 flex items-center gap-2 text-lg font-semibold text-ink-900">
-          <svg viewBox="0 0 24 24" className="size-5 text-laterite-600" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" aria-hidden="true">
-            <path d="M12 6.5C10 5 7 4.5 3.5 5v13c3.5-.5 6.5 0 8.5 1.5 2-1.5 5-2 8.5-1.5V5C17 4.5 14 5 12 6.5Zm0 0V19.5" />
-          </svg>
-          About
-        </h4>
-        <p className="mt-3 max-w-[40rem] text-base leading-relaxed text-ink-700">{f.story}</p>
-        <p className="mt-4 text-sm text-ink-700">
-          Based in {f.home} · on the trail since {f.onTrailSince}
-        </p>
+        {f.story && (
+          <>
+            <h4 className="mt-6 flex items-center gap-2 text-lg font-semibold text-ink-900">
+              <svg viewBox="0 0 24 24" className="size-5 text-laterite-600" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" aria-hidden="true">
+                <path d="M12 6.5C10 5 7 4.5 3.5 5v13c3.5-.5 6.5 0 8.5 1.5 2-1.5 5-2 8.5-1.5V5C17 4.5 14 5 12 6.5Zm0 0V19.5" />
+              </svg>
+              About
+            </h4>
+            <p className="mt-3 max-w-[40rem] text-base leading-relaxed text-ink-700">{f.story}</p>
+            {f.home && f.onTrailSince && (
+              <p className="mt-4 text-sm text-ink-700">
+                Based in {f.home} · on the trail since {f.onTrailSince}
+              </p>
+            )}
+          </>
+        )}
       </article>
     </div>
   )
@@ -362,7 +358,7 @@ export function TermsPage() {
     <InfoPage
       title="Terms of use"
       path={SITE_LINKS.terms}
-      intro={`These terms apply when you use The Empty Valley or book a trek with us. The Empty Valley is operated by ${BUSINESS.legalName}. Last updated ${BUSINESS.lastUpdated}.`}
+      intro={`These terms apply when you use The Empty Valley or book a trek with us.${operatedBy} Last updated ${BUSINESS.lastUpdated}.`}
     >
       <Section title="Bookings and payment">
         <p>
@@ -386,7 +382,8 @@ export function TermsPage() {
       </Section>
       <Section title="Your responsibilities">
         <p>
-          Trekking carries real risk. You confirm that every traveller is 18 or older, fit for the trek’s difficulty, and
+          Trekking carries real risk. You confirm that every traveller is 12 or older on the trek date, that anyone under 18
+          treks with a parent or guardian on the same booking, that everyone is fit for the trek’s difficulty, and
           has shared any medical condition that matters. Follow your guide’s safety instructions. The guide may stop anyone
           from continuing when it isn’t safe, and that alone doesn’t earn a refund.
         </p>
@@ -438,7 +435,7 @@ export function PrivacyPage() {
     <InfoPage
       title="Privacy policy"
       path={SITE_LINKS.privacy}
-      intro={`How ${BUSINESS.legalName} (“The Empty Valley”) collects and uses your personal data, under India’s Digital Personal Data Protection Act, 2023. Last updated ${BUSINESS.lastUpdated}.`}
+      intro={`How ${BUSINESS.legalName === BRAND ? BRAND : `${BUSINESS.legalName} (“${BRAND}”)`} collects and uses your personal data, under India’s Digital Personal Data Protection Act, 2023. Last updated ${BUSINESS.lastUpdated}.`}
     >
       <Section title="What we collect">
         <ul className="list-disc space-y-2 pl-5">
@@ -507,7 +504,11 @@ export function PrivacyPage() {
         </p>
       </Section>
       <Section title="Children">
-        <p>Our treks and accounts are for people 18 and older. We don’t knowingly collect data about children.</p>
+        <p>
+          Accounts are for people 18 and older. Travellers aged 12 to 17 can join a trek only with a parent or guardian on the
+          same booking. For them we collect just what the parent or guardian enters in the booking (name, date of birth,
+          gender and add-ons), and only to run the trek.
+        </p>
       </Section>
       <Section title="Your rights">
         <p>

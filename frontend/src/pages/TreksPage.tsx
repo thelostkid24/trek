@@ -23,9 +23,6 @@ const GRADES: { grade: Difficulty; label: string }[] = [
 ]
 
 /** A filter select, filled in once something is picked. */
-const filterClass = (picked: boolean) =>
-  `rounded-full border px-3 py-1.5 text-sm ${picked ? 'border-brand-900 bg-brand-900 text-white' : 'border-stone-300 bg-white text-stone-800'}`
-
 /** /treks — every trek we run, filtered by grade and month. Contract: docs/TRD.md §7.9. */
 export function TreksPage() {
   const [params, setParams] = useSearchParams()
@@ -66,33 +63,21 @@ export function TreksPage() {
           All
         </Chip>
         {months.length > 0 && (
-          <select
-            aria-label="Month"
-            value={month ?? ''}
-            onChange={(e) => setParam('month', e.target.value || null)}
-            className={filterClass(month !== null)}
-          >
-            <option value="">Month</option>
+          <FilterSelect label="Month" value={month} onChange={(v) => setParam('month', v)}>
             {months.map((key) => (
               <option key={key} value={key}>
                 {monthLabel(key)}
               </option>
             ))}
-          </select>
+          </FilterSelect>
         )}
-        <select
-          aria-label="Grade"
-          value={grade ?? ''}
-          onChange={(e) => setParam('grade', e.target.value || null)}
-          className={filterClass(grade !== null)}
-        >
-          <option value="">Grade</option>
+        <FilterSelect label="Grade" value={grade} onChange={(v) => setParam('grade', v)}>
           {GRADES.map((g) => (
             <option key={g.grade} value={g.grade}>
               {g.label}
             </option>
           ))}
-        </select>
+        </FilterSelect>
       </div>
 
       {catalog.isPending ? (
@@ -214,6 +199,29 @@ function seatNote(d: CatalogDeparture) {
   if (d.seats_left === 0) return '· full'
   if (!d.bookable) return '· closed'
   return ''
+}
+
+/** A month or grade dropdown that looks like the chips: no native box, our own chevron. Empty value = no filter. */
+function FilterSelect({ label, value, onChange, children }: { label: string; value: string | null; onChange: (value: string | null) => void; children: ReactNode }) {
+  const on = value !== null
+  return (
+    <span className="relative inline-flex">
+      <select
+        aria-label={label}
+        value={value ?? ''}
+        onChange={(e) => onChange(e.target.value || null)}
+        className={`cursor-pointer appearance-none rounded-full py-1.5 pr-8 pl-3 text-sm transition ${
+          on ? 'bg-brand-900 text-white' : 'bg-white text-stone-700 ring-1 ring-stone-300 hover:ring-brand-400'
+        }`}
+      >
+        <option value="">{label}</option>
+        {children}
+      </select>
+      <svg viewBox="0 0 12 12" className={`pointer-events-none absolute top-1/2 right-3 size-3 -translate-y-1/2 ${on ? 'text-white' : 'text-stone-500'}`} fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+        <path d="M3 4.5 6 7.5 9 4.5" />
+      </svg>
+    </span>
+  )
 }
 
 function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; children: ReactNode }) {

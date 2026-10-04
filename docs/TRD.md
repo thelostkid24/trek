@@ -17,7 +17,7 @@ The product is **The Empty Valley**. The codebase keeps its working name, Sahyā
 | Frontend | React 19, TypeScript, Vite, Tailwind CSS v4, React Router, TanStack Query |
 | Auth (planned) | Email + password, phone OTP, Google OAuth — all issue the same JWT |
 | Payments (planned) | Razorpay Standard Checkout — UPI, cards, netbanking, wallets (test mode in dev); design in §7.4 |
-| Hosting | AWS ap-south-1: CloudFront (+WAF) → S3 (SPA) and ALB → ECS Fargate (backend container), RDS PostgreSQL 16, S3 uploads, SES email, MSG91 SMS. Runbook: `docs/DEPLOY.md` |
+| Hosting | SPA on Firebase Hosting (`theemptyvalley.com`) until AWS allows CloudFront; API at `api.theemptyvalley.com`: AWS ap-south-1 ALB (+ regional WAF) → ECS Fargate (backend container), RDS PostgreSQL 16, S3 uploads, SES email, MSG91 SMS. CloudWatch alarms email info@; a daily GitHub Actions uptime check (`uptime.yml`) covers the site and API. Runbooks: `docs/DEPLOY.md`, `docs/DEPLOY-FRONTEND-FIREBASE.md` |
 | Background work | Spring `@Scheduled` only (`@EnableScheduling` on `BackendApplication`) — no job-queue service in V1. Jobs take row locks and run one transaction per row. |
 
 ## 2. Repo layout
@@ -295,7 +295,7 @@ All errors use the global `{ code, message, details }` shape. `VALIDATION_FAILED
 {
   "full_name": "Asha Rao",            // PUT: required, 1–100 after trim (stored on users)
   "avatar_url": null,                 // read-only; change via /api/account/avatar
-  "date_of_birth": "1995-04-12",      // nullable; age must be 18–100
+  "date_of_birth": "1995-04-12",      // nullable; age must be 18–100 (accounts are adults; children 12–17 travel on a parent's booking)
   "gender": "FEMALE",                 // FEMALE | MALE | NON_BINARY | PREFER_NOT_TO_SAY | null
   "home_city": "Pune",                // nullable, ≤ 100
   "experience_level": "BEGINNER",     // BEGINNER | INTERMEDIATE | EXPERIENCED | null
@@ -631,7 +631,7 @@ A payment owned by another user returns `404 PAYMENT_NOT_FOUND`, so the API does
 - **No booking prerequisites.** Nothing is gated behind a verified phone, an emergency contact or a health declaration.
 - **Contact:** every booking stores `contact` = `full_name` (1–100), `phone` (WhatsApp, Indian mobile §7.2), `email`. Guests give all three. A signed-in trekker may leave any out and the account's value is used; still missing → `400 VALIDATION_FAILED` on that field.
 - **Guest checkout:** `POST /api/public/bookings` creates a **guest** trekker account (`user.guest: true`, no sign-in identity) and signs it in (access token in the body, refresh cookie as §7.2), so payment and the booking pages work as for any trekker. It never signs into an existing account, even when the email or phone matches one. A failed hold creates nothing. Signed-in trekkers must use `POST /api/trekker/bookings` (the guest call would replace their session). A guest keeps access through the refresh cookie; verifying a phone or email (§7.3) makes the account a normal one.
-- **Travellers:** optional at hold time. When given, exactly `seats` of them. `PUT …/travellers` sets them later — on a `HELD` or `CONFIRMED` booking before the start date (else `409 TRAVELLERS_LOCKED`); it replaces the whole list. Each: `full_name` 1–100 after trim, `date_of_birth` (age 18–100 on the start date), `gender`, optional `phone` (Indian mobile, §7.2). `travellers_complete` says whether every seat is named.
+- **Travellers:** optional at hold time. When given, exactly `seats` of them. `PUT …/travellers` sets them later — on a `HELD` or `CONFIRMED` booking before the start date (else `409 TRAVELLERS_LOCKED`); it replaces the whole list. Each: `full_name` 1–100 after trim, `date_of_birth` (age 12–100 on the start date; anyone under 18 needs a traveller aged 18+ on the same booking — their parent or guardian — else `400` on that traveller's `date_of_birth`), `gender`, optional `phone` (Indian mobile, §7.2). `travellers_complete` says whether every seat is named.
 - **Seats (law 2):** a hold takes seats immediately under the departure row lock; `seats_taken` never exceeds `max_group_size` (DB CHECK backstop). Lock order everywhere: departure → booking → payment.
 - **Add-ons (per seat):** `addons: { insurance?, offloading?, transport? }` — how many of the booked seats take each (0..`seats`; left out = 0). Prices come from the trek (`insurance_price_paise`, `offloading_price_paise` with `offloading`, `transport_price_paise`) and are frozen on the booking. An add-on the trek doesn't offer, or a count above `seats` → `400 VALIDATION_FAILED` (`details.fields["addons.<name>"]`). `amount_paise` = trek fee + add-ons: that's what is charged, and refunds (tiers and force majeure) are worked out on it, so add-ons follow the same %. The add-ons total is kept apart (`addons_paise`) so the guide share (law 7) and the charity share are on the trek fee only.
 - **One live booking** (`HELD` or `CONFIRMED`) per trekker per departure → else `409 ALREADY_BOOKED` (`details.booking_id`).
@@ -797,7 +797,7 @@ Payments: §7.4 endpoints, with the changes listed there. Checkout `prefill` com
 **Status:** implemented.
 
 **Providers (switched by config, dev defaults unchanged):**
-- **Email:** `common/mail/MailTransport` with `LoggingMailTransport` (`MAIL_PROVIDER=log`) and `SesMailTransport` (`ses`). `account/mail/DefaultEmailSender` composes the account emails and hands them to the transport.
+- **Email:** `common/mail/MailTransport` with `LoggingMailTransport` (`MAIL_PROVIDER=log`) and `SesMailTransport` (`ses`). `account/mail/DefaultEmailSender` composes the account emails and hands them to the transport. Prod sends as `no-reply@theemptyvalley.com` through the domain's default configuration set (`my-first-configuration-set`), so the task role needs `ses:SendEmail` on both the identity and that set. Bounces and complaints land on the account suppression list, and the set publishes `BOUNCE`/`COMPLAINT`/`REJECT` to SNS `emptyvalley-ses-events`, emailed to info@theemptyvalley.com.
 - **SMS:** `auth/sms/Msg91SmsSender` (`SMS_PROVIDER=msg91`, MSG91 Flow API, DLT-approved template using `##otp##`). If sending fails, it returns `503 SMS_UNAVAILABLE`.
 - **Uploads:** `common/storage/S3FileStorage` (`STORAGE_TYPE=s3`, `S3_UPLOADS_BUCKET`). `/api/public/files/**` still serves them, so `avatar_url` is unchanged.
 - **AWS credentials and region** come from the ECS task role and `AWS_REGION` (the SDK default chain).
@@ -813,7 +813,7 @@ Payments: §7.4 endpoints, with the changes listed there. Checkout `prefill` com
 **Rate limiting (`common/web/RateLimitFilter`, `app.rate-limit.*`):**
 - Token buckets per client IP and rule, in memory. That's correct for one backend task; move them to a shared store before scaling out.
 - It runs just after Spring Security, so a 429 carries CORS headers.
-- The client IP comes from `RATE_LIMIT_CLIENT_IP_HEADER` (`CloudFront-Viewer-Address` in prod), else the socket address. It never uses `X-Forwarded-For`.
+- The client IP comes from `RATE_LIMIT_CLIENT_IP_HEADER`, else the socket address. Prod sets `X-Forwarded-For` (behind the ALB) and the filter takes only its **last** entry, the one the ALB appends, so a client can't choose its own bucket. On CloudFront it would be `CloudFront-Viewer-Address` (port stripped).
 
 | Rule | Limit / min / IP |
 |---|---|
@@ -829,14 +829,14 @@ Payments: §7.4 endpoints, with the changes listed there. Checkout `prefill` com
 **Production packaging:**
 - `backend/Dockerfile`: multi-stage, JRE 21, non-root user.
 - `server.forward-headers-strategy: framework`, graceful shutdown, actuator liveness/readiness probes, `DB_POOL_SIZE`.
-- In production the SPA and API share one origin (`VITE_API_BASE_URL=""`).
+- In production the SPA (`theemptyvalley.com`, Firebase Hosting) calls the API on `https://api.theemptyvalley.com` (`VITE_API_BASE_URL`); CORS allows the apex and www with credentials. On CloudFront they would share one origin (`VITE_API_BASE_URL=""`).
 
 **Frontend:**
 - `/terms` (`TermsPage`) and `/privacy` (`PrivacyPage`, DPDP Act 2023) are new, linked from the footer.
-- `/contact` now shows the support email, phone, hours and address, and `/vision` has the About content (title only, no intro line): two tabs, "How it started" (the founder's story in four paragraphs, from the Notion "Our Vision" page) and "Founders" (`?tab=founders`: two panels — "Our founders" on the left, one photo card per founder, the picked one outlined with a tick; on the right text only: name, role, "About" with a two-to-three-line story and "Based in · on the trail since"; a ridgeline with initials until there is a photo; on phones the cards sit side by side; a "Sample profile" tag while `sample` is set; sample names and text until the real ones are in, `FOUNDERS` in `pages/InfoPages.tsx`; the vision page runs wider than the other info pages).
+- `/contact` now shows the support email, phone, hours and address, and `/vision` has the About content (title only, no intro line): two tabs, "How it started" (the founder's story in four paragraphs, from the Notion "Our Vision" page) and "Founders" (`?tab=founders`: two panels — "Our founders" on the left, one photo card per founder, the picked one outlined with a tick; on the right text only: name, role, "About" with a two-to-three-line story and "Based in · on the trail since"; a ridgeline with initials until there is a photo; on phones the cards sit side by side; the founders are Priyanshu Singh and Vikhilesh Sakhare (`FOUNDERS` in `pages/InfoPages.tsx`), and "About" and "Based in" show only once their story, home and year are filled in; the vision page runs wider than the other info pages).
 - "Lead a trek" is a footer link only. It opens the external guide sign-up form (Tally, `SITE_LINKS.leadATrek`) in a new tab. The `/lead-a-trek` placeholder page is gone.
 - Header, once signed in: the avatar opens a profile menu. Trekkers see "My profile" and "Sign out"; other roles see only "Sign out". The other account pages are reached from the account sidebar. Admins keep the "Admin" link beside it. There's no separate "My treks" or "Sign out" in the bar.
-- Business details live in `lib/business.ts`. **It holds placeholders that must be filled in before launch.**
+- Business details live in `lib/business.ts`: trading and legal name "The Empty Valley" (Terms and Privacy skip the "operated by" line while the two match), support and grievance email info@theemptyvalley.com. **Address, support phone and grievance officer are still placeholders to fill in before launch.**
 - The privacy policy has a "Signing in with Google" section (which Google data we receive and how it's used) and a "Cookies and browser storage" section. Google's OAuth consent screen links to `/privacy` and `/terms`, and the app can't be published there without them.
 - New error copy for `RATE_LIMITED` and `SMS_UNAVAILABLE`.
 
@@ -844,7 +844,7 @@ Payments: §7.4 endpoints, with the changes listed there. Checkout `prefill` com
 - `.github/workflows/ci.yml` runs the backend tests and the frontend lint and build.
 - `deploy.yml` deploys `main` after CI passes, through GitHub OIDC:
   - backend: image → ECR → ECS rolling deploy;
-  - frontend: build → S3 → CloudFront invalidation.
+  - frontend: build → per-trek pages (`scripts/prerender.mjs`) → Firebase Hosting (Google Workload Identity Federation).
 
 **Tests:** `RateLimitFilterTests`, `BookingNotificationTests`.
 
