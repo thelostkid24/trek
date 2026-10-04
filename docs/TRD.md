@@ -260,6 +260,7 @@ All errors use the global `{ code, message, details }` shape. `VALIDATION_FAILED
 - Google: if the Google email is verified and matches an existing account, Google is linked to that account (`auth_methods` gains `GOOGLE`); otherwise a new TREKKER is created with `email_verified: true`.
 - Email sign-up does not send a verification email automatically (`email_verified: false`); the trekker verifies from the profile page (§7.3).
 - Dev only: OTP codes are not sent by SMS; the backend logs them.
+- Until SMS delivers (TRAI DLT pending), the frontend hides phone OTP: login and sign-up show email only, and the profile's Mobile row has no Add/Change (shown only if the account already has a phone). `VITE_PHONE_OTP=true` turns it back on (`auth/phoneOtp.ts`). The API is unchanged.
 - Forgot password: `/password/forgot` answers `202` the same way for unknown, disabled and throttled emails, so it can't be used to probe for accounts. A known active email gets a link to `/reset-password?token=…`, valid 30 min, single use; only the newest link works, it dies if the account's email changes first, and at most 3 are sent per account per hour. Works for accounts without a password (e.g. Google-only), which then gain one. `/password/reset` sets the password, marks the email verified, revokes every refresh token, clears the login lockout for that email and signs the user in.
 
 #### Frontend

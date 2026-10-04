@@ -26,6 +26,7 @@ npm --prefix frontend run lint
 |---|---|---|
 | `VITE_API_BASE_URL` | `http://localhost:8081` | empty (same origin; CloudFront sends `/api/*` to the backend) |
 | `VITE_GOOGLE_CLIENT_ID` | your OAuth client ID | same, set as a GitHub variable for the deploy build |
+| `VITE_PHONE_OTP` | `true` to try phone OTP (codes appear in the backend log) | unset until SMS delivers (DLT, `docs/DEPLOY.md`); then `true` |
 
 Vite bakes these in at build time, so changing them needs a rebuild.
 

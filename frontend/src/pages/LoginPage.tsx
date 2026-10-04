@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { googleSignIn, login } from '../api/auth.ts'
 import { fieldErrors, messageFor } from '../auth/errorMessages.ts'
+import { PHONE_OTP_ENABLED } from '../auth/phoneOtp.ts'
 import { useAuth } from '../auth/useAuth.ts'
 import { useCompleteSignIn, useRedirectTarget } from '../auth/useCompleteSignIn.ts'
 import { AuthCard, FormError, SubmitButton } from '../components/auth/AuthCard.tsx'
@@ -44,8 +45,8 @@ export function LoginPage() {
       <div className="space-y-5">
         <GoogleSignInButton onCredential={(token) => void onGoogle(token)} />
         <FormError>{googleError}</FormError>
-        <MethodTabs value={tab} onChange={setTab} />
-        {tab === 'email' ? <EmailLoginForm /> : <PhoneOtpForm onSuccess={complete} />}
+        {PHONE_OTP_ENABLED && <MethodTabs value={tab} onChange={setTab} />}
+        {tab === 'email' || !PHONE_OTP_ENABLED ? <EmailLoginForm /> : <PhoneOtpForm onSuccess={complete} />}
       </div>
     </AuthCard>
   )
