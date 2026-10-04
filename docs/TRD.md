@@ -641,12 +641,13 @@ A payment owned by another user returns `404 PAYMENT_NOT_FOUND`, so the API does
 
   | Days before start | Refund |
   |---|---|
-  | 15 or more | 90% (`9000`) |
-  | 7–14 | 50% (`5000`) |
-  | 1–6 | 0% — cancellation still allowed, frees the seats |
+  | 31 or more | 90% (`9000`) |
+  | 15–30 | 50% (`5000`) |
+  | 1–14 | 0% — cancellation still allowed, frees the seats |
   | 0 or after | not allowed |
 
   Tiers are configuration (`app.bookings.refund-tiers`). The whole booking is cancelled; removing single travellers is out of scope.
+  The published policy (`/cancellations`, from Notion, 2026-10-05) also offers a credit note instead of cash — 100% / 80% / 30% for the three brackets, a 100% credit note when we cancel, and a repeat within a year at direct cost when weather stops the summit push. None of that is in the system yet: support handles it by hand.
 - **Force majeure (law 4):** in the same transaction as the departure cancellation, every `CONFIRMED` booking → `CANCELLED_FORCE_MAJEURE` with a refund of everything not yet refunded (`FORCE_MAJEURE`); every `HELD` booking → `RELEASED` (a capture arriving later is refunded as a late capture). `seats_taken` ends at 0.
 - **Audit:** `BOOKING_CONFIRMED`, `BOOKING_CANCELLED` (with the refund), `BOOKING_CANCELLED_FORCE_MAJEURE`, `REFUND_FAILED`.
 
@@ -682,18 +683,18 @@ A payment owned by another user returns `404 PAYMENT_NOT_FOUND`, so the API does
   ],
   "payment": null,                  // latest Payment (§7.4), if any
   "refunds": [
-    { "id": "…", "amount_paise": 395820, "status": "PENDING", "kind": "TREKKER_CANCELLATION", "created_at": "…" }
+    { "id": "…", "amount_paise": 219900, "status": "PENDING", "kind": "TREKKER_CANCELLATION", "created_at": "…" }
   ],
   "refund_policy": [                // null until confirmed
-    { "min_days_before": 15, "refund_bps": 9000 },
-    { "min_days_before": 7, "refund_bps": 5000 },
+    { "min_days_before": 31, "refund_bps": 9000 },
+    { "min_days_before": 15, "refund_bps": 5000 },
     { "min_days_before": 0, "refund_bps": 0 }
   ],
   "created_at": "…"
 }
 
 // CancellationQuote
-{ "allowed": true, "days_before_start": 20, "refund_bps": 9000, "refund_paise": 395820 }
+{ "allowed": true, "days_before_start": 20, "refund_bps": 5000, "refund_paise": 219900 }
 ```
 
 #### Endpoints

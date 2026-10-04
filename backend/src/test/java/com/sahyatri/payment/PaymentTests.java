@@ -65,7 +65,7 @@ class PaymentTests extends AuthTestSupport {
                 .andExpect(jsonPath("$.status").value("CONFIRMED"))
                 .andExpect(jsonPath("$.confirmed_at").exists())
                 .andExpect(jsonPath("$.payment.status").value("PAID"))
-                .andExpect(jsonPath("$.refund_policy[0].min_days_before").value(15))
+                .andExpect(jsonPath("$.refund_policy[0].min_days_before").value(31))
                 .andExpect(jsonPath("$.refund_policy[0].refund_bps").value(9000));
         authed(get("/api/trekker/payments/" + order[0]), token, null)
                 .andExpect(jsonPath("$.status").value("PAID"));

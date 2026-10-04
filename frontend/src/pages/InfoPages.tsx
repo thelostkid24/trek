@@ -47,12 +47,13 @@ export function FaqsPage() {
   )
 }
 
-// Mirrors app.bookings.refund-tiers in backend application.yml — keep the two in step.
+// Cash column mirrors app.bookings.refund-tiers in backend application.yml — keep the two in step. Credit notes
+// aren't in the system yet; support issues them by hand.
 const REFUND_TIERS = [
-  ['15 days or more before the start date', '90% refunded'],
-  ['7 to 14 days before', '50% refunded'],
-  ['1 to 6 days before', 'No refund — your seats are freed for someone else'],
-  ['On or after the start date', 'Can’t be cancelled'],
+  ['More than 30 days before Day 1', '90% refunded', '100%'],
+  ['30 to 15 days before', '50% refunded', '80%'],
+  ['Less than 15 days before', 'No cash refund', '30%'],
+  ['On or after Day 1', 'Can’t be cancelled', '—'],
 ]
 
 export function CancellationsPage() {
@@ -66,26 +67,42 @@ export function CancellationsPage() {
         <thead>
           <tr className="border-b border-paper-300 text-[0.7rem] tracking-[0.08em] text-ink-400 uppercase">
             <th className="py-3 pr-4 font-medium">When you cancel</th>
-            <th className="py-3 font-medium">What you get back</th>
+            <th className="py-3 pr-4 font-medium">Cash refund</th>
+            <th className="py-3 font-medium">Or a credit note</th>
           </tr>
         </thead>
         <tbody>
-          {REFUND_TIERS.map(([when, refund]) => (
+          {REFUND_TIERS.map(([when, refund, credit]) => (
             <tr key={when} className="border-b border-paper-300">
               <td className="py-3 pr-4 text-ink-900">{when}</td>
-              <td className="py-3 text-ink-700">{refund}</td>
+              <td className="py-3 pr-4 text-ink-700">{refund}</td>
+              <td className="py-3 text-ink-700">{credit}</td>
             </tr>
           ))}
         </tbody>
       </table>
       <p className="mt-6 text-sm leading-relaxed text-ink-700">
+        A credit note is valid for a year on any of our treks. Cancelling from the booking page gives you the cash refund;
+        to take the credit note instead, write to{' '}
+        <a href={`mailto:${BUSINESS.supportEmail}`} className={linkClass}>
+          {BUSINESS.supportEmail}
+        </a>{' '}
+        before you cancel and we’ll cancel the booking for you.
+      </p>
+      <p className="mt-3 text-sm leading-relaxed text-ink-700">
         The policy in force when you paid is the one that applies to your booking. Before you confirm a cancellation, the
         booking page shows the exact amount you’ll get back.
       </p>
       <h2 className="mt-10 font-serif text-2xl">If we cancel</h2>
       <p className="mt-2 text-sm leading-relaxed text-ink-700">
-        We only cancel a departure for weather, a denied permit, a guide who can’t go and has no substitute, or safety —
-        never because it didn’t fill up. When we do, every paid booking is refunded in full.
+        We only cancel a departure for weather, a closed route, a government restriction, a guide who can’t go and has
+        no substitute, or safety — never because it didn’t fill up. When we do, every paid booking is refunded in full in
+        cash. If you’d rather have a 100% credit note, tell us.
+      </p>
+      <h2 className="mt-10 font-serif text-2xl">If weather stops the summit push</h2>
+      <p className="mt-2 text-sm leading-relaxed text-ink-700">
+        There’s no refund — the money has already gone on permits, rations and the team. But you can repeat the same
+        trek within a year, with the same guide or a different one, paying only our direct costs.
       </p>
     </InfoPage>
   )
