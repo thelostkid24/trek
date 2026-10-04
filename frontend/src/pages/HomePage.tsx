@@ -103,13 +103,14 @@ function Hero() {
 
 /**
  * Landing photos, in order. Files live in public/; `place` is the small caption.
- * hero-2..4 are free Pexels photos (pexels.com/photo/14229957, 33304433, 10696100).
+ * All four are free Unsplash photos (nika-tchokhonelidze, tim-foster, todd-diemer, vivek), scaled to 1600 px.
+ * hero.jpg is also the og:image; hero-4.jpg is also the closing call's backdrop.
  */
 const HERO_SLIDES: { src: string; place?: string }[] = [
   { src: '/hero.jpg' },
-  { src: '/hero-2.jpg', place: 'Rajgad' },
-  { src: '/hero-3.jpg', place: 'Western Ghats in the monsoon' },
-  { src: '/hero-4.jpg', place: 'Cliffs above Satara' },
+  { src: '/hero-2.jpg' },
+  { src: '/hero-3.jpg' },
+  { src: '/hero-4.jpg' },
 ]
 
 /** How long each photo holds before the next one fades in. */
