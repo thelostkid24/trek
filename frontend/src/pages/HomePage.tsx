@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { listCatalog, trekQueryOptions, type CatalogTrek, type ContentItem } from '../api/catalog.ts'
 import { messageFor } from '../auth/errorMessages.ts'
@@ -11,6 +11,10 @@ import { revealClass, staggerStyle, useInView } from '../lib/reveal.ts'
 import { Ridgeline } from '../components/Ridgeline.tsx'
 import { SITE_LINKS } from '../lib/siteLinks.ts'
 import { Seo } from '../components/Seo.tsx'
+import hero1 from '../assets/hero/hero-1.jpg'
+import hero2 from '../assets/hero/hero-2.jpg'
+import hero3 from '../assets/hero/hero-3.jpg'
+import hero4 from '../assets/hero/hero-4.jpg'
 
 /** Same query (and cache) as /treks, so opening "See all treks" from here is instant. */
 const useCatalog = () => useQuery({ queryKey: ['public-catalog'], queryFn: listCatalog })
@@ -78,11 +82,7 @@ function Hero() {
   return (
     <section>
       <div className="relative isolate overflow-hidden bg-ink-900 text-white">
-        {/* Ridgeline art shows until the first photo loads (or if none do). */}
-        <Ridgeline className="absolute inset-0 -z-30 size-full" />
-        <Mist />
         <HeroSlides />
-        <HeroVideo />
         <div className="absolute inset-0 -z-10 bg-gradient-to-r from-ink-950/75 via-ink-950/30 to-transparent" aria-hidden="true" />
         <div className="absolute inset-x-0 bottom-0 -z-10 h-2/3 bg-gradient-to-t from-ink-950/80 to-transparent" aria-hidden="true" />
 
@@ -102,16 +102,13 @@ function Hero() {
 }
 
 /**
- * Landing photos, in order. Files live in public/; `place` is the small caption.
+ * Landing photos, in order; `place` is the small caption. They live in src/assets so every build gives them
+ * hashed names: browsers keep them for a year and still see a new photo the moment it's deployed.
  * All four are free Unsplash photos (nika-tchokhonelidze, tim-foster, todd-diemer, vivek), scaled to 1600 px.
- * hero.jpg is also the og:image; hero-4.jpg is also the closing call's backdrop.
+ * public/hero.jpg is a copy of hero-1 for the og:image; hero-4 is also the closing call's backdrop.
+ * vite.config.ts preloads hero-1 from index.html on the home page, so it downloads alongside the app.
  */
-const HERO_SLIDES: { src: string; place?: string }[] = [
-  { src: '/hero.jpg' },
-  { src: '/hero-2.jpg' },
-  { src: '/hero-3.jpg' },
-  { src: '/hero-4.jpg' },
-]
+const HERO_SLIDES: { src: string; place?: string }[] = [{ src: hero1 }, { src: hero2 }, { src: hero3 }, { src: hero4 }]
 
 /** How long each photo holds before the next one fades in. */
 const SLIDE_MS = 6000
@@ -122,14 +119,22 @@ const SLIDE_MS = 6000
  * photo comes in, and pausing it (hover, keyboard focus) pauses the rotation. Photos that fail
  * to load drop out, so a missing file just shortens the loop. With reduced motion there's no
  * autoplay or zoom; the bars still switch photos.
+ * Until the first photo has loaded a dark skeleton pulses in its place; the other photos are only
+ * requested after that, so on a slow connection they don't compete with the first.
  */
 function HeroSlides() {
+  const [firstLoaded, setFirstLoaded] = useState(false)
+  const first = useRef<HTMLImageElement>(null)
+  // A photo already in the browser cache can finish before React attaches onLoad.
+  useEffect(() => {
+    if (first.current?.complete && first.current.naturalWidth > 0) setFirstLoaded(true)
+  }, [])
   const [failed, setFailed] = useState<string[]>([])
   const [index, setIndex] = useState(0)
   // The outgoing photo keeps its zoom while it fades, so it doesn't snap back mid-fade.
   const [prev, setPrev] = useState<number | null>(null)
   const [paused, setPaused] = useState(false)
-  const slides = HERO_SLIDES.filter((s) => !failed.includes(s.src))
+  const slides = HERO_SLIDES.filter((s, i) => !failed.includes(s.src) && (i === 0 || firstLoaded))
   const active = slides.length > 0 ? index % slides.length : 0
   const show = (i: number) => {
     setPrev(active)
@@ -138,16 +143,27 @@ function HeroSlides() {
 
   return (
     <>
+      <div
+        className={`absolute inset-0 -z-30 bg-ink-800 transition-opacity duration-700 motion-safe:animate-pulse ${
+          firstLoaded ? 'opacity-0' : 'opacity-100'
+        }`}
+        aria-hidden="true"
+      />
       <div className="absolute inset-0 -z-20" aria-hidden="true">
         {slides.map((s, i) => (
           <img
             key={s.src}
+            ref={i === 0 ? first : undefined}
             src={s.src}
             alt=""
             fetchPriority={i === 0 ? 'high' : 'low'}
-            onError={() => setFailed((f) => [...f, s.src])}
+            onLoad={i === 0 ? () => setFirstLoaded(true) : undefined}
+            onError={() => {
+              setFailed((f) => [...f, s.src])
+              if (i === 0) setFirstLoaded(true)
+            }}
             className={`absolute inset-0 size-full object-cover transition-opacity duration-700 ease-in-out ${
-              i === active ? 'opacity-100' : 'opacity-0'
+              i === active && firstLoaded ? 'opacity-100' : 'opacity-0'
             } ${i === active || i === prev ? 'motion-safe:animate-[hero-zoom_9s_ease-out_both]' : ''}`}
           />
         ))}
@@ -194,58 +210,6 @@ function HeroSlides() {
         </div>
       )}
     </>
-  )
-}
-
-/**
- * Muted looping hero clip, dropped at public/hero.webm + public/hero.mp4 (8–15 s, 720p, no audio,
- * a few MB). It fades in once playable; until then — or if the files are missing, the viewer
- * prefers reduced motion, or is saving data — the ridgeline (or hero.jpg) shows instead.
- */
-function HeroVideo() {
-  const [ready, setReady] = useState(false)
-  const [allowed] = useState(
-    () =>
-      !window.matchMedia('(prefers-reduced-motion: reduce)').matches &&
-      !(navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData,
-  )
-  if (!allowed) return null
-  return (
-    <video
-      autoPlay
-      muted
-      loop
-      playsInline
-      preload="auto"
-      aria-hidden="true"
-      onCanPlay={() => setReady(true)}
-      className={`absolute inset-0 -z-20 size-full object-cover transition-opacity duration-1000 ${ready ? 'opacity-100' : 'opacity-0'}`}
-    >
-      <source src="/hero.webm" type="video/webm" />
-      <source src="/hero.mp4" type="video/mp4" />
-    </video>
-  )
-}
-
-/** Two soft banks of valley mist drifting over the ridgeline at different speeds. */
-function Mist() {
-  const bank = (...spots: string[]) =>
-    spots.map((at) => `radial-gradient(ellipse 22% 60% at ${at}, rgb(251 230 214 / 0.16), transparent 70%)`).join(', ')
-  return (
-    <div className="pointer-events-none absolute inset-0 -z-30 overflow-hidden" aria-hidden="true">
-      <div
-        className="mist-layer absolute -inset-x-1/4 top-[46%] h-32 blur-xl"
-        style={{ backgroundImage: bank('15% 50%', '45% 40%', '80% 55%'), '--mist-duration': '36s' } as CSSProperties}
-      />
-      <div
-        className="mist-layer absolute -inset-x-1/4 top-[62%] h-40 blur-2xl"
-        style={{
-          backgroundImage: bank('30% 50%', '65% 45%', '95% 60%'),
-          '--mist-duration': '52s',
-          animationDelay: '-18s',
-        } as CSSProperties}
-      />
-    </div>
   )
 }
 
@@ -487,7 +451,7 @@ function ClosingCall() {
     // Full-bleed, square edges: the photo runs straight into the footer.
     <section>
       <div className="relative isolate overflow-hidden text-white">
-        <img src="/hero-4.jpg" alt="" className="parallax absolute inset-0 -z-20 size-full object-cover" />
+        <img src={hero4} alt="" loading="lazy" className="parallax absolute inset-0 -z-20 size-full object-cover" />
         <div className="absolute inset-0 -z-10 bg-ink-950/50" aria-hidden="true" />
         <Container className="py-24 text-center sm:py-36">
           <h2 className="mx-auto max-w-3xl text-4xl leading-[1.1] font-light tracking-[-0.02em] sm:text-6xl">

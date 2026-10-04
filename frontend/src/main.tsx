@@ -5,6 +5,7 @@ import { RouterProvider } from 'react-router-dom'
 import { captureVisit } from './analytics/attribution.ts'
 import { AuthProvider } from './auth/AuthProvider.tsx'
 import './index.css'
+import { watchForNewRelease } from './lib/freshness.ts'
 import { router } from './router.tsx'
 
 // devMock.ts is a local-only, gitignored dev tool; import.meta.glob keeps this a
@@ -16,6 +17,8 @@ const ready = devMock ? devMock() : Promise.resolve()
 
 // Before the router can rewrite the URL and drop the campaign tags.
 captureVisit()
+// A tab left open picks up a new release on its next page change.
+watchForNewRelease(router)
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },

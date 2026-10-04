@@ -239,20 +239,6 @@ body {
   }
 }
 
-/* Valley mist drifting across the hero ridgeline. */
-@keyframes mist-drift {
-  from {
-    transform: translateX(-12%);
-  }
-  to {
-    transform: translateX(12%);
-  }
-}
-
-.mist-layer {
-  animation: mist-drift var(--mist-duration, 40s) ease-in-out infinite alternate;
-}
-
 /* Profile page: cards rise in one after another, the completion bar fills, "saved" draws its check. */
 @keyframes card-in {
   from {
@@ -366,8 +352,5 @@ form > .profile-card:nth-of-type(5) { --card-i: 5; }
   ::view-transition-old(*),
   ::view-transition-new(*) {
     animation: none !important;
-  }
-  .mist-layer {
-    animation: none;
   }
 }
