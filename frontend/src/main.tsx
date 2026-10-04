@@ -15,6 +15,10 @@ import { router } from './router.tsx'
 const devMock = import.meta.env.DEV ? import.meta.glob('./devMock.ts')['./devMock.ts'] : undefined
 const ready = devMock ? devMock() : Promise.resolve()
 
+// index.html's link-preview tags are for clients that don't run JavaScript. Each page's <Seo> takes over from here,
+// and leaving them would mean two titles and two sets of og: tags.
+for (const el of document.querySelectorAll('head [data-static-head]')) el.remove()
+
 // Before the router can rewrite the URL and drop the campaign tags.
 captureVisit()
 // A tab left open picks up a new release on its next page change.

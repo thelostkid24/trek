@@ -45,12 +45,11 @@ class SitemapTests extends AuthTestSupport {
     }
 
     @Test
-    void apiRobotsAllowsOnlyTheSitemapAndPublicFiles() throws Exception {
+    void apiRobotsAllowsOnlyThePublicApi() throws Exception {
         mockMvc.perform(get("/robots.txt"))
                 .andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith("text/plain"))
-                .andExpect(content().string(containsString("Allow: /api/public/sitemap.xml")))
-                .andExpect(content().string(containsString("Allow: /api/public/files/")))
+                .andExpect(content().string(containsString("Allow: /api/public/\n")))
                 .andExpect(content().string(containsString("Disallow: /\n")));
     }
 }
