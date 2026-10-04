@@ -2,12 +2,11 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <!-- Theme before first paint (no flash): the saved choice, else the system setting. See src/lib/theme.ts. -->
+    <!-- Theme before first paint (no flash): light unless the visitor picked dark with the header toggle. The
+         system dark-mode setting is ignored on purpose. See src/lib/theme.ts. -->
     <script>
       try {
-        var saved = localStorage.getItem('theme')
-        var dark = saved ? saved === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches
-        document.documentElement.dataset.theme = dark ? 'dark' : 'light'
+        document.documentElement.dataset.theme = localStorage.getItem('theme') === 'dark' ? 'dark' : 'light'
       } catch (e) {
         document.documentElement.dataset.theme = 'light'
       }
