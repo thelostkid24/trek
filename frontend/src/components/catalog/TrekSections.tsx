@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { DIFFICULTY_LABEL, type ContentItem, type TrackDetail } from '../../api/catalog.ts'
 import { feet, rupees } from '../../lib/format.ts'
 import { IconFacts, type FactIcon } from './IconFacts.tsx'
+import { FAQ_PREVIEW, ShowMoreButton } from '../ShowMoreButton.tsx'
 
 // The trek page's sections (docs/TRD.md §7.7, §7.11): small, mostly static pieces the page stacks.
 
@@ -192,35 +193,40 @@ export function Safety({ callouts, checklist, notes }: { callouts: ContentItem[]
   )
 }
 
-/** Questions that open one at a time. */
+/** Questions that open one at a time; past six, the rest wait behind "Show more" (still in the page for search). */
 export function TrekFaqs({ items }: { items: ContentItem[] }) {
   const [open, setOpen] = useState<number | null>(null)
+  const [all, setAll] = useState(false)
+  const extra = items.length - FAQ_PREVIEW
   return (
-    <div className="border-t border-paper-300">
-      {items.map((item, i) => {
-        const isOpen = open === i
-        return (
-          <div key={i} className="border-b border-paper-300">
-            <h3>
-              <button
-                type="button"
-                aria-expanded={isOpen}
-                aria-controls={`trek-faq-${i}`}
-                onClick={() => setOpen(isOpen ? null : i)}
-                className="flex w-full items-center justify-between gap-6 py-4 text-left font-semibold text-stone-900 hover:text-brand-800"
-              >
-                {item.title}
-                <span className="shrink-0 text-lg font-normal text-stone-500" aria-hidden="true">
-                  {isOpen ? '−' : '+'}
-                </span>
-              </button>
-            </h3>
-            <p id={`trek-faq-${i}`} hidden={!isOpen} className="max-w-2xl pb-5 whitespace-pre-line text-stone-700">
-              {item.body}
-            </p>
-          </div>
-        )
-      })}
+    <div>
+      <div id="trek-faq-list" className="border-t border-paper-300">
+        {items.map((item, i) => {
+          const isOpen = open === i
+          return (
+            <div key={i} hidden={!all && i >= FAQ_PREVIEW} className="border-b border-paper-300">
+              <h3>
+                <button
+                  type="button"
+                  aria-expanded={isOpen}
+                  aria-controls={`trek-faq-${i}`}
+                  onClick={() => setOpen(isOpen ? null : i)}
+                  className="flex w-full items-center justify-between gap-6 py-4 text-left font-semibold text-stone-900 hover:text-brand-800"
+                >
+                  {item.title}
+                  <span className="shrink-0 text-lg font-normal text-stone-500" aria-hidden="true">
+                    {isOpen ? '−' : '+'}
+                  </span>
+                </button>
+              </h3>
+              <p id={`trek-faq-${i}`} hidden={!isOpen} className="max-w-2xl pb-5 whitespace-pre-line text-stone-700">
+                {item.body}
+              </p>
+            </div>
+          )
+        })}
+      </div>
+      {extra > 0 && <ShowMoreButton hidden={extra} expanded={all} controls="trek-faq-list" onToggle={() => setAll(!all)} />}
     </div>
   )
 }
