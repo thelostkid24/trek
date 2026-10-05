@@ -260,7 +260,7 @@ export function WhyUs({ items }: { items: ContentItem[] }) {
     <ul className="grid gap-3 sm:grid-cols-2">
       {items.map((item, i) => (
         <li key={i} className="rounded-xl bg-white/80 p-5 ring-1 ring-paper-300">
-          {item.badge && <p className="font-serif text-4xl font-light text-laterite-600">{item.badge}</p>}
+          {item.badge && <p className="font-serif text-4xl font-light text-pine-600">{item.badge}</p>}
           <p className="mt-2 font-semibold text-stone-900">{item.title}</p>
           <p className="mt-2 leading-relaxed text-stone-600">{item.body}</p>
         </li>
