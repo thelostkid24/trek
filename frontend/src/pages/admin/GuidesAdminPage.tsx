@@ -2,24 +2,32 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
 import {
   getGuideDetails,
+  getGuideProfile,
   listGuides,
   promoteGuide,
+  removeGuidePhoto,
   updateGuideDetails,
+  updateGuideProfile,
+  uploadGuidePhoto,
   type GuideDetailsInput,
+  type GuideProfile,
 } from '../../api/admin.ts'
+import { AVATAR_TYPES } from '../../api/account.ts'
 import { fieldErrors } from '../../auth/errorMessages.ts'
 import { useAuth } from '../../auth/useAuth.ts'
 import { ErrorNote, Loading, Panel, Button } from '../../components/admin/AdminUi.tsx'
 import { TextField } from '../../components/auth/TextField.tsx'
 import { Avatar } from '../../components/Avatar.tsx'
 import { TextAreaField } from '../../components/profile/fields.tsx'
+import { shrinkPhoto } from '../../lib/photos.ts'
 
 export function GuidesAdminPage() {
   const { withAuth } = useAuth()
   const queryClient = useQueryClient()
   const guides = useQuery({ queryKey: ['admin-guides'], queryFn: () => withAuth(listGuides) })
   const [email, setEmail] = useState('')
-  const [open, setOpen] = useState<string | null>(null)
+  /** Which guide's panel is open, and which: their profile or their credentials. */
+  const [open, setOpen] = useState<{ id: string; panel: 'profile' | 'credentials' } | null>(null)
   const promote = useMutation({
     mutationFn: (value: string) => withAuth((token) => promoteGuide(token, value)),
     onSuccess: () => {
@@ -77,17 +85,132 @@ export function GuidesAdminPage() {
                     <p className="truncate font-medium">{g.full_name ?? 'No name yet'}</p>
                     <p className="truncate text-sm text-stone-500">{[g.email, g.phone].filter(Boolean).join(' · ')}</p>
                   </div>
-                  <Button tone="secondary" onClick={() => setOpen(open === g.id ? null : g.id)}>
-                    {open === g.id ? 'Close' : 'Credentials'}
-                  </Button>
+                  {(['profile', 'credentials'] as const).map((panel) => {
+                    const on = open?.id === g.id && open.panel === panel
+                    return (
+                      <Button key={panel} tone="secondary" onClick={() => setOpen(on ? null : { id: g.id, panel })}>
+                        {on ? 'Close' : panel === 'profile' ? 'Profile' : 'Credentials'}
+                      </Button>
+                    )
+                  })}
                 </div>
-                {open === g.id && <DetailsForm guideId={g.id} onDone={() => setOpen(null)} />}
+                {open?.id === g.id && open.panel === 'profile' && <ProfileForm guideId={g.id} onDone={() => setOpen(null)} />}
+                {open?.id === g.id && open.panel === 'credentials' && <DetailsForm guideId={g.id} onDone={() => setOpen(null)} />}
               </li>
             ))}
           </ul>
         )}
       </Panel>
     </>
+  )
+}
+
+/**
+ * The guide's name, photo, home town and bio as the trek, departure and guide pages show them (docs/TRD.md §7.12).
+ * A guide has no profile screen of their own, so an admin sets these.
+ */
+function ProfileForm({ guideId, onDone }: { guideId: string; onDone: () => void }) {
+  const { withAuth } = useAuth()
+  const profile = useQuery({
+    queryKey: ['admin-guide-profile', guideId],
+    queryFn: () => withAuth((token) => getGuideProfile(token, guideId)),
+  })
+  if (profile.isPending) return <Loading />
+  if (profile.isError) return <ErrorNote error={profile.error} />
+  return <ProfileFields guideId={guideId} initial={profile.data} onDone={onDone} />
+}
+
+function ProfileFields({ guideId, initial, onDone }: { guideId: string; initial: GuideProfile; onDone: () => void }) {
+  const { withAuth } = useAuth()
+  const queryClient = useQueryClient()
+  const [form, setForm] = useState({ full_name: initial.full_name ?? '', home_city: initial.home_city ?? '', bio: initial.bio ?? '' })
+  const [photo, setPhoto] = useState(initial.avatar_url)
+  const saved = (data: GuideProfile) => {
+    queryClient.setQueryData(['admin-guide-profile', guideId], data)
+    void queryClient.invalidateQueries({ queryKey: ['admin-guides'] })
+  }
+  const save = useMutation({
+    mutationFn: () =>
+      withAuth((token) => updateGuideProfile(token, guideId, { full_name: form.full_name, home_city: form.home_city || null, bio: form.bio || null })),
+    onSuccess: (data) => {
+      saved(data)
+      onDone()
+    },
+  })
+  const upload = useMutation({
+    mutationFn: async (file: File) => {
+      const jpeg = await shrinkPhoto(file)
+      return withAuth((token) => uploadGuidePhoto(token, guideId, jpeg))
+    },
+    onSuccess: (data) => {
+      setPhoto(data.avatar_url)
+      saved(data)
+    },
+  })
+  const remove = useMutation({
+    mutationFn: () => withAuth((token) => removeGuidePhoto(token, guideId)),
+    onSuccess: (data) => {
+      setPhoto(null)
+      saved(data)
+    },
+  })
+  const errors = fieldErrors(save.error)
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault()
+        save.mutate()
+      }}
+      className="mt-3 grid gap-3 rounded-xl border border-stone-200 p-4 sm:grid-cols-2"
+    >
+      <div className="flex items-center gap-4 sm:col-span-2">
+        <Avatar url={photo} name={form.full_name || null} size="md" />
+        <label className="cursor-pointer text-sm font-medium text-brand-800 hover:text-brand-950">
+          {upload.isPending ? 'Uploading…' : photo ? 'Change photo' : 'Upload photo'}
+          <input
+            type="file"
+            accept={AVATAR_TYPES.join(',')}
+            className="sr-only"
+            disabled={upload.isPending}
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              e.target.value = ''
+              if (file) upload.mutate(file)
+            }}
+          />
+        </label>
+        {photo && (
+          <button type="button" onClick={() => remove.mutate()} disabled={remove.isPending} className="text-sm text-stone-500 hover:text-stone-800">
+            Remove
+          </button>
+        )}
+      </div>
+      {(upload.error || remove.error) && (
+        <div className="sm:col-span-2">
+          <ErrorNote error={upload.error ?? remove.error} />
+        </div>
+      )}
+      <TextField label="Name as trekkers see it" name="full_name" required maxLength={100} value={form.full_name}
+        onChange={(e) => setForm((f) => ({ ...f, full_name: e.target.value }))} error={errors.full_name} />
+      <TextField label="Home town" name="home_city" maxLength={100} value={form.home_city}
+        onChange={(e) => setForm((f) => ({ ...f, home_city: e.target.value }))} error={errors.home_city} hint="E.g. Chakrata, Dehradun" />
+      <div className="sm:col-span-2">
+        <TextAreaField label="Bio" name="bio" maxLength={2000} rows={8} value={form.bio}
+          onChange={(e) => setForm((f) => ({ ...f, bio: e.target.value }))} error={errors.bio}
+          hint="A few short paragraphs; leave a blank line between them. The first shows, the rest open with “Read more”." />
+      </div>
+      {save.error && Object.keys(errors).length === 0 && (
+        <div className="sm:col-span-2">
+          <ErrorNote error={save.error} />
+        </div>
+      )}
+      <div className="sm:col-span-2">
+        <Button type="submit" disabled={save.isPending}>
+          {save.isPending ? 'Saving…' : 'Save profile'}
+        </Button>
+      </div>
+    </form>
   )
 }
 
