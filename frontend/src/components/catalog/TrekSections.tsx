@@ -31,7 +31,7 @@ export function TrekSection({ id, label, aside, children }: { id: string; label:
 }
 
 /** Duration, altitude, difficulty and the services, each with its icon. Facts nobody has stated are left out. */
-export function FactGrid({ track }: { track: TrackDetail }) {
+export function FactGrid({ track, onPhoto = false, className }: { track: TrackDetail; onPhoto?: boolean; className?: string }) {
   const offloading =
     track.offloading === null
       ? null
@@ -51,6 +51,8 @@ export function FactGrid({ track }: { track: TrackDetail }) {
   return (
     <IconFacts
       facts={facts.filter((f): f is [string, string, FactIcon] => f[1] !== null).map(([label, value, icon]) => ({ label, value, icon }))}
+      onPhoto={onPhoto}
+      className={className}
     />
   )
 }

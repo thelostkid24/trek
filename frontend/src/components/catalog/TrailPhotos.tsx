@@ -3,8 +3,8 @@ import type { TrackPhoto } from '../../api/catalog.ts'
 import { TrekSection } from './TrekSections.tsx'
 
 /**
- * "Photos from the trail": one large photo with its caption ("Summit ridge at first light") and place ("Kedarkantha
- * summit"; the photo's day isn't shown), arrows, swipe and arrow keys, and a strip of thumbnails underneath.
+ * "Photos from the trail": one large photo with no text on it (the caption is only its alt text), arrows, swipe and
+ * arrow keys, and a strip of thumbnails underneath.
  */
 export function TrailPhotos({ id, photos, trekName }: { id: string; photos: TrackPhoto[]; trekName: string }) {
   const [index, setIndex] = useState(0)
@@ -47,18 +47,12 @@ export function TrailPhotos({ id, photos, trekName }: { id: string; photos: Trac
           draggable={false}
           className="aspect-[16/10] w-full object-cover select-none"
         />
-        <figcaption className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 bg-gradient-to-t from-black/70 via-black/30 to-transparent px-4 pt-16 pb-4 text-white sm:px-5">
-          <span className="min-w-0">
-            {photo.caption && <span className="block truncate font-semibold sm:text-lg">{photo.caption}</span>}
-            {photo.place && <span className="block truncate text-sm text-white/80">{photo.place}</span>}
+        {photos.length > 1 && (
+          <span className="absolute right-4 bottom-4 flex gap-2 sm:right-5">
+            <Arrow label="Previous photo" onClick={() => go(index - 1)} d="M12.5 5 7.5 10l5 5" />
+            <Arrow label="Next photo" onClick={() => go(index + 1)} d="m7.5 5 5 5-5 5" />
           </span>
-          {photos.length > 1 && (
-            <span className="flex shrink-0 gap-2">
-              <Arrow label="Previous photo" onClick={() => go(index - 1)} d="M12.5 5 7.5 10l5 5" />
-              <Arrow label="Next photo" onClick={() => go(index + 1)} d="m7.5 5 5 5-5 5" />
-            </span>
-          )}
-        </figcaption>
+        )}
       </figure>
       {photos.length > 1 && (
         <ul ref={strip} className="mt-3 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">

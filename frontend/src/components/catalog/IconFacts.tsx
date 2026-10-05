@@ -59,14 +59,23 @@ export type Fact = { label: string; value: string; icon: FactIcon }
  * Facts as an icon beside a small label and its value, no boxes. The one look for fact rows across the site: trek
  * facts, guide stats and the guide card. `className` sets the layout (a grid by default).
  */
-export function IconFacts({ facts, className = 'grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-3' }: { facts: Fact[]; className?: string }) {
+export function IconFacts({
+  facts,
+  className = 'grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-3',
+  onPhoto = false,
+}: {
+  facts: Fact[]
+  className?: string
+  /** White icons and text, for a row laid over a darkened photo. */
+  onPhoto?: boolean
+}) {
   return (
     <dl className={className}>
       {facts.map((f) => (
         <div key={f.label} className="flex items-start gap-3">
           <svg
             viewBox="0 0 24 24"
-            className="mt-0.5 size-6 shrink-0 text-brand-800"
+            className={`mt-0.5 size-6 shrink-0 ${onPhoto ? 'text-white/90' : 'text-brand-800'}`}
             fill="none"
             stroke="currentColor"
             strokeWidth="1.6"
@@ -77,8 +86,8 @@ export function IconFacts({ facts, className = 'grid grid-cols-2 gap-x-6 gap-y-5
             {ICONS[f.icon]}
           </svg>
           <div className="min-w-0">
-            <dt className="text-[0.65rem] font-medium tracking-[0.12em] text-stone-500 uppercase">{f.label}</dt>
-            <dd className="mt-0.5 font-semibold text-stone-900">{f.value}</dd>
+            <dt className={`text-[0.65rem] font-medium tracking-[0.12em] uppercase ${onPhoto ? 'text-white/75' : 'text-stone-500'}`}>{f.label}</dt>
+            <dd className={`mt-0.5 font-semibold ${onPhoto ? 'text-white' : 'text-stone-900'}`}>{f.value}</dd>
           </div>
         </div>
       ))}
