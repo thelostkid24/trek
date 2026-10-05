@@ -97,17 +97,38 @@ export function TabBar({ tabs }: { tabs: { id: string; label: string }[] }) {
   )
 }
 
-/** The description, one paragraph per blank-line-separated block. */
+/** The description, one paragraph per blank-line-separated block; past the first, "Read more". */
 export function Overview({ text }: { text: string }) {
+  const [all, setAll] = useState(false)
+  const paragraphs = text
+    .split(/\n\s*\n/)
+    .map((p) => p.trim())
+    .filter(Boolean)
+  const more = paragraphs.length > 1
   return (
-    <div className="max-w-2xl space-y-4 text-[1.05rem] leading-relaxed text-stone-700">
-      {text
-        .split(/\n\s*\n/)
-        .map((p) => p.trim())
-        .filter(Boolean)
-        .map((p, i) => (
-          <p key={i}>{p}</p>
+    <div className="max-w-2xl">
+      {/* The first paragraph leads; the rest wait behind "Read more" but stay in the page for search. */}
+      <div id="overview-text" className="space-y-4 text-[1.05rem] leading-relaxed text-stone-700">
+        {paragraphs.map((p, i) => (
+          <p key={i} hidden={!all && i > 0}>
+            {p}
+          </p>
         ))}
+      </div>
+      {more && (
+        <button
+          type="button"
+          aria-expanded={all}
+          aria-controls="overview-text"
+          onClick={() => setAll(!all)}
+          className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-brand-800 hover:text-brand-950"
+        >
+          {all ? 'Read less' : 'Read more'}
+          <svg viewBox="0 0 12 12" className={`size-3 transition-transform ${all ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+            <path d="M3 4.5 6 7.5 9 4.5" />
+          </svg>
+        </button>
+      )}
     </div>
   )
 }
