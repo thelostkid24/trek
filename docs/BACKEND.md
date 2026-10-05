@@ -100,7 +100,7 @@ Both run in every backend copy. Keep production at one copy until ShedLock is ad
 | `MAIL_PROVIDER` | `log` / `ses` | Email printed or sent through SES from `MAIL_FROM` |
 | `SMS_PROVIDER` | `log` / `msg91` | OTP printed or sent through MSG91 |
 | `RATE_LIMIT_ENABLED` | `true` / `false` | The per-IP limiter (limits in `application.yml` under `app.rate-limit`) |
-| `RATE_LIMIT_CLIENT_IP_HEADER` | blank / `CloudFront-Viewer-Address` | Where the real client IP comes from |
+| `RATE_LIMIT_CLIENT_IP_HEADER` | blank / `X-Forwarded-For` behind the ALB (last entry only), `CloudFront-Viewer-Address` on CloudFront | Where the real client IP comes from |
 | `AUTH_COOKIE_SECURE` | `false` dev / `true` prod | `Secure` flag on the refresh cookie |
 | `BOOKING_HOLD_TTL` | e.g. `10m` | Seat hold length |
 | `GUIDE_SHARE_BPS` | e.g. `7000` | Guide's share, frozen at publish |

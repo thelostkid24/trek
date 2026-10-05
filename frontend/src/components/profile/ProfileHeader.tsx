@@ -4,10 +4,22 @@ import { AVATAR_TYPES, MAX_AVATAR_BYTES, removeAvatar, uploadAvatar } from '../.
 import type { User } from '../../api/auth.ts'
 import type { TrekkerProfile } from '../../api/profile.ts'
 import { messageFor } from '../../auth/errorMessages.ts'
+import { PHONE_OTP_ENABLED } from '../../auth/phoneOtp.ts'
 import { useAuth } from '../../auth/useAuth.ts'
 import { Avatar } from '../Avatar.tsx'
 import { FormError } from '../auth/AuthCard.tsx'
 import { SecondaryButton } from './ProfileSection.tsx'
+
+/** Items the server scores (docs/TRD.md §7.3). */
+const COMPLETION_ITEMS = 12
+
+/** The server's score, minus "phone verified" while phone sign-in is hidden: nobody can tick it off. */
+function completionPercent({ percent, missing }: TrekkerProfile['completion']) {
+  if (PHONE_OTP_ENABLED) return percent
+  const total = COMPLETION_ITEMS - 1
+  const left = missing.filter((k) => k !== 'phone_verified').length
+  return Math.floor(((total - left) * 100) / total)
+}
 
 /** Photo and how complete the profile is. The page title and name live elsewhere. */
 export function ProfileHeader({ user, profile }: { user: User; profile: TrekkerProfile }) {
@@ -46,7 +58,7 @@ export function ProfileHeader({ user, profile }: { user: User; profile: TrekkerP
     }
   }
 
-  const { percent } = profile.completion
+  const percent = completionPercent(profile.completion)
 
   return (
     <section id="photo" aria-label="Photo and profile completion" className="profile-card scroll-mt-24 rounded-(--card-radius) border border-paper-300 bg-paper-50 px-5 py-6 sm:px-7">

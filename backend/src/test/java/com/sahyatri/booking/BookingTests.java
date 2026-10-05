@@ -4,6 +4,7 @@ import com.sahyatri.auth.AuthTestSupport;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
+import java.time.LocalDate;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -148,6 +149,22 @@ class BookingTests extends AuthTestSupport {
                  {"full_name":"Kid","date_of_birth":"%s","gender":"MALE"}]}""".formatted(departure, minor))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.details.fields['travellers[1].date_of_birth']").exists());
+
+        // 12 to 17 only with an adult on the same booking.
+        LocalDate start = today().plusDays(30);
+        String teen = start.minusYears(14).toString();
+        authed(post(BOOKINGS), token, """
+                {"departure_id":"%s","seats":2,"travellers":[
+                 {"full_name":"Kid","date_of_birth":"%s","gender":"MALE"},
+                 {"full_name":"Kid two","date_of_birth":"%s","gender":"FEMALE"}]}""".formatted(departure, teen, teen))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.details.fields['travellers[0].date_of_birth']").exists());
+        UUID withParent = publishedDeparture();
+        authed(post(BOOKINGS), token, """
+                {"departure_id":"%s","seats":2,"travellers":[
+                 {"full_name":"Asha","date_of_birth":"1985-04-12","gender":"FEMALE"},
+                 {"full_name":"Kid","date_of_birth":"%s","gender":"MALE"}]}""".formatted(withParent, teen))
+                .andExpect(status().isCreated());
 
         authed(post(BOOKINGS), token, """
                 {"departure_id":"%s","seats":1,"travellers":[

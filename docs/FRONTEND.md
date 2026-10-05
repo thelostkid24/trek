@@ -1,6 +1,6 @@
 # Frontend guide
 
-The frontend is a React single-page app (`frontend/`) that talks only to the backend API (`docs/API.md`). In production it's a static build served from S3 through CloudFront, on the same domain as the API.
+The frontend is a React single-page app (`frontend/`) that talks only to the backend API (`docs/API.md`). In production it's a static build on Firebase Hosting (`theemptyvalley.com`) that calls the API on `api.theemptyvalley.com` (`docs/DEPLOY-FRONTEND-FIREBASE.md`).
 
 ## Stack
 | Piece | Choice |
@@ -24,7 +24,7 @@ npm --prefix frontend run lint
 
 | Env var | Dev | Production |
 |---|---|---|
-| `VITE_API_BASE_URL` | `http://localhost:8081` | empty (same origin; CloudFront sends `/api/*` to the backend) |
+| `VITE_API_BASE_URL` | `http://localhost:8081` | `https://api.theemptyvalley.com` (empty once on CloudFront, same origin) |
 | `VITE_GOOGLE_CLIENT_ID` | your OAuth client ID | same, set as a GitHub variable for the deploy build |
 | `VITE_PHONE_OTP` | `true` to try phone OTP (codes appear in the backend log) | unset until SMS delivers (DLT, `docs/DEPLOY.md`); then `true` |
 

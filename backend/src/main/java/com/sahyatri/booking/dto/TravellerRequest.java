@@ -10,7 +10,7 @@ import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
 
 /**
- * Age (18–100 on the start date) is checked in the service. Add-ons are per traveller: {@code insurance} takes ours,
+ * Age (12–100 on the start date; under 18 only with an adult on the same booking) is checked in the service. Add-ons are per traveller: {@code insurance} takes ours,
  * {@code insuranceId} is their own policy instead (one or the other); left out = not taken.
  */
 public record TravellerRequest(
