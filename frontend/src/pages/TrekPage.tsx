@@ -81,26 +81,29 @@ function Page({ trek }: { trek: Trek }) {
         image={cover?.url}
         jsonLd={trekJsonLd(trek)}
       />
-      {/* The first trek photo leads, tall, with the trek's name over its foot; until there is a photo, the ridgeline stands in. */}
-      {/* Shares its view-transition name with the catalog card, which grows into it. */}
+      {/* The first trek photo leads, tall: the trek's name at its top, the trek facts across its foot. Until there is a */}
+      {/* photo, the ridgeline stands in. Shares its view-transition name with the catalog card, which grows into it. */}
       <section
-        className="relative isolate flex h-[32rem] max-h-[80dvh] min-h-[24rem] items-end overflow-hidden bg-brand-950 sm:h-[40rem]"
+        className="relative isolate flex min-h-[32rem] flex-col justify-between overflow-hidden bg-brand-950 sm:min-h-[40rem]"
         style={{ viewTransitionName: `trek-cover-${track.slug}`, viewTransitionClass: 'trek-cover' }}
       >
         {cover ? (
           <>
             <img src={cover.url} alt={cover.caption ?? ''} className="absolute inset-0 -z-20 size-full object-cover" />
-            <div className="absolute inset-0 -z-10 bg-gradient-to-b from-black/30 via-transparent to-black/70" aria-hidden="true" />
+            <div className="absolute inset-0 -z-10 bg-gradient-to-b from-black/55 via-black/10 to-black/80" aria-hidden="true" />
           </>
         ) : (
           <Ridgeline className="absolute inset-0 -z-10 h-full w-full" />
         )}
-        <header className="mx-auto w-full max-w-6xl px-4 pb-8 sm:pb-12">
+        <header className="mx-auto w-full max-w-6xl px-4 pt-8 sm:pt-12">
           <Link to="/treks" viewTransition className="text-sm text-white/85 hover:text-white">
             ← All treks
           </Link>
           <h1 className="mt-2 font-serif text-5xl font-light leading-none tracking-tight text-white drop-shadow-sm sm:text-7xl">{track.name}</h1>
         </header>
+        <div className="mx-auto w-full max-w-6xl px-4 pt-16 pb-8 sm:pb-10">
+          <FactGrid track={track} onPhoto className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3 lg:max-w-[calc(100%-25rem)]" />
+        </div>
       </section>
 
       <div className="mx-auto grid max-w-6xl gap-x-12 gap-y-8 px-4 py-8 sm:py-12 lg:grid-cols-[minmax(0,1fr)_22rem]">
@@ -109,7 +112,6 @@ function Page({ trek }: { trek: Trek }) {
         </aside>
 
         <div className="min-w-0 space-y-8 lg:col-start-1 lg:row-start-1">
-          <FactGrid track={track} />
           <SnowReportPanel report={trek.snow_report} place={track.meeting_point} trekName={track.name} />
           <TabBar tabs={tabs} />
 
