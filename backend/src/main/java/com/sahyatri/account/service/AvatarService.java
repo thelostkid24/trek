@@ -33,27 +33,34 @@ public class AvatarService {
     }
 
     public UserResponse upload(UUID userId, MultipartFile file) {
-        User user = currentUser.require(userId);
-        byte[] jpeg = toAvatarJpeg(Images.read(file));
+        return auth.toResponse(replace(currentUser.require(userId), file));
+    }
 
+    public UserResponse remove(UUID userId) {
+        return auth.toResponse(clear(currentUser.require(userId)));
+    }
+
+    /** Stores the new photo, points the user at it and deletes the old one. Callers check who may do this. */
+    public User replace(User user, MultipartFile file) {
+        byte[] jpeg = toAvatarJpeg(Images.read(file));
         UUID key = UUID.randomUUID();
         storage.put(AvatarFiles.storageKey(key), jpeg);
         String previous = user.getAvatarKey();
         user.setAvatarKey(key.toString());
         user = users.save(user);
         deleteQuietly(previous);
-        return auth.toResponse(user);
+        return user;
     }
 
-    public UserResponse remove(UUID userId) {
-        User user = currentUser.require(userId);
+    /** Removes the user's photo, if any. Callers check who may do this. */
+    public User clear(User user) {
         String previous = user.getAvatarKey();
         if (previous != null) {
             user.setAvatarKey(null);
             user = users.save(user);
             deleteQuietly(previous);
         }
-        return auth.toResponse(user);
+        return user;
     }
 
     static byte[] toAvatarJpeg(byte[] bytes) {
