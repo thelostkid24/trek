@@ -172,6 +172,14 @@ body {
   color: #fde68a;
 }
 
+:root[data-theme="dark"] .bg-lime-100 {
+  background-color: color-mix(in oklab, #84cc16 16%, transparent);
+}
+
+:root[data-theme="dark"] .text-lime-800 {
+  color: #d9f99d;
+}
+
 /*
  * Motion. Route changes that opt in with `viewTransition` crossfade; the header is
  * named so it holds still, and a trek card's cover (`trek-cover-<slug>`) grows into

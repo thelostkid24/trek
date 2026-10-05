@@ -84,7 +84,7 @@ function Arrow({ label, onClick, d }: { label: string; onClick: () => void; d: s
       aria-label={label}
       onClick={onClick}
       onPointerDown={(e) => e.stopPropagation()}
-      className="flex size-10 items-center justify-center rounded-full bg-white/90 text-stone-900 hover:bg-white"
+      className="flex size-10 items-center justify-center rounded-full bg-white/90 text-black shadow-sm hover:bg-white"
     >
       <svg viewBox="0 0 20 20" className="size-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
         <path d={d} />

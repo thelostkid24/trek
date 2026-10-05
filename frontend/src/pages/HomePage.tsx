@@ -231,7 +231,7 @@ function Destinations() {
   const { ref, ...reveal } = useInView<HTMLUListElement>()
 
   return (
-    <section id="treks" className="scroll-mt-16 border-t border-paper-300 py-20 sm:py-28">
+    <section id="treks" className="scroll-mt-16 py-20 sm:py-28">
       <Container>
         <div className="flex flex-wrap items-end justify-between gap-6">
           <div>
@@ -375,7 +375,7 @@ const STEPS = [
 function HowItWorks() {
   const { ref, ...steps } = useInView<HTMLOListElement>()
   return (
-    <section id="how-it-works" className="scroll-mt-16 border-t border-paper-300 py-20 sm:py-28">
+    <section id="how-it-works" className="scroll-mt-16 py-20 sm:py-28">
       <Container>
         <div className="mx-auto max-w-2xl text-center">
           <div className="flex justify-center">
@@ -420,7 +420,7 @@ const WHY_US: ContentItem[] = [
 
 function WhyChooseUs() {
   return (
-    <section id="why-us" className="scroll-mt-16 border-t border-paper-300 py-20 sm:py-28">
+    <section id="why-us" className="scroll-mt-16 py-20 sm:py-28">
       <Container>
         <Eyebrow>Why choose The Empty Valley</Eyebrow>
         <div className="mt-8">
@@ -433,7 +433,7 @@ function WhyChooseUs() {
 
 function Faq() {
   return (
-    <section id="faqs" className="scroll-mt-16 border-t border-paper-300 py-20 sm:py-28">
+    <section id="faqs" className="scroll-mt-16 py-20 sm:py-28">
       <Container className="grid gap-10 lg:grid-cols-[1fr_1.4fr] lg:gap-20">
         <div>
           <Eyebrow>FAQs</Eyebrow>
