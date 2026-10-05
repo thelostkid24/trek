@@ -3,8 +3,8 @@ import type { TrackPhoto } from '../../api/catalog.ts'
 import { TrekSection } from './TrekSections.tsx'
 
 /**
- * "Photos from the trail": one large photo with its caption ("Summit ridge at first light", "Kedarkantha summit ·
- * Day 4"), arrows, swipe and arrow keys, and a strip of thumbnails underneath.
+ * "Photos from the trail": one large photo with its caption ("Summit ridge at first light") and place ("Kedarkantha
+ * summit"; the photo's day isn't shown), arrows, swipe and arrow keys, and a strip of thumbnails underneath.
  */
 export function TrailPhotos({ id, photos, trekName }: { id: string; photos: TrackPhoto[]; trekName: string }) {
   const [index, setIndex] = useState(0)
@@ -18,7 +18,6 @@ export function TrailPhotos({ id, photos, trekName }: { id: string; photos: Trac
     setIndex(i)
     strip.current?.children[i]?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' })
   }
-  const where = [photo.place, photo.day_number && `Day ${photo.day_number}`].filter(Boolean).join(' · ')
   const onKey = (e: KeyboardEvent) => {
     if (e.key === 'ArrowLeft') go(index - 1)
     if (e.key === 'ArrowRight') go(index + 1)
@@ -51,7 +50,7 @@ export function TrailPhotos({ id, photos, trekName }: { id: string; photos: Trac
         <figcaption className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 bg-gradient-to-t from-black/70 via-black/30 to-transparent px-4 pt-16 pb-4 text-white sm:px-5">
           <span className="min-w-0">
             {photo.caption && <span className="block truncate font-semibold sm:text-lg">{photo.caption}</span>}
-            {where && <span className="block truncate text-sm text-white/80">{where}</span>}
+            {photo.place && <span className="block truncate text-sm text-white/80">{photo.place}</span>}
           </span>
           {photos.length > 1 && (
             <span className="flex shrink-0 gap-2">

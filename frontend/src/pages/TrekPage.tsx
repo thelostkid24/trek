@@ -81,36 +81,34 @@ function Page({ trek }: { trek: Trek }) {
         image={cover?.url}
         jsonLd={trekJsonLd(trek)}
       />
-      {/* The first trek photo leads; until there is one, the ridgeline stands in. */}
+      {/* The first trek photo leads, tall, with the trek's name over its foot; until there is a photo, the ridgeline stands in. */}
       {/* Shares its view-transition name with the catalog card, which grows into it. */}
       <section
-        className="relative isolate h-60 overflow-hidden bg-brand-950 sm:h-[26rem]"
+        className="relative isolate flex h-[32rem] max-h-[80dvh] min-h-[24rem] items-end overflow-hidden bg-brand-950 sm:h-[40rem]"
         style={{ viewTransitionName: `trek-cover-${track.slug}`, viewTransitionClass: 'trek-cover' }}
       >
         {cover ? (
           <>
             <img src={cover.url} alt={cover.caption ?? ''} className="absolute inset-0 -z-20 size-full object-cover" />
-            <div className="absolute inset-0 -z-10 bg-gradient-to-b from-black/30 via-transparent to-black/20" aria-hidden="true" />
+            <div className="absolute inset-0 -z-10 bg-gradient-to-b from-black/30 via-transparent to-black/70" aria-hidden="true" />
           </>
         ) : (
           <Ridgeline className="absolute inset-0 -z-10 h-full w-full" />
         )}
+        <header className="mx-auto w-full max-w-6xl px-4 pb-8 sm:pb-12">
+          <Link to="/treks" viewTransition className="text-sm text-white/85 hover:text-white">
+            ← All treks
+          </Link>
+          <h1 className="mt-2 font-serif text-5xl font-light leading-none tracking-tight text-white drop-shadow-sm sm:text-7xl">{track.name}</h1>
+        </header>
       </section>
 
       <div className="mx-auto grid max-w-6xl gap-x-12 gap-y-8 px-4 py-8 sm:py-12 lg:grid-cols-[minmax(0,1fr)_22rem]">
-        <header className="lg:col-start-1">
-          <Link to="/treks" viewTransition className="text-sm text-brand-700 hover:text-brand-900">
-            ← All treks
-          </Link>
-          <h1 className="mt-2 font-serif text-5xl font-light leading-none tracking-tight text-stone-900 sm:text-7xl">{track.name}</h1>
-          <hr className="mt-6 border-paper-300 sm:mt-8" />
-        </header>
-
-        <aside className="lg:sticky lg:top-20 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:max-h-[calc(100dvh-6rem)] lg:self-start lg:overflow-y-auto lg:pr-1">
+        <aside className="lg:sticky lg:top-20 lg:col-start-2 lg:row-start-1 lg:max-h-[calc(100dvh-6rem)] lg:self-start lg:overflow-y-auto lg:pr-1">
           <TrekDepartures trek={trek} />
         </aside>
 
-        <div className="min-w-0 space-y-8 lg:col-start-1">
+        <div className="min-w-0 space-y-8 lg:col-start-1 lg:row-start-1">
           <FactGrid track={track} />
           <SnowReportPanel report={trek.snow_report} place={track.meeting_point} trekName={track.name} />
           <TabBar tabs={tabs} />
