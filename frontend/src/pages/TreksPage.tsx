@@ -53,7 +53,11 @@ export function TreksPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:py-10">
-      <Seo title="Our treks" description="Every trek we run, with upcoming dates, difficulty and the local guide leading each departure." path="/treks" />
+      <Seo
+        title="Himalayan treks in Uttarakhand"
+        description="Every Himalayan trek we run in Uttarakhand, with upcoming dates, difficulty and the local guide leading each departure."
+        path="/treks"
+      />
       <header>
         <h1 className="font-display text-3xl font-light tracking-[-0.02em] sm:text-4xl">Our treks</h1>
       </header>

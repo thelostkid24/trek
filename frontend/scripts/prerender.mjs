@@ -28,7 +28,9 @@ const escape = (s) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/
 
 // Same title, description and canonical as the trek page's <Seo> (src/pages/TrekPage.tsx).
 function head(trek) {
-  const title = escape(`${trek.name}, ${trek.region} · ${SITE_NAME}`)
+  // "Trek" is in the title because that's the word people search with ("Kedarkantha trek").
+  const name = /\btrek\b/i.test(trek.name) ? trek.name : `${trek.name} Trek`
+  const title = escape(`${name}, ${trek.region} · ${SITE_NAME}`)
   const description = escape(trek.summary)
   const url = `${SITE_ORIGIN}/treks/${trek.slug}`
   const image = escape(trek.cover_url ?? `${SITE_ORIGIN}/hero.jpg`)

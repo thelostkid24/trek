@@ -3,7 +3,7 @@ import { SITE_ORIGIN } from '../lib/siteLinks.ts'
 
 const SITE_NAME = 'The Empty Valley'
 const DEFAULT_TITLE = `${SITE_NAME} — Small batches. Guaranteed departures.`
-const DEFAULT_DESCRIPTION = 'Small-batch treks with vetted local guides and guaranteed departures.'
+const DEFAULT_DESCRIPTION = 'Small-batch Himalayan treks in Uttarakhand, led by certified local guides you choose. Ten trekkers at most, and every departure is guaranteed.'
 const DEFAULT_IMAGE = `${SITE_ORIGIN}/hero.jpg`
 
 type Props = {

@@ -75,7 +75,7 @@ function Page({ trek }: { trek: Trek }) {
   return (
     <div className="bg-paper-50">
       <Seo
-        title={`${track.name}, ${track.region}`}
+        title={trekTitle(track)}
         description={track.summary}
         path={`/treks/${track.slug}`}
         image={cover?.url}
@@ -139,4 +139,10 @@ function Page({ trek }: { trek: Trek }) {
       </div>
     </div>
   )
+}
+
+/** "Kedarkantha Trek, Sankri, …": "trek" is the word people search with. Same as scripts/prerender.mjs. */
+function trekTitle(track: { name: string; region: string }) {
+  const name = /\btrek\b/i.test(track.name) ? track.name : `${track.name} Trek`
+  return `${name}, ${track.region}`
 }
