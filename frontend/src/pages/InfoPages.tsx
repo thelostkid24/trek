@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { FaqList } from '../components/FaqList.tsx'
 import { Ridgeline } from '../components/Ridgeline.tsx'
 import { BUSINESS } from '../lib/business.ts'
@@ -111,11 +111,6 @@ export function CancellationsPage() {
     </InfoPage>
   )
 }
-
-const VISION_TABS = [
-  { key: 'story', label: 'How it started' },
-  { key: 'founders', label: 'Founders' },
-] as const
 
 /**
  * The founders. `photo` is a path under public/ (a portrait, roughly 4:5); a ridgeline with initials stands in until
@@ -229,82 +224,60 @@ function Founders() {
 }
 
 export function VisionPage() {
-  const [params, setParams] = useSearchParams()
-  const tab = params.get('tab') === 'founders' ? 'founders' : 'story'
   return (
     <InfoPage
       wide
       title="Our vision"
       path={SITE_LINKS.vision}
     >
-      <div role="tablist" aria-label="Our vision" className="mt-8 inline-flex rounded-full bg-paper-200 p-1">
-        {VISION_TABS.map((t) => (
-          <button
-            key={t.key}
-            type="button"
-            role="tab"
-            aria-selected={tab === t.key}
-            onClick={() => setParams(t.key === 'story' ? {} : { tab: t.key }, { replace: true })}
-            className={`rounded-full px-5 py-2 text-sm font-medium transition ${
-              tab === t.key ? 'bg-white text-ink-900 shadow-sm' : 'text-ink-700 hover:text-ink-900'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
+      {/* One page: the founder's story, then the founders. */}
+      <div className="mt-8 max-w-[40rem] space-y-3 text-sm leading-relaxed text-ink-700">
+        <p>
+          I was diagnosed with cancer. I’m not going to make that sound like more than it was, or less: it
+          happened, I got through it, and when it was over I did something I had never seriously considered before.
+          I signed up for a Basic Mountaineering Course. I don’t know exactly what I was looking for. But somewhere
+          in those weeks, carrying a load uphill in weather I’d have avoided a year earlier, I understood something I
+          hadn’t before: that being alive is a thing you can either use or not use, there’s no in-between, and
+          nobody hands you the difference. I fell in love with the mountains in the simplest way possible. I just
+          wanted to keep going back. Then I did my Advanced Mountaineering Course at HMI.
+        </p>
+        <p>
+          What I didn’t expect was what I’d notice while I was there. I kept meeting guides — local men from the
+          valleys, certified, some of them better on a mountain than anyone I’d ever watched — and most of them were
+          either out of work for months at a stretch or working for a trekking company that paid them very little
+          for a great deal of work. They were the ones carrying the responsibility: reading the weather, watching
+          the slow trekker, deciding when to turn a group around. And then the trek would end, the trekkers would go
+          home, and they’d write reviews about the company. Not the man. The company. That’s the thing I want to
+          change — not the pay alone, though that matters, but the recognition. The work on a mountain is done by a
+          person, and that person should be visible.
+        </p>
+        <p>
+          That’s when I met Vikhilesh, my co-founder — the person who turned the idea into technology and made this
+          platform possible. Together, we built The Empty Valley the other way round. The guides aren’t our staff
+          here; they run their own departures on this platform. They choose their dates, they lead with their own
+          local teams, and they keep most of what you pay. We do the part they shouldn’t have to — the bookings, the
+          verification, the website, the questions at eleven at night — and they do the mountain. And on our side,
+          you choose them. Every date on this site carries a name and a face, and you can read who he is, where
+          he’s from, how many seasons he’s led, and what people who walked with him have said, before you pay.{' '}
+          <strong className="font-semibold text-ink-900">
+            As far as we know, this is the first time in Indian trekking that a trekker gets to choose the guide
+            rather than the company.
+          </strong>
+        </p>
+        <p>
+          That difference is smaller than it sounds and bigger than it looks. When you book a company, you are
+          buying a promise from an organisation: if the trek goes well the brand gets the credit, and if it goes
+          badly nobody in particular is answerable. The person who actually took you up the mountain is
+          interchangeable, and he knows it, which is exactly why he’s paid the way he is. When you choose a guide,
+          two things change at once. You know who you’re going with before you leave home, which is what almost
+          everyone is quietly anxious about anyway. And he builds something of his own — a record, a reputation,
+          people who come back and ask for him by name. So his next season depends on how he treated you on this
+          one. That’s the whole idea. You should know who you’re going up there with, and he should get the credit
+          for taking you.
+        </p>
       </div>
 
-      {tab === 'story' ? (
-        <div role="tabpanel" className="max-w-[40rem]">
-          <Section title="How it started">
-            <p>
-              I was diagnosed with cancer. I’m not going to make that sound like more than it was, or less: it
-              happened, I got through it, and when it was over I did something I had never seriously considered before.
-              I signed up for a Basic Mountaineering Course. I don’t know exactly what I was looking for. But somewhere
-              in those weeks, carrying a load uphill in weather I’d have avoided a year earlier, I understood something I
-              hadn’t before: that being alive is a thing you can either use or not use, there’s no in-between, and
-              nobody hands you the difference. I fell in love with the mountains in the simplest way possible. I just
-              wanted to keep going back. Then I did my Advanced Mountaineering Course at HMI.
-            </p>
-            <p>
-              What I didn’t expect was what I’d notice while I was there. I kept meeting guides — local men from the
-              valleys, certified, some of them better on a mountain than anyone I’d ever watched — and most of them were
-              either out of work for months at a stretch or working for a trekking company that paid them very little
-              for a great deal of work. They were the ones carrying the responsibility: reading the weather, watching
-              the slow trekker, deciding when to turn a group around. And then the trek would end, the trekkers would go
-              home, and they’d write reviews about the company. Not the man. The company. That’s the thing I want to
-              change — not the pay alone, though that matters, but the recognition. The work on a mountain is done by a
-              person, and that person should be visible.
-            </p>
-            <p>
-              That’s when I met Vikhilesh, my co-founder — the person who turned the idea into technology and made this
-              platform possible. Together, we built The Empty Valley the other way round. The guides aren’t our staff
-              here; they run their own departures on this platform. They choose their dates, they lead with their own
-              local teams, and they keep most of what you pay. We do the part they shouldn’t have to — the bookings, the
-              verification, the website, the questions at eleven at night — and they do the mountain. And on our side,
-              you choose them. Every date on this site carries a name and a face, and you can read who he is, where
-              he’s from, how many seasons he’s led, and what people who walked with him have said, before you pay.{' '}
-              <strong className="font-semibold text-ink-900">
-                As far as we know, this is the first time in Indian trekking that a trekker gets to choose the guide
-                rather than the company.
-              </strong>
-            </p>
-            <p>
-              That difference is smaller than it sounds and bigger than it looks. When you book a company, you are
-              buying a promise from an organisation: if the trek goes well the brand gets the credit, and if it goes
-              badly nobody in particular is answerable. The person who actually took you up the mountain is
-              interchangeable, and he knows it, which is exactly why he’s paid the way he is. When you choose a guide,
-              two things change at once. You know who you’re going with before you leave home, which is what almost
-              everyone is quietly anxious about anyway. And he builds something of his own — a record, a reputation,
-              people who come back and ask for him by name. So his next season depends on how he treated you on this
-              one. That’s the whole idea. You should know who you’re going up there with, and he should get the credit
-              for taking you.
-            </p>
-          </Section>
-        </div>
-      ) : (
-        <Founders />
-      )}
+      <Founders />
     </InfoPage>
   )
 }
