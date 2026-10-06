@@ -7,6 +7,7 @@ import { Layout } from './components/Layout.tsx'
 import { Private } from './components/Seo.tsx'
 import { DepartureDetailPage } from './pages/DepartureDetailPage.tsx'
 import { GuidePage } from './pages/GuidePage.tsx'
+import { GuidesPage } from './pages/GuidesPage.tsx'
 import { HomePage } from './pages/HomePage.tsx'
 import {
   CancellationsPage,
@@ -69,6 +70,7 @@ export const router = createBrowserRouter([
       { path: '/treks', element: <TreksPage /> },
       { path: '/treks/:slug', element: <TrekPage /> },
       { path: '/departures/:id', element: <DepartureDetailPage /> },
+      { path: '/guides', element: <GuidesPage /> },
       { path: '/guides/:id', element: <GuidePage /> },
       { path: SITE_LINKS.faqs, element: <FaqsPage /> },
       { path: SITE_LINKS.cancellations, element: <CancellationsPage /> },

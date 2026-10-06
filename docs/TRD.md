@@ -1030,7 +1030,7 @@ Google renders the SPA, so there's no SSR. It needs a sitemap, robots.txt and pe
 | `GET /api/public/sitemap.xml` | — | — | `200 application/xml` `<urlset>`, `Cache-Control: public, max-age=3600` | — |
 | `GET /robots.txt` (API host) | — | — | `200 text/plain`: allows only `/api/public/` (Google fetches the catalog API to render the SPA's pages), disallows the rest; cached 1 day | — |
 
-- `seo.service.SitemapService`: `app.frontend-base-url` + the static public paths (`/`, `/treks`, vision, faqs, cancellations, contact, terms, privacy), `/treks/{slug}` for every trek in the public catalog (`CatalogService.catalog()`), and `/guides/{id}` for each guide leading one of its upcoming departures. Departures are left out because they expire (law 9). No `lastmod`/`priority`.
+- `seo.service.SitemapService`: `app.frontend-base-url` + the static public paths (`/`, `/treks`, `/guides`, vision, faqs, cancellations, contact, terms, privacy), `/treks/{slug}` for every trek in the public catalog (`CatalogService.catalog()`), and `/guides/{id}` for each guide leading one of its upcoming departures. Departures are left out because they expire (law 9). No `lastmod`/`priority`.
 - The site (Firebase) and API are on different hosts, so `frontend/public/robots.txt` points to the sitemap on `api.theemptyvalley.com`. It disallows account, admin, guide console, checkout and auth paths.
 - Frontend: `components/Seo.tsx` renders `<title>`, description, canonical (`SITE_ORIGIN` in `lib/siteLinks.ts`), Open Graph and `twitter:card` tags through React 19's head hoisting, plus optional JSON-LD (`jsonLd`). Public pages pass `path`. Trek and departure pages pass the first trek photo as `image` (default `/hero.jpg`). Not-found and error states, plus every private route (wrapped in `<Private>` in `router.tsx`), are `noindex`.
 - Link previews: WhatsApp, Facebook, X and other link-preview fetchers don't run JavaScript. `index.html` carries the site-wide title, description and og: tags between `<!-- static-head:start/end -->` markers, each tagged `data-static-head`; `main.tsx` removes them on load so `<Seo>` owns the head. `scripts/prerender.mjs` (`npm run prerender`, run by the deploy workflow after the build) reads `GET /api/public/tracks` and writes `dist/treks/<slug>.html` with that trek's title, summary, canonical and `cover_url`. `firebase.json` `cleanUrls` serves it at `/treks/<slug>` ahead of the SPA rewrite. A trek added after a deploy gets the site-wide preview until the next deploy.
@@ -1038,6 +1038,20 @@ Google renders the SPA, so there's no SSR. It needs a sitemap, robots.txt and pe
 - Search terms: the site-wide description (`Seo.tsx` default, `index.html` static head) and the `/treks` title name "Himalayan treks in Uttarakhand", because that's what people search for; the home title and h1 stay as the brand line. Trek page titles read `<Name> Trek, <region>` ("Trek" is added unless the name already has it), in both `TrekPage.tsx` and `prerender.mjs`.
 - Search Console setup: docs/DEPLOY-FRONTEND-FIREBASE.md B5.
 - Tests: `SitemapTests`.
+
+### 7.17 Guides list (`/guides`)
+**Status:** backend and frontend implemented.
+
+**Scope:** one public page listing every guide who leads with us, so trekkers can meet them before picking dates. "Listed" means an active guide account (role `GUIDE`, not disabled), the same rule as `GET /api/public/guides/{id}`. No schema.
+
+| Method & path | Auth | Request | Success | Errors |
+|---|---|---|---|---|
+| `GET /api/public/guides` | — | — | `200 { items: GuideListItem[] }` | — |
+
+- `GuideListItem` = `{ id, full_name, avatar_url, home_city, years_leading, languages, certification, certification_number, bmc_institute, bmc_certificate_number, amc_institute, amc_certificate_number, quote, treks_led, rating, review_count, treks: TrackBrief[], upcoming }`. `treks_led` and `treks` (most led first) count completed departures plus treks led before Sahyātri (§7.12); `upcoming` counts upcoming published departures. Rating as in §7.14.
+- Order: guides leading upcoming dates first, then most treks led, then name. Computed on each read, never stored (law 8).
+- Frontend: `/guides` (`pages/GuidesPage.tsx`): one card per guide (photo, name, home, rating, "Certified" as on the departure page, years guiding · treks led · languages, "Knows <first three treks> +N more", then "N upcoming dates →" or "Know your guide →"); the card opens `/guides/:id`. Header gains "Our Guides" after "All Treks". In the sitemap (§7.16).
+- Tests: `GuideListTests`.
 
 ### Charity share
 `app.charity` (`CHARITY_NAME`, `CHARITY_BPS`, default 100 = 1%) is part of the price, never added on top. It only shows as a line on the trek page ("1% goes to …, and the rest runs the company"); no money is split or recorded per booking yet.
