@@ -154,6 +154,48 @@ class CatalogTests extends AuthTestSupport {
     }
 
     @Test
+    void publishedPriceChangesOnlyForNewBookings() throws Exception {
+        String admin = adminToken();
+        UUID id = publishedDeparture();
+        UUID earlier = hold(bookingTrekker(), id, 1);
+
+        authed(put(ADMIN + "/" + id + "/price"), admin, """
+                {"price_paise":500}""")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.details.fields.price_paise").exists());
+        authed(put(ADMIN + "/" + id + "/price"), admin, """
+                {"price_paise":1045000}""")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.price_paise").value(1_045_000))
+                .andExpect(jsonPath("$.status").value("PUBLISHED"));
+        mockMvc.perform(get(PUBLIC + "/" + id)).andExpect(jsonPath("$.price_paise").value(1_045_000));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM audit_events WHERE entity_id = ? AND action = ?",
+                Long.class, id, "DEPARTURE_PRICE_CHANGED")).isEqualTo(1L);
+
+        // The earlier booking keeps the price it was made at; a new one pays the new price.
+        assertThat(jdbc.queryForObject("SELECT price_paise_per_seat FROM bookings WHERE id = ?", Long.class, earlier))
+                .isEqualTo(219_900L);
+        UUID later = hold(bookingTrekker(), id, 1);
+        assertThat(jdbc.queryForObject("SELECT price_paise_per_seat FROM bookings WHERE id = ?", Long.class, later))
+                .isEqualTo(1_045_000L);
+
+        // Drafts use Edit; a departure that has started is locked.
+        UUID draft = createDraft(admin, createTrack(admin, 2), guideUser(), today().plusDays(30), 219_900, 6);
+        authed(put(ADMIN + "/" + draft + "/price"), admin, """
+                {"price_paise":1045000}""")
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("DEPARTURE_PRICE_LOCKED"));
+        jdbc.update("UPDATE departures SET start_date = ?, end_date = ? WHERE id = ?", today(), today().plusDays(1), id);
+        authed(put(ADMIN + "/" + id + "/price"), admin, """
+                {"price_paise":999900}""")
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("DEPARTURE_PRICE_LOCKED"));
+        authed(put(ADMIN + "/" + id + "/price"), bookingTrekker(), """
+                {"price_paise":999900}""")
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void lifecycleJobExpiresUnsoldAndCompletesFinished() throws Exception {
         UUID unsold = publishedDeparture();
         UUID sold = publishedDeparture();

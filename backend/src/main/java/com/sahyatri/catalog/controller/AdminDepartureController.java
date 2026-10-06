@@ -2,6 +2,7 @@ package com.sahyatri.catalog.controller;
 
 import com.sahyatri.catalog.dto.AdminDepartureResponse;
 import com.sahyatri.catalog.dto.CancelDepartureRequest;
+import com.sahyatri.catalog.dto.DeparturePriceRequest;
 import com.sahyatri.catalog.dto.DepartureRequest;
 import com.sahyatri.catalog.service.DepartureAdminService;
 import com.sahyatri.common.web.ItemsResponse;
@@ -57,6 +58,12 @@ public class AdminDepartureController {
     @PostMapping("/{id}/publish")
     public AdminDepartureResponse publish(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id) {
         return departures.publish(adminId(jwt), id);
+    }
+
+    @PutMapping("/{id}/price")
+    public AdminDepartureResponse changePrice(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id,
+                                              @Valid @RequestBody DeparturePriceRequest req) {
+        return departures.changePrice(adminId(jwt), id, req);
     }
 
     @PostMapping("/{id}/cancel")

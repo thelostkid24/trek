@@ -6,6 +6,7 @@ import com.sahyatri.auth.repository.UserRepository;
 import com.sahyatri.auth.service.CurrentUser;
 import com.sahyatri.catalog.dto.AdminDepartureResponse;
 import com.sahyatri.catalog.dto.CancelDepartureRequest;
+import com.sahyatri.catalog.dto.DeparturePriceRequest;
 import com.sahyatri.catalog.dto.DepartureRequest;
 import com.sahyatri.catalog.entity.Departure;
 import com.sahyatri.catalog.entity.DepartureStatus;
@@ -91,6 +92,27 @@ public class DepartureAdminService {
         departures.saveAndFlush(departure);
         audit.record(adminId, "DEPARTURE_PUBLISHED", ENTITY, id,
                 Map.of("guide_share_bps", props.guideShareBps()));
+        return toResponse(departure);
+    }
+
+    /**
+     * Changes a published departure's price before it starts. Bookings freeze their per-seat price when they're made,
+     * so only bookings from now on pay the new one.
+     */
+    @Transactional
+    public AdminDepartureResponse changePrice(UUID adminId, UUID id, DeparturePriceRequest req) {
+        currentUser.require(adminId);
+        Departure departure = lock(id);
+        if (departure.getStatus() != DepartureStatus.PUBLISHED
+                || !catalog.today().isBefore(departure.getStartDate())) {
+            throw ApiException.conflict("DEPARTURE_PRICE_LOCKED",
+                    "Only a published departure that hasn't started can change its price");
+        }
+        long from = departure.getPricePaise();
+        departure.reprice(req.pricePaise());
+        departures.saveAndFlush(departure);
+        audit.record(adminId, "DEPARTURE_PRICE_CHANGED", ENTITY, id,
+                Map.of("from_paise", from, "to_paise", req.pricePaise()));
         return toResponse(departure);
     }
 
