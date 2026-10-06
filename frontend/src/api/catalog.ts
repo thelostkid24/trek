@@ -220,6 +220,18 @@ export type CatalogTrek = {
   departures: CatalogDeparture[]
 }
 
+/** One guide on the public guides list, most-led trek first. Contract: docs/TRD.md §7.17. */
+export type GuideListItem = GuideBrief &
+  GuideCredentials & {
+    home_city: string | null
+    treks_led: number
+    rating: number | null
+    review_count: number
+    treks: TrackBrief[]
+    /** Upcoming published dates they lead. */
+    upcoming: number
+  }
+
 export type Items<T> = { items: T[] }
 
 export const listDepartures = () => apiFetch<Items<DepartureSummary>>('/api/public/departures')
@@ -229,6 +241,8 @@ export const listCatalog = () => apiFetch<Items<CatalogTrek>>('/api/public/track
 export const getTrek = (slug: string) => apiFetch<TrekPage>(`/api/public/tracks/${encodeURIComponent(slug)}`)
 /** Shared by the trek page and the home cards that prefetch it. */
 export const trekQueryOptions = (slug: string) => queryOptions({ queryKey: ['public-trek', slug], queryFn: () => getTrek(slug) })
+
+export const listGuides = () => apiFetch<Items<GuideListItem>>('/api/public/guides')
 
 export const getGuide = (id: string) => apiFetch<GuideProfile>(`/api/public/guides/${encodeURIComponent(id)}`)
 

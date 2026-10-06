@@ -9,6 +9,7 @@ import com.sahyatri.catalog.dto.DepartureDetail;
 import com.sahyatri.catalog.dto.DepartureSummary;
 import com.sahyatri.catalog.dto.GuideBrief;
 import com.sahyatri.catalog.dto.GuideCard;
+import com.sahyatri.catalog.dto.GuideListItem;
 import com.sahyatri.catalog.dto.GuideProfile;
 import com.sahyatri.catalog.dto.TrackBrief;
 import com.sahyatri.catalog.dto.TrackDetail;
@@ -216,6 +217,53 @@ public class CatalogService {
                 details.languages(), details.certification(), details.certificationNumber(), details.bmcInstitute(),
                 details.bmcCertificateNumber(), details.amcInstitute(), details.amcCertificateNumber(), details.quote(),
                 rating.average(), rating.count(), reviews.forGuide(id), treks, upcoming);
+    }
+
+    /**
+     * Every active guide: those leading upcoming dates first, then by treks led (with us and before), then by name.
+     * The order is computed here on each read, never stored (law 8).
+     */
+    @Transactional(readOnly = true)
+    public List<GuideListItem> guides() {
+        List<User> active = users.findByRoleOrderByFullNameAsc(Role.GUIDE).stream().filter(u -> !u.isDisabled()).toList();
+        if (active.isEmpty()) {
+            return List.of();
+        }
+        Set<UUID> ids = active.stream().map(User::getId).collect(Collectors.toSet());
+        Map<UUID, TrekkerProfile> homes = new HashMap<>();
+        profiles.findAllById(ids).forEach(p -> homes.put(p.getUserId(), p));
+        Map<UUID, GuideDetailsResponse> details = guideDetails.forGuides(ids);
+        Map<UUID, RatingSummary> ratings = reviews.ratings(ids);
+        // Completed departures with us plus the times an admin recorded from before Sahyātri, per guide and trek.
+        Map<UUID, Map<UUID, Long>> led = new HashMap<>();
+        departures.countByGuideAndTrack(ids, DepartureStatus.COMPLETED).forEach(c ->
+                led.computeIfAbsent(c.getGuideId(), id -> new HashMap<>()).merge(c.getTrackId(), c.getTimes(), Long::sum));
+        details.values().forEach(gd -> gd.priorTreks().forEach(p ->
+                led.computeIfAbsent(gd.guideId(), id -> new HashMap<>()).merge(p.trackId(), (long) p.times(), Long::sum)));
+        Map<UUID, Track> ledTracks = tracks.findAllById(led.values().stream().flatMap(m -> m.keySet().stream())
+                .collect(Collectors.toSet())).stream().collect(Collectors.toMap(Track::getId, Function.identity()));
+        Map<UUID, Long> upcoming = departures.findListed(DepartureStatus.PUBLISHED, today(), FAR_FUTURE).stream()
+                .collect(Collectors.groupingBy(d -> d.getGuide().getId(), Collectors.counting()));
+
+        return active.stream().map(g -> {
+                    Map<UUID, Long> byTrack = led.getOrDefault(g.getId(), Map.of());
+                    List<TrackBrief> treks = byTrack.entrySet().stream()
+                            .sorted(Map.Entry.<UUID, Long>comparingByValue().reversed())
+                            .map(e -> TrackBrief.of(ledTracks.get(e.getKey())))
+                            .toList();
+                    GuideDetailsResponse gd = details.get(g.getId());
+                    RatingSummary rating = ratings.getOrDefault(g.getId(), RatingSummary.NONE);
+                    TrekkerProfile home = homes.get(g.getId());
+                    return new GuideListItem(g.getId(), g.getFullName(), avatars.url(g.getAvatarKey()),
+                            home == null ? null : home.getHomeCity(), gd.yearsLeading(), gd.languages(),
+                            gd.certification(), gd.certificationNumber(), gd.bmcInstitute(), gd.bmcCertificateNumber(),
+                            gd.amcInstitute(), gd.amcCertificateNumber(), gd.quote(),
+                            byTrack.values().stream().mapToLong(Long::longValue).sum(), rating.average(),
+                            rating.count(), treks, upcoming.getOrDefault(g.getId(), 0L));
+                })
+                .sorted(Comparator.comparing((GuideListItem g) -> g.upcoming() == 0)
+                        .thenComparing(Comparator.comparingLong(GuideListItem::treksLed).reversed()))
+                .toList();
     }
 
     /**

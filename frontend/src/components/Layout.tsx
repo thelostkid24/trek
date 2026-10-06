@@ -11,6 +11,7 @@ import { useTheme } from '../lib/theme.ts'
 
 const NAV = [
   { label: 'All Treks', href: '/treks' },
+  { label: 'Our Guides', href: '/guides' },
   { label: 'How it works', href: '/#how-it-works' },
   { label: 'Our Vision', href: SITE_LINKS.vision },
   { label: 'FAQs', href: '/#faqs' },

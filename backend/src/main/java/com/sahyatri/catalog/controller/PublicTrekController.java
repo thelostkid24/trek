@@ -1,6 +1,7 @@
 package com.sahyatri.catalog.controller;
 
 import com.sahyatri.catalog.dto.CatalogTrek;
+import com.sahyatri.catalog.dto.GuideListItem;
 import com.sahyatri.catalog.dto.GuideProfile;
 import com.sahyatri.catalog.dto.TrekPage;
 import com.sahyatri.catalog.service.CatalogService;
@@ -12,7 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
 
-/** Contract: docs/TRD.md §7.7 (catalog §7.9). Public trek catalog, trek and guide pages. */
+/** Contract: docs/TRD.md §7.7 (catalog §7.9, guides §7.17). Public trek catalog, trek and guide pages. */
 @RestController
 @RequestMapping("/api/public")
 public class PublicTrekController {
@@ -31,6 +32,11 @@ public class PublicTrekController {
     @GetMapping("/tracks/{slug}")
     public TrekPage trek(@PathVariable String slug) {
         return catalog.trek(slug);
+    }
+
+    @GetMapping("/guides")
+    public ItemsResponse<GuideListItem> guides() {
+        return new ItemsResponse<>(catalog.guides());
     }
 
     @GetMapping("/guides/{id}")

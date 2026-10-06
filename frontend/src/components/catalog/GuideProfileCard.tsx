@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { GuideCard, GuideCredentials, PublicReview } from '../../api/catalog.ts'
 import { parseDate } from '../../lib/format.ts'
+import { isCertified } from '../../lib/trek.ts'
 import { IconFacts, type Fact } from './IconFacts.tsx'
 import { Avatar } from '../Avatar.tsx'
 
@@ -137,15 +138,6 @@ const COURSES = [
   { key: 'bmc', name: 'Basic Mountaineering Course', short: 'BMC' },
   { key: 'amc', name: 'Advanced Mountaineering Course', short: 'AMC' },
 ] as const
-
-/** True once any course or certificate has both where it's from and its number on file. */
-function isCertified(g: GuideCredentials) {
-  return (
-    (g.bmc_institute !== null && g.bmc_certificate_number !== null) ||
-    (g.amc_institute !== null && g.amc_certificate_number !== null) ||
-    (g.certification !== null && g.certification_number !== null)
-  )
-}
 
 /**
  * The page's most important card, so it's dressed to stand out: a dark header with a shield, then BMC and AMC as
