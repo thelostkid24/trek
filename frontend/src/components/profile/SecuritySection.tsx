@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, type FormEvent, type ReactNode } from 'react'
-import { changePassword, requestEmailChange, requestPhoneCode, verifyPhone } from '../../api/account.ts'
+import { useNavigate } from 'react-router-dom'
+import { changePassword, deleteAccount, requestEmailChange, requestPhoneCode, verifyPhone } from '../../api/account.ts'
 import type { AuthMethod, User } from '../../api/auth.ts'
 import { ApiError } from '../../api/client.ts'
 import { fieldErrors, messageFor, retryAfter } from '../../auth/errorMessages.ts'
@@ -13,7 +14,7 @@ import { FormError } from '../auth/AuthCard.tsx'
 import { TextField } from '../auth/TextField.tsx'
 import { Badge, PrimaryButton, ProfileSection, SecondaryButton } from './ProfileSection.tsx'
 
-type Panel = 'email' | 'phone' | 'password' | null
+type Panel = 'email' | 'phone' | 'password' | 'delete' | null
 
 const METHOD_LABELS: Record<AuthMethod, string> = {
   PASSWORD: 'Email & password',
@@ -79,7 +80,96 @@ export function SecuritySection({ user }: { user: User }) {
           ))}
         </ul>
       </div>
+
+      <div className="mt-6 border-t border-paper-300 pt-5">
+        <Row
+          label="Account"
+          value="Delete your account"
+          muted={false}
+          action="Delete…"
+          expanded={open === 'delete'}
+          onAction={() => toggle('delete')}
+        >
+          <DeletePanel hasPassword={hasPassword} />
+        </Row>
+      </div>
     </ProfileSection>
+  )
+}
+
+/** Typed by accounts without a password, so a stray click can't delete anything. */
+const CONFIRM_WORD = 'DELETE'
+
+/** Deletes the account for good (docs/TRD.md §7.18), after the password or a typed confirmation. */
+function DeletePanel({ hasPassword }: { hasPassword: boolean }) {
+  const { withAuth, signOut } = useAuth()
+  const navigate = useNavigate()
+  const [password, setPassword] = useState('')
+  const [typed, setTyped] = useState('')
+  const [fieldError, setFieldError] = useState('')
+
+  const remove = useMutation({
+    mutationFn: () => withAuth((token) => deleteAccount(token, hasPassword ? password : undefined)),
+    onSuccess: async () => {
+      // Leave the account area first, so the sign-in guard doesn't send us to the login page.
+      navigate('/', { replace: true })
+      await signOut()
+    },
+    onError: (err) => {
+      setFieldError(err instanceof ApiError && err.code === 'CURRENT_PASSWORD_INCORRECT' ? 'Incorrect password' : '')
+    },
+  })
+
+  function onSubmit(event: FormEvent) {
+    event.preventDefault()
+    if (hasPassword && !password) return setFieldError('Enter your password')
+    if (!hasPassword && typed.trim() !== CONFIRM_WORD) return setFieldError(`Type ${CONFIRM_WORD} to confirm`)
+    setFieldError('')
+    remove.mutate()
+  }
+
+  return (
+    <form onSubmit={onSubmit} noValidate className="space-y-4">
+      <div className="space-y-2 text-sm text-stone-700">
+        <p>
+          This erases your name, email, phone, photo, profile, health details, sign-in methods and offer choices,
+          and signs you out everywhere. It can’t be undone.
+        </p>
+        <p>
+          Bookings and payments stay in our records for 8 years, as tax law requires, with your name and contact details
+          removed. Reviews you wrote stay under your first name. You can’t delete your account while you have an
+          upcoming trek.
+        </p>
+      </div>
+      {hasPassword ? (
+        <TextField
+          label="Your password"
+          name="delete_password"
+          type="password"
+          autoComplete="current-password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          error={fieldError}
+        />
+      ) : (
+        <TextField
+          label={`Type ${CONFIRM_WORD} to confirm`}
+          name="delete_confirm"
+          autoComplete="off"
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+          error={fieldError}
+        />
+      )}
+      {remove.error && !fieldError && <FormError>{messageFor(remove.error)}</FormError>}
+      <button
+        type="submit"
+        disabled={remove.isPending}
+        className="rounded-full bg-laterite-600 px-5 py-2.5 text-sm font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {remove.isPending ? 'Deleting…' : 'Delete my account'}
+      </button>
+    </form>
   )
 }
 
@@ -113,7 +203,7 @@ function Row({
         <div className="min-w-0">
           <p className="text-xs font-medium tracking-wide text-stone-500 uppercase sm:hidden">{label}</p>
           <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 sm:mt-0">
-            <span className={`truncate ${muted ? 'text-stone-400' : 'text-stone-900'}`}>{value}</span>
+            <span className={`truncate ${muted ? 'text-stone-500' : 'text-stone-900'}`}>{value}</span>
             {badge}
           </div>
         </div>

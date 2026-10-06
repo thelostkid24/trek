@@ -5,6 +5,7 @@ import { getHealth } from '../api/client.ts'
 import { PROFILE_PATH } from '../auth/useCompleteSignIn.ts'
 import { useAuth } from '../auth/useAuth.ts'
 import { Avatar } from './Avatar.tsx'
+import { CookieBanner } from './CookieBanner.tsx'
 import { GUEST_SIGN_OUT_WARNING } from './booking/GuestNotice.tsx'
 import { SITE_LINKS } from '../lib/siteLinks.ts'
 import { useTheme } from '../lib/theme.ts'
@@ -22,6 +23,8 @@ const FOOTER_LINKS = [
   { label: 'Contact', href: SITE_LINKS.contact },
   { label: 'Terms', href: SITE_LINKS.terms },
   { label: 'Privacy', href: SITE_LINKS.privacy },
+  { label: 'Cookies', href: SITE_LINKS.cookies },
+  { label: 'Credits', href: SITE_LINKS.credits },
 ]
 
 /** Hash links stay plain anchors so the browser scrolls; routes go through the router. */
@@ -78,6 +81,13 @@ export function Layout() {
 
   return (
     <div className="flex min-h-dvh flex-col">
+      {/* First stop for keyboard users: jumps past the header and menu. Hidden until it has focus. */}
+      <a
+        href="#main"
+        className="sr-only z-50 rounded-full bg-ink-950 px-4 py-2 text-sm text-white focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
+      >
+        Skip to content
+      </a>
       <header
         className={`site-header top-0 z-20 font-grotesk transition-[background-color,color,box-shadow] duration-500 ${
           home ? 'fixed inset-x-0' : 'sticky'
@@ -139,13 +149,14 @@ export function Layout() {
       </header>
 
       {/* Pages own their width so landing sections can run full-bleed. */}
-      <main className="flex-1">
+      <main id="main" tabIndex={-1} className="flex-1 outline-none">
         <Outlet />
       </main>
       {/* New pages open at the top (so a trek card's cover can grow into the hero); Back restores. */}
       <ScrollRestoration />
 
       <Footer />
+      <CookieBanner />
     </div>
   )
 }

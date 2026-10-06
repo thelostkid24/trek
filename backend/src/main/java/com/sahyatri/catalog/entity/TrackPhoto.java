@@ -2,6 +2,8 @@ package com.sahyatri.catalog.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
@@ -32,23 +34,32 @@ public class TrackPhoto {
     /** Which itinerary day it was taken on. */
     private Integer dayNumber;
 
+    /** Who took it, e.g. "Rohan Negi". Shown with the photo. */
+    private String credit;
+
+    @Enumerated(EnumType.STRING)
+    private PhotoLicence licence;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
     protected TrackPhoto() {
     }
 
-    public TrackPhoto(Track track, String caption, String place, Integer dayNumber) {
+    public TrackPhoto(Track track, String caption, String place, Integer dayNumber, String credit,
+                      PhotoLicence licence) {
         this.id = UUID.randomUUID();
         this.track = track;
         this.createdAt = Instant.now();
-        describe(caption, place, dayNumber);
+        describe(caption, place, dayNumber, credit, licence);
     }
 
-    public void describe(String caption, String place, Integer dayNumber) {
+    public void describe(String caption, String place, Integer dayNumber, String credit, PhotoLicence licence) {
         this.caption = caption;
         this.place = place;
         this.dayNumber = dayNumber;
+        this.credit = credit;
+        this.licence = licence;
     }
 
     public UUID getId() {
@@ -65,5 +76,13 @@ public class TrackPhoto {
 
     public Integer getDayNumber() {
         return dayNumber;
+    }
+
+    public String getCredit() {
+        return credit;
+    }
+
+    public PhotoLicence getLicence() {
+        return licence;
     }
 }

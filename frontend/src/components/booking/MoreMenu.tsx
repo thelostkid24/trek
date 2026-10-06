@@ -8,6 +8,8 @@ const ITEM = 'block w-full px-4 py-2.5 text-left text-stone-600 hover:bg-paper-1
 /**
  * "⋯" button that opens a small menu of rarely used actions (cancelling a booking lives here on
  * purpose, so it takes a deliberate extra step). Closes on outside click, Escape or picking an item.
+ * A disclosure, not an ARIA menu: the items are ordinary links and buttons reached with Tab, so we don't
+ * promise the arrow-key handling `role="menu"` implies.
  */
 export function MoreMenu({ label, items }: { label: string; items: Item[] }) {
   const [open, setOpen] = useState(false)
@@ -35,7 +37,6 @@ export function MoreMenu({ label, items }: { label: string; items: Item[] }) {
       <button
         type="button"
         aria-label={label}
-        aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={id}
         onClick={() => setOpen(!open)}
@@ -52,17 +53,23 @@ export function MoreMenu({ label, items }: { label: string; items: Item[] }) {
       {open && (
         <div
           id={id}
-          role="menu"
-          onClick={() => setOpen(false)}
           className="absolute right-0 z-20 mt-1.5 min-w-48 overflow-hidden rounded-(--field-radius) border border-paper-300 bg-paper-50 py-1 text-sm shadow-lg"
         >
           {items.map((item) =>
             item.to ? (
-              <Link key={item.label} to={item.to} role="menuitem" className={ITEM}>
+              <Link key={item.label} to={item.to} onClick={() => setOpen(false)} className={ITEM}>
                 {item.label}
               </Link>
             ) : (
-              <button key={item.label} type="button" role="menuitem" onClick={item.onSelect} className={ITEM}>
+              <button
+                key={item.label}
+                type="button"
+                onClick={() => {
+                  setOpen(false)
+                  item.onSelect?.()
+                }}
+                className={ITEM}
+              >
                 {item.label}
               </button>
             ),

@@ -71,7 +71,8 @@ public class AvatarService {
         return Images.encodeJpeg(Images.draw(source, x, y, side, side, SIZE, SIZE));
     }
 
-    private void deleteQuietly(String avatarKey) {
+    /** Package-private for account deletion, which erases the row first and the file after. */
+    void deleteQuietly(String avatarKey) {
         if (avatarKey == null) {
             return;
         }

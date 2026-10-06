@@ -10,5 +10,5 @@ export const BUSINESS = {
   supportHours: 'Monday to Saturday, 10 am – 7 pm IST',
   grievanceOfficer: '[Grievance officer name]',
   grievanceEmail: 'info@theemptyvalley.com',
-  lastUpdated: '5 October 2026',
+  lastUpdated: '6 October 2026',
 }

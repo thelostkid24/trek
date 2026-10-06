@@ -80,7 +80,7 @@ export function TextAreaField({ label, name, maxLength, value, error, hint, ...t
         <label htmlFor={name} className="block text-sm font-medium text-stone-800">
           {label}
         </label>
-        <span className={`text-xs ${value.length > maxLength * 0.9 ? 'text-laterite-600' : 'text-stone-400'}`}>
+        <span className={`text-xs ${value.length > maxLength * 0.9 ? 'text-laterite-600' : 'text-stone-500'}`}>
           {value.length}/{maxLength}
         </span>
       </div>

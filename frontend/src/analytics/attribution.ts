@@ -2,6 +2,10 @@
 // ad click ids, outside referrer and landing page. The first visit is kept for good; the latest tagged or
 // referred visit replaces the last one. Sign-up and booking requests carry both, and the server decides what
 // to keep. Browser storage may be blocked or wiped; then we simply send less.
+// Nothing is stored or sent until the visitor accepts the cookie banner (consent.ts, docs/TRD.md §7.18). The visit
+// they landed on waits in memory, so accepting later in the same tab still records how they came.
+
+import { getConsent, onConsentChange } from './consent.ts'
 
 const FIRST_KEY = 'tev.first_touch'
 const LAST_KEY = 'tev.last_touch'
@@ -51,6 +55,7 @@ export type Acquisition = SignupChoices & {
 }
 
 function read(key: string): Touch | undefined {
+  if (getConsent() !== 'granted') return undefined
   try {
     const raw = localStorage.getItem(key)
     return raw ? (JSON.parse(raw) as Touch) : undefined
@@ -77,6 +82,33 @@ function externalReferrer(): string | undefined {
   }
 }
 
+/** This page load's visit, kept until the visitor answers the banner. */
+let pending: Touch | undefined
+let pendingTagged = false
+
+function remember(touch: Touch, tagged: boolean) {
+  if (!read(FIRST_KEY)) write(FIRST_KEY, touch)
+  // An untagged, unreferred visit (typed URL, bookmark, reload) doesn't erase the campaign that brought them.
+  if (tagged || touch.referrer || !read(LAST_KEY)) write(LAST_KEY, touch)
+}
+
+function forget() {
+  try {
+    localStorage.removeItem(FIRST_KEY)
+    localStorage.removeItem(LAST_KEY)
+  } catch {
+    // Storage blocked: there was nothing to forget.
+  }
+}
+
+onConsentChange(() => {
+  if (getConsent() === 'granted') {
+    if (pending) remember(pending, pendingTagged)
+  } else {
+    forget()
+  }
+})
+
 /** Call once per page load, before anything navigates. */
 export function captureVisit() {
   const url = new URL(window.location.href)
@@ -92,9 +124,9 @@ export function captureVisit() {
   const referrer = externalReferrer()
   if (referrer) touch.referrer = referrer
 
-  if (!read(FIRST_KEY)) write(FIRST_KEY, touch)
-  // An untagged, unreferred visit (typed URL, bookmark, reload) doesn't erase the campaign that brought them.
-  if (tagged || referrer || !read(LAST_KEY)) write(LAST_KEY, touch)
+  pending = touch
+  pendingTagged = tagged
+  if (getConsent() === 'granted') remember(touch, tagged)
 }
 
 function deviceType(): DeviceType {

@@ -59,6 +59,7 @@ function Toggle({
         type="checkbox"
         role="switch"
         checked={checked}
+        aria-checked={checked}
         disabled={disabled}
         onChange={(e) => onChange(e.target.checked)}
         className="size-4 accent-brand-800"

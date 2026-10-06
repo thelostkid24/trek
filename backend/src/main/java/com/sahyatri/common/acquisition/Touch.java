@@ -69,6 +69,22 @@ public class Touch {
         return touch;
     }
 
+    /**
+     * A copy without what could single out a person (ad click ids, the referring URL, the landing path with its
+     * query), for a deleted account. The campaign tags, device and time stay for the totals.
+     */
+    public Touch withoutIdentifiers() {
+        Touch copy = new Touch();
+        copy.utmSource = utmSource;
+        copy.utmMedium = utmMedium;
+        copy.utmCampaign = utmCampaign;
+        copy.utmTerm = utmTerm;
+        copy.utmContent = utmContent;
+        copy.seenAt = seenAt;
+        copy.deviceType = deviceType;
+        return copy;
+    }
+
     private static String tag(String value) {
         String cleaned = clean(value, TAG_MAX);
         return cleaned == null ? null : cleaned.toLowerCase(Locale.ROOT);

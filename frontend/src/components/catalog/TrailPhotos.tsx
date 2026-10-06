@@ -1,10 +1,10 @@
 import { useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
-import type { TrackPhoto } from '../../api/catalog.ts'
+import type { PhotoLicence, TrackPhoto } from '../../api/catalog.ts'
 import { TrekSection } from './TrekSections.tsx'
 
 /**
  * "Photos from the trail": one large photo with no text on it (the caption is only its alt text), arrows, swipe and
- * arrow keys, and a strip of thumbnails underneath.
+ * arrow keys, its credit underneath when it has one, then a strip of thumbnails.
  */
 export function TrailPhotos({ id, photos, trekName }: { id: string; photos: TrackPhoto[]; trekName: string }) {
   const [index, setIndex] = useState(0)
@@ -31,7 +31,11 @@ export function TrailPhotos({ id, photos, trekName }: { id: string; photos: Trac
 
   return (
     <TrekSection id={id} label="Photos from the trail" aside={`${index + 1} of ${photos.length}`}>
+      {/* The carousel pattern: a focusable region that takes ← and → (the arrow buttons cover pointer and Tab users). */}
+      {/* oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
       <figure
+        role="region"
+        // oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex
         tabIndex={0}
         onKeyDown={onKey}
         onPointerDown={(e) => (swipeFrom.current = e.clientX)}
@@ -54,6 +58,7 @@ export function TrailPhotos({ id, photos, trekName }: { id: string; photos: Trac
           </span>
         )}
       </figure>
+      {photo.credit && <p className="mt-2 text-xs text-stone-500">{credit(photo.credit, photo.licence)}</p>}
       {photos.length > 1 && (
         <ul ref={strip} className="mt-3 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {photos.map((p, i) => (
@@ -91,4 +96,17 @@ function Arrow({ label, onClick, d }: { label: string; onClick: () => void; d: s
       </svg>
     </button>
   )
+}
+
+/** Licences the credit line names; for our own photos and those used with permission the name is enough. */
+const NAMED_LICENCE: Partial<Record<PhotoLicence, string>> = {
+  CC_BY: 'CC BY',
+  CC_BY_SA: 'CC BY-SA',
+  CC0: 'CC0',
+  UNSPLASH: 'Unsplash',
+}
+
+function credit(by: string, licence: PhotoLicence | null) {
+  const named = licence && NAMED_LICENCE[licence]
+  return named ? `Photo: ${by} · ${named}` : `Photo: ${by}`
 }

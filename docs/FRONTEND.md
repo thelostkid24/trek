@@ -80,7 +80,17 @@ Vite bakes these in at build time, so changing them needs a rebuild.
 
 ## Styling
 - Mobile first: design at about 375 px, then enhance with `sm:` and `md:`.
-- Use the brand tokens (`brand-*`, `laterite-*`, `ink-*`, `paper-*`, `pine-*`) rather than raw colours. Fonts: `font-serif` (Spectral) for headings, `font-plex` (IBM Plex Sans) for page text, `font-display` (Fraunces) on the landing page, `font-sans` (Inter) as the default.
+- Use the brand tokens (`brand-*`, `laterite-*`, `ink-*`, `paper-*`, `pine-*`) rather than raw colours. Every font alias resolves to Plus Jakarta Sans, self-hosted from `@fontsource-variable/plus-jakarta-sans` (imported in `main.tsx`); don't add font links to Google or another CDN.
+- Contrast: body text on light surfaces must reach 4.5:1. `stone-500` is the lightest grey for text (`stone-400` only for disabled controls), `laterite-600` is the error/accent text colour, and `ink-400` is for dark surfaces only.
+
+## Accessibility
+- `Layout` has a "Skip to content" link that jumps to `<main id="main">`.
+- oxlint runs the `jsx-a11y` rules. `prefer-tag-over-role` and `no-autofocus` are off: `role="status"` regions are fine, and we only autofocus a field the user just opened.
+- Every `<img>` needs `alt`: describe it, or `alt=""` when it's decoration next to text that says the same.
+- Use real `<button>`s and links. A small popup of links or buttons is a disclosure (`aria-expanded`), not `role="menu"`, unless it implements the arrow keys.
+
+## Cookies and storage
+Anything new stored in the browser goes in the cookie policy table (`STORAGE_ITEMS` in `pages/InfoPages.tsx`). Storage the site needs to work can just be used. Anything for analytics or marketing must wait for `getConsent() === 'granted'` (`analytics/consent.ts`).
 - Pages own their container width; `Layout` gives a full-bleed `<main>`.
 
 ## Before launch

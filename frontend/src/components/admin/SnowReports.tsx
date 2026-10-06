@@ -87,7 +87,7 @@ export function SnowReports({ area, trackId, place }: { area: 'admin' | 'guide';
                       .join(' · ') || 'No readings'}
                   </p>
                   {r.note && <p className="mt-1 text-stone-500">{r.note}</p>}
-                  <p className="mt-1 text-xs text-stone-400">By {r.reported_by.full_name ?? 'someone'}</p>
+                  <p className="mt-1 text-xs text-stone-500">By {r.reported_by.full_name ?? 'someone'}</p>
                 </div>
               </li>
             ))}

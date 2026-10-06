@@ -30,6 +30,8 @@ const MESSAGES: Record<string, string> = {
   PASSWORD_RESET_EXPIRED: 'This reset link has expired. Request a new one.',
   CURRENT_PASSWORD_INCORRECT: 'Your current password is incorrect.',
   EMAIL_REQUIRED: 'Add an email first — you sign in with it when using a password.',
+  UPCOMING_TRIP: 'You have a trek coming up. You can delete your account once it’s over, or after cancelling it.',
+  ACCOUNT_DELETION_UNAVAILABLE: 'Guide and admin accounts are closed by our team. Write to us and we’ll do it.',
   // Catalog (§7.5)
   TOO_MANY_PHOTOS: 'This trek already has 30 photos. Delete one to add another.',
   PHOTO_NOT_FOUND: 'That photo was already deleted.',

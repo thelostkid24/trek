@@ -249,7 +249,7 @@ function DailyColumns({ points, unit }: { points: { date: string; value: number 
         )}
       </p>
       <div className="relative mt-3">
-        <span className="absolute -top-2 right-0 text-xs text-stone-400 tabular-nums">{count(max)}</span>
+        <span className="absolute -top-2 right-0 text-xs text-stone-500 tabular-nums">{count(max)}</span>
         <div className="flex h-28 items-end gap-0.5 border-b border-stone-200" onMouseLeave={() => setActive(null)}>
           {points.map((p, i) => (
             <button

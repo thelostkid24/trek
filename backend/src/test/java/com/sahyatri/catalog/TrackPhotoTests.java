@@ -78,6 +78,33 @@ class TrackPhotoTests extends AuthTestSupport {
     }
 
     @Test
+    void photosCarryACreditAndLicence() throws Exception {
+        String admin = adminToken();
+        UUID track = createTrack(admin, 2);
+        String slug = jdbc.queryForObject("SELECT slug FROM tracks WHERE id = ?", String.class, track);
+
+        String id = photoId(authed(photoRequest(track, image("png", 100, 100), null)
+                .param("credit", "  Rohan Negi ").param("licence", "CC_BY"), admin, null));
+        authed(photoRequest(track, image("png", 100, 100), null).param("licence", "STOLEN"), admin, null)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.details.fields.licence").exists());
+        authed(photoRequest(track, image("png", 100, 100), null).param("credit", "x".repeat(101)), admin, null)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.details.fields.credit").exists());
+
+        mockMvc.perform(get("/api/public/tracks/" + slug))
+                .andExpect(jsonPath("$.track.photos[0].credit").value("Rohan Negi"))
+                .andExpect(jsonPath("$.track.photos[0].licence").value("CC_BY"));
+
+        // The edit replaces every field, so leaving the credit out clears it.
+        authed(put("/api/admin/tracks/" + track + "/photos/" + id), admin, """
+                {"caption":"Camp","licence":"OURS"}""")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.credit").value(nullValue()))
+                .andExpect(jsonPath("$.licence").value("OURS"));
+    }
+
+    @Test
     void deleteRemovesThePhotoAndItsFile() throws Exception {
         String admin = adminToken();
         UUID track = createTrack(admin, 1);

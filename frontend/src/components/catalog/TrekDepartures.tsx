@@ -167,7 +167,7 @@ function GuideIntro({ departure: d, trekName }: { departure: TrekDeparture; trek
     <div className="border-t border-paper-200 px-4 pt-4 pb-4">
       <div className="flex gap-3">
         {g.avatar_url ? (
-          <img src={g.avatar_url} alt={`${g.full_name ?? 'Guide'}'s photo`} className="h-20 w-16 shrink-0 rounded-lg object-cover" />
+          <img src={g.avatar_url} alt={g.full_name ?? 'Guide'} className="h-20 w-16 shrink-0 rounded-lg object-cover" />
         ) : (
           <Avatar url={null} name={g.full_name} size="md" className="rounded-lg!" />
         )}

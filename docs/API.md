@@ -50,6 +50,7 @@ ADMIN=<access_token of an admin>
 | POST | `/api/account/phone/verify` | Bearer | Confirm the phone with the code |
 | PUT | `/api/account/password` | Bearer | Set or change the password |
 | PATCH | `/api/account/marketing-consent` | Bearer | Opt in or out of trek offers |
+| POST | `/api/account/delete` | Bearer | Delete the account for good (trekkers) |
 | GET | `/api/public/departures` | — | Upcoming published departures |
 | GET | `/api/public/departures/{id}` | — | One departure with trek and guide |
 | GET | `/api/public/tracks/{slug}` | — | Trek page: trek + its departures |
@@ -472,6 +473,14 @@ curl -X PATCH $API/api/account/marketing-consent -H "Authorization: Bearer $TOKE
 ```
 `200` User (`marketing_email`, `marketing_whatsapp` updated).
 
+### POST `/api/account/delete`
+Deletes a trekker's account (TRD §7.18). Erases name, email, phone, photo, profile, sign-in methods and offer choices, and revokes every session. Bookings and payments are kept with names and contacts removed. `password` is required, and checked, only when the account has one; send `{}` otherwise.
+```bash
+curl -X POST $API/api/account/delete -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"password":"trekking1"}'
+```
+`204`, plus a `Set-Cookie` that clears the refresh cookie. Errors: `400 CURRENT_PASSWORD_INCORRECT`, `409 UPCOMING_TRIP` (a held or paid booking whose trek hasn't ended), `409 ACCOUNT_DELETION_UNAVAILABLE` (guide or admin), `429 TOO_MANY_ATTEMPTS`.
+
 ---
 
 ## Catalog (public)
@@ -733,16 +742,17 @@ curl -X PUT $API/api/admin/tracks/<track-id> -H "Authorization: Bearer $ADMIN" -
 `200` Track. Errors: `404 TRACK_NOT_FOUND`, `409 SLUG_TAKEN`, `409 TRACK_IN_USE` (changing `duration_days` once departures use it).
 
 ### POST `/api/admin/tracks/{id}/photos`
-Uploads a trek photo (JPEG/PNG ≤ 5 MB, up to 30 per trek) with an optional caption.
+Uploads a trek photo (JPEG/PNG ≤ 5 MB, up to 30 per trek) with an optional caption, place, day, credit (who took it, ≤ 100) and licence (`OURS`, `WITH_PERMISSION`, `CC_BY`, `CC_BY_SA`, `CC0`, `UNSPLASH`).
 ```bash
 curl -X POST $API/api/admin/tracks/<track-id>/photos -H "Authorization: Bearer $ADMIN" \
-  -F file=@fort.jpg -F caption='Shrivardhan fort'
+  -F file=@fort.jpg -F caption='Shrivardhan fort' -F credit='Rohan Negi' -F licence=OURS
 ```
 `201`
 ```json
-{ "id": "…-uuid", "url": "http://localhost:8081/api/public/files/track-photos/….jpg", "caption": "Shrivardhan fort" }
+{ "id": "…-uuid", "url": "http://localhost:8081/api/public/files/track-photos/….jpg", "caption": "Shrivardhan fort",
+  "place": null, "day_number": null, "credit": "Rohan Negi", "licence": "OURS" }
 ```
-Errors: `400 UNSUPPORTED_IMAGE`, `400 VALIDATION_FAILED` (`caption`), `404 TRACK_NOT_FOUND`, `409 TOO_MANY_PHOTOS`, `413 FILE_TOO_LARGE`.
+Errors: `400 UNSUPPORTED_IMAGE`, `400 VALIDATION_FAILED` (`caption`, `place`, `day_number`, `credit`, `licence`), `404 TRACK_NOT_FOUND`, `409 TOO_MANY_PHOTOS`, `413 FILE_TOO_LARGE`.
 
 ### DELETE `/api/admin/tracks/{id}/photos/{photoId}`
 Deletes a trek photo.

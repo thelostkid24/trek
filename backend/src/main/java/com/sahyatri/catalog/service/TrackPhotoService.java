@@ -2,6 +2,7 @@ package com.sahyatri.catalog.service;
 
 import com.sahyatri.catalog.dto.TrackPhotoRequest;
 import com.sahyatri.catalog.dto.TrackPhotoResponse;
+import com.sahyatri.catalog.entity.PhotoLicence;
 import com.sahyatri.catalog.entity.Track;
 import com.sahyatri.catalog.entity.TrackPhoto;
 import com.sahyatri.catalog.repository.TrackPhotoRepository;
@@ -29,6 +30,7 @@ public class TrackPhotoService {
     static final int MAX_PHOTOS = 30;
     static final int MAX_CAPTION = 200;
     static final int MAX_PLACE = 100;
+    static final int MAX_CREDIT = 100;
 
     private final TrackAdminService tracks;
     private final TrackPhotoRepository photos;
@@ -44,7 +46,7 @@ public class TrackPhotoService {
     }
 
     public TrackPhotoResponse upload(UUID trackId, MultipartFile file, String caption, String place,
-                                     Integer dayNumber) {
+                                     Integer dayNumber, String credit, PhotoLicence licence) {
         Track track = tracks.require(trackId);
         String trimmed = TrackAdminService.blankToNull(caption);
         if (trimmed != null && trimmed.length() > MAX_CAPTION) {
@@ -54,13 +56,17 @@ public class TrackPhotoService {
         if (trimmedPlace != null && trimmedPlace.length() > MAX_PLACE) {
             throw ApiException.validation("place", "must be at most " + MAX_PLACE + " characters");
         }
+        String trimmedCredit = TrackAdminService.blankToNull(credit);
+        if (trimmedCredit != null && trimmedCredit.length() > MAX_CREDIT) {
+            throw ApiException.validation("credit", "must be at most " + MAX_CREDIT + " characters");
+        }
         checkDay(track, dayNumber);
         if (photos.countByTrackId(trackId) >= MAX_PHOTOS) {
             throw ApiException.conflict("TOO_MANY_PHOTOS", "A trek can have at most " + MAX_PHOTOS + " photos");
         }
         byte[] jpeg = toPhotoJpeg(Images.read(file));
 
-        TrackPhoto photo = new TrackPhoto(track, trimmed, trimmedPlace, dayNumber);
+        TrackPhoto photo = new TrackPhoto(track, trimmed, trimmedPlace, dayNumber, trimmedCredit, licence);
         storage.put(TrackPhotoFiles.storageKey(photo.getId()), jpeg);
         try {
             photos.save(photo);
@@ -76,7 +82,7 @@ public class TrackPhotoService {
         TrackPhoto photo = require(trackId, photoId);
         checkDay(tracks.require(trackId), req.dayNumber());
         photo.describe(TrackAdminService.blankToNull(req.caption()), TrackAdminService.blankToNull(req.place()),
-                req.dayNumber());
+                req.dayNumber(), TrackAdminService.blankToNull(req.credit()), req.licence());
         return TrackPhotoResponse.of(photos.saveAndFlush(photo), files);
     }
 

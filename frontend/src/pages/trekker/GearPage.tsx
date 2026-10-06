@@ -62,7 +62,7 @@ export function GearPage() {
         <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {GEAR.map((item) => (
             <li key={item.name} className="overflow-hidden rounded-(--card-radius) border border-paper-300 bg-paper-50">
-              <div className="flex aspect-[4/3] items-center justify-center bg-paper-200 text-xs text-stone-400">Photo coming soon</div>
+              <div className="flex aspect-[4/3] items-center justify-center bg-paper-200 text-xs text-stone-500">Photo coming soon</div>
               <div className="p-4">
                 <p className="text-sm font-medium text-stone-900">{item.name}</p>
                 <p className="text-xs text-stone-500">{item.note}</p>
