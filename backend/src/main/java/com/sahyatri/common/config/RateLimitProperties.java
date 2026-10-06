@@ -8,8 +8,9 @@ import java.util.List;
  * Per-client-IP request limits on /api/** (`app.rate-limit.*`). The first matching rule wins; requests that
  * match none use {@code defaultPerMinute}.
  *
- * @param clientIpHeader header carrying the real client IP, set by the edge (CloudFront-Viewer-Address in prod).
- *                       Blank = the socket address. Never X-Forwarded-For: its first value is client-controlled.
+ * @param clientIpHeader header carrying the real client IP, set by the edge (X-Forwarded-For behind the ALB,
+ *                       CloudFront-Viewer-Address on CloudFront). Blank = the socket address. For X-Forwarded-For
+ *                       only the last entry is used: the earlier ones are client-controlled.
  * @param exempt         Ant patterns never limited (webhooks, health)
  */
 @ConfigurationProperties("app.rate-limit")

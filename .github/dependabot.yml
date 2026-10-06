@@ -1,0 +1,15 @@
+# Weekly version-update PRs. Security-update PRs also need "Dependabot security updates" on in the repo settings.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+  - package-ecosystem: maven
+    directory: /backend
+    schedule:
+      interval: weekly
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

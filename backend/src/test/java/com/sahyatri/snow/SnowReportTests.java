@@ -117,6 +117,34 @@ class SnowReportTests extends AuthTestSupport {
                 .andExpect(status().isForbidden());
     }
 
+    @Test
+    void onlyTheReporterOrAnAdminAddsTheReportPhoto() throws Exception {
+        String admin = adminToken();
+        UUID track = createTrack(admin, 2);
+        String emailA = uniqueEmail();
+        String guideA = tokenWithRole(emailA, "GUIDE");
+        UUID guideAId = userIdByEmail(emailA);
+        String emailB = uniqueEmail();
+        String guideB = tokenWithRole(emailB, "GUIDE");
+        UUID guideBId = userIdByEmail(emailB);
+        // Both guides lead a departure of the same trek.
+        UUID depA = createDraft(admin, track, guideAId, today().plusDays(30), 1_000_000, 10);
+        UUID depB = createDraft(admin, track, guideBId, today().plusDays(40), 1_000_000, 10);
+        authed(post("/api/admin/departures/" + depA + "/publish"), admin, null).andExpect(status().isOk());
+        authed(post("/api/admin/departures/" + depB + "/publish"), admin, null).andExpect(status().isOk());
+
+        String id = JsonPath.read(authed(post("/api/guide/tracks/" + track + "/snow-reports"), guideA,
+                        report(today().toString(), 5))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString(), "$.id");
+        authed(multipart("/api/guide/snow-reports/" + id + "/photo")
+                .file(new MockMultipartFile("file", "p", "image/png", png())), guideB, null)
+                .andExpect(status().isForbidden());
+        authed(multipart("/api/guide/snow-reports/" + id + "/photo")
+                .file(new MockMultipartFile("file", "p", "image/png", png())), guideA, null)
+                .andExpect(status().isOk());
+    }
+
     private static byte[] png() throws Exception {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ImageIO.write(new BufferedImage(40, 30, BufferedImage.TYPE_INT_RGB), "png", out);

@@ -113,7 +113,10 @@ public class SnowReportService {
     public SnowReportResponse addPhoto(UUID userId, UUID reportId, MultipartFile file) {
         SnowReport report = reports.findByIdForUpdate(reportId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "REPORT_NOT_FOUND", "Report not found"));
-        requireReporter(userId, report.getTrackId());
+        User user = requireReporter(userId, report.getTrackId());
+        if (user.getRole() != Role.ADMIN && !report.getReportedBy().equals(userId)) {
+            throw ApiException.forbidden("You can only add a photo to your own report");
+        }
         if (report.hasPhoto()) {
             throw ApiException.conflict("REPORT_HAS_PHOTO", "This report already has its photo");
         }
@@ -138,7 +141,7 @@ public class SnowReportService {
                 .reversed();
     }
 
-    private void requireReporter(UUID userId, UUID trackId) {
+    private User requireReporter(UUID userId, UUID trackId) {
         User user = currentUser.require(userId);
         tracks.require(trackId);
         boolean allowed = user.getRole() == Role.ADMIN
@@ -147,6 +150,7 @@ public class SnowReportService {
         if (!allowed) {
             throw ApiException.forbidden("You can only report on treks you lead");
         }
+        return user;
     }
 
     private List<SnowReportResponse> toResponses(List<SnowReport> rows) {

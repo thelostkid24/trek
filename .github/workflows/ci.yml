@@ -34,3 +34,8 @@ jobs:
         working-directory: frontend
       - run: npm run build
         working-directory: frontend
+      - run: npm run check:csp
+        working-directory: frontend
+      # Production dependencies only; build tools never reach visitors.
+      - run: npm audit --omit=dev --audit-level=high
+        working-directory: frontend
