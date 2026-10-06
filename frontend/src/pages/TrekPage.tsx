@@ -32,6 +32,7 @@ export function TrekPage() {
   if (trek.isPending) {
     return (
       <div className="mx-auto max-w-6xl space-y-4 px-4 py-10" aria-busy="true" aria-label="Loading trek">
+        <Seo title="Trek" />
         <div className="h-56 animate-pulse rounded-2xl bg-stone-200" />
         <div className="h-72 animate-pulse rounded-2xl bg-stone-100" />
       </div>

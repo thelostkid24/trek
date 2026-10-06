@@ -26,6 +26,7 @@ export function DepartureDetailPage() {
   if (departure.isPending) {
     return (
       <div className="mx-auto max-w-5xl space-y-4 px-4 py-10" aria-busy="true" aria-label="Loading departure">
+        <Seo title="Departure" />
         <div className="h-48 animate-pulse rounded-2xl bg-stone-200" />
         <div className="h-64 animate-pulse rounded-2xl bg-stone-100" />
       </div>
@@ -59,7 +60,8 @@ function Detail({ departure: d }: { departure: DepartureDetail }) {
 
   return (
     <div className="bg-paper-50 pb-24 lg:pb-0">
-      <Seo title={`${track.name} with ${guideName}`} description={track.summary} path={`/departures/${d.id}`} image={cover?.url} />
+      {/* Departures expire (law 9) and repeat the trek's summary, so search credit goes to the trek page. */}
+      <Seo title={`${track.name} with ${guideName}`} description={track.summary} path={`/treks/${track.slug}`} image={cover?.url} />
       <section className="relative isolate h-44 overflow-hidden bg-brand-950 sm:h-64">
         {cover ? (
           <>

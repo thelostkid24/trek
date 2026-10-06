@@ -28,6 +28,7 @@ export function GuidePage() {
   if (guide.isPending) {
     return (
       <div className="mx-auto max-w-4xl space-y-4 px-4 py-10" aria-busy="true" aria-label="Loading guide">
+        <Seo title="Guide" />
         <div className="h-40 animate-pulse rounded-2xl bg-stone-200" />
         <div className="h-64 animate-pulse rounded-2xl bg-stone-100" />
       </div>
