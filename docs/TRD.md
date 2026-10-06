@@ -168,6 +168,9 @@ NULL everywhere = not captured (rows made before V11, or nothing sent). Tracking
 ### 6.12 Password reset — `V16__password_reset.sql`
 - **`password_resets`** — `id UUID PK`, `user_id UUID FK → users ON DELETE CASCADE`, `email TEXT NOT NULL` (the address the link went to), `token_hash TEXT UNIQUE NOT NULL` (SHA-256; raw token only in the email), `expires_at`, `consumed_at NULL`, `created_at`. Index `(user_id, created_at)`.
 
+### 6.13 Treks led before Sahyātri — `V17__guide_prior_treks.sql`
+- **`guide_prior_treks`** — `guide_id UUID FK → users ON DELETE CASCADE`, `track_id UUID FK → tracks ON DELETE CASCADE`, `times INT NOT NULL CHECK 1..1000`, `created_at`. `PK (guide_id, track_id)`. Entered by an admin (§7.12); replaced as a set.
+
 ## 7. Feature log
 Each feature appends: scope, endpoints, tables, screens, tests.
 
@@ -745,7 +748,7 @@ Payments: §7.4 endpoints, with the changes listed there. Checkout `prefill` com
 
 - `TrackDetail` (also on `GET /api/public/departures/{id}`) adds `distance_km`, `base_altitude_m`, `highest_camp_m`, `stay`, `season_label`, `pickup_drop`, `cloakroom`, `offloading`, `offloading_price_paise`, `insurance_price_paise`, `transport_price_paise` (per-seat add-on prices, §7.6), `itinerary: ItineraryDay[]`, and `photos` (§7.8).
 - `ItineraryDay` = `{ day, summary, description, distance_km, start_altitude_m, high_altitude_m, end_altitude_m, hours_min, hours_max, route_note }`; everything after `summary` may be null.
-- `GuideCard` = `{ id, full_name, avatar_url, home_city, bio, led_this_trek, years_leading, languages, certification, certification_number, bmc_institute, bmc_certificate_number, amc_institute, amc_certificate_number, quote, rating, review_count }`; `GET /api/public/departures/{id}` returns it as `guide`. Credentials come from §7.12 (null until filled), `rating` (one decimal, null with no reviews) and `review_count` from §7.14.
+- `GuideCard` = `{ id, full_name, avatar_url, home_city, bio, led_this_trek, years_leading, languages, certification, certification_number, bmc_institute, bmc_certificate_number, amc_institute, amc_certificate_number, quote, rating, review_count }`; `GET /api/public/departures/{id}` returns it as `guide`. `led_this_trek` counts completed departures plus treks led before Sahyātri (§7.12). Credentials come from §7.12 (null until filled), `rating` (one decimal, null with no reviews) and `review_count` from §7.14.
 - The trek page response also carries `content` (every `ContentKind` → `[{ badge, title, body }]`, shared items first, §7.11), `snow_report` (newest, or null, §7.13), `crowd` (`[{ reported_on, place, tents }]`, last 12 counts, oldest first), `refund_tiers` (`[{ min_days_before, refund_bps }]` from `app.bookings.refund-tiers`, highest first) and `charity` (`{ name, bps }` from `app.charity`, null when no name is set).
 - The guide page adds `years_leading`, `languages`, `certification`, `certification_number`, `quote`, `rating`, `review_count` and `reviews` (latest 20, §7.14).
 - Counts are `COMPLETED` departures, computed at read time and never stored (law 8). `home_city` and `bio` come from the guide's own profile (§6.2).
@@ -928,12 +931,14 @@ Gear rental and its payment, add-ons after booking (they're chosen at checkout, 
 
 | Method & path | Request | Success | Errors |
 |---|---|---|---|
-| `GET /api/admin/guides/{id}/details` | — | `200 { guide_id, leading_since, years_leading, languages, certification, certification_number, bmc_institute, bmc_certificate_number, amc_institute, amc_certificate_number, quote }` (all null until saved) | `404 GUIDE_NOT_FOUND` |
-| `PUT /api/admin/guides/{id}/details` | `{ leading_since (1950..this year), languages ≤ 120, certification ≤ 160, certification_number ≤ 60, bmc_institute ≤ 160, bmc_certificate_number ≤ 60, amc_institute ≤ 160, amc_certificate_number ≤ 60, quote ≤ 240 }`, blank clears | `200` as above | `400 VALIDATION_FAILED`, `404 GUIDE_NOT_FOUND` |
+| `GET /api/admin/guides/{id}/details` | — | `200 { guide_id, leading_since, years_leading, languages, certification, certification_number, bmc_institute, bmc_certificate_number, amc_institute, amc_certificate_number, quote, prior_treks: [{ track_id, times }] }` (all null and `[]` until saved; `prior_treks` most-led first) | `404 GUIDE_NOT_FOUND` |
+| `PUT /api/admin/guides/{id}/details` | `{ leading_since (1950..this year), languages ≤ 120, certification ≤ 160, certification_number ≤ 60, bmc_institute ≤ 160, bmc_certificate_number ≤ 60, amc_institute ≤ 160, amc_certificate_number ≤ 60, quote ≤ 240, prior_treks: [{ track_id, times 1..1000 }] ≤ 100 }`, blank clears; `prior_treks` replaces the set, omitted or null leaves it | `200` as above | `400 VALIDATION_FAILED` (incl. `prior_treks` naming a trek twice or an unknown trek), `404 GUIDE_NOT_FOUND` |
 | `GET /api/admin/guides/{id}/profile` | — | `200 { guide_id, full_name, avatar_url, home_city, bio }` | `404 GUIDE_NOT_FOUND` |
 | `PUT /api/admin/guides/{id}/profile` | `{ full_name (1..100, required), home_city ≤ 100, bio ≤ 2000 }`, blank clears the optional ones | `200` as above | `400 VALIDATION_FAILED`, `404 GUIDE_NOT_FOUND` |
 | `PUT /api/admin/guides/{id}/avatar` | multipart `file` (JPEG/PNG ≤ 5 MB; stored as a 512×512 centre crop, like `/api/account/avatar`) | `200` as above | `400 UNSUPPORTED_IMAGE`, `404 GUIDE_NOT_FOUND`, `413 FILE_TOO_LARGE` |
 | `DELETE /api/admin/guides/{id}/avatar` | — | `200` as above | `404 GUIDE_NOT_FOUND` |
+
+- **Treks led before Sahyātri:** a guide new to the site has completed nothing with us, so the pages read "First time leading it" even for someone who has led the trek for years. An admin records how often they led each trek elsewhere (`guide_prior_treks`, §6.13); `led_this_trek` on `GuideCard` and `treks_led` / `treks[].times` on the guide page are completed departures plus these, still worked out at read time. Frontend: "Treks led before Sahyātri" rows (trek, times) at the end of the Credentials form. Tests: `TrekContentTests`.
 
 - **Guide profile (admin-set):** a guide has no profile screen, so an admin sets what the pages show: the name and photo on the account, and home city and bio on the guide's `trekker_profiles` row (created if missing), the same fields §7.7 reads. A guide's bio may run to 2000 characters (a trekker's to 500), in paragraphs separated by blank lines. `guide.service.GuideProfileService` reuses `AvatarService.replace/clear`. Frontend: Admin → Guides → "Profile" on each guide (photo, name, home town, bio), beside "Credentials". The WAF's `xss-body-except-uploads` rule must include `/api/admin/guides/*/avatar`. Tests: `GuideProfileTests`.
 

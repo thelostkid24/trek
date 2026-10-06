@@ -4,6 +4,7 @@ import {
   getGuideDetails,
   getGuideProfile,
   listGuides,
+  listTracks,
   promoteGuide,
   removeGuidePhoto,
   updateGuideDetails,
@@ -18,7 +19,7 @@ import { useAuth } from '../../auth/useAuth.ts'
 import { ErrorNote, Loading, Panel, Button } from '../../components/admin/AdminUi.tsx'
 import { TextField } from '../../components/auth/TextField.tsx'
 import { Avatar } from '../../components/Avatar.tsx'
-import { TextAreaField } from '../../components/profile/fields.tsx'
+import { SelectField, TextAreaField } from '../../components/profile/fields.tsx'
 import { shrinkPhoto } from '../../lib/photos.ts'
 
 export function GuidesAdminPage() {
@@ -289,6 +290,8 @@ function DetailsFields({ guideId, initial, onDone }: { guideId: string; initial:
         <TextAreaField label="In their own words" name="quote" maxLength={240} rows={2} value={form.quote ?? ''}
           onChange={text('quote')} error={errors.quote} hint="One or two lines, shown in quotes." />
       </div>
+      <PriorTreks value={form.prior_treks} onChange={(prior_treks) => setForm((f) => ({ ...f, prior_treks }))}
+        error={errors.prior_treks} />
       {save.error && Object.keys(errors).length === 0 && (
         <div className="sm:col-span-2">
           <ErrorNote error={save.error} />
@@ -300,5 +303,47 @@ function DetailsFields({ guideId, initial, onDone }: { guideId: string; initial:
         </Button>
       </div>
     </form>
+  )
+}
+
+type PriorTrekRow = GuideDetailsInput['prior_treks'][number]
+
+/**
+ * How often the guide led each trek before Sahyātri. The trek, departure and guide pages add the departures they've
+ * completed with us, so a guide new to the site doesn't read "First time leading it".
+ */
+function PriorTreks({ value, onChange, error }: { value: PriorTrekRow[]; onChange: (rows: PriorTrekRow[]) => void; error?: string }) {
+  const { withAuth } = useAuth()
+  const tracks = useQuery({ queryKey: ['admin-tracks'], queryFn: () => withAuth(listTracks) })
+  const set = (i: number, row: Partial<PriorTrekRow>) => onChange(value.map((r, j) => (j === i ? { ...r, ...row } : r)))
+  const options = (tracks.data?.items ?? []).map((t) => ({ value: t.id, label: t.name }))
+
+  return (
+    <fieldset className="sm:col-span-2">
+      <legend className="text-sm font-medium text-stone-800">Treks led before Sahyātri</legend>
+      <p className="mt-0.5 text-sm text-stone-500">
+        Times led elsewhere. The pages add the departures they complete with us.
+      </p>
+      {tracks.isError && <ErrorNote error={tracks.error} />}
+      <ul className="mt-2 space-y-2">
+        {value.map((row, i) => (
+          <li key={i} className="grid grid-cols-[1fr_6rem_auto] items-end gap-2">
+            <SelectField label="Trek" name={`prior_trek_${i}`} required options={options} value={row.track_id}
+              onChange={(e) => set(i, { track_id: e.target.value })} />
+            <TextField label="Times" name={`prior_times_${i}`} type="number" required min={1} max={1000} step="1"
+              value={row.times || ''} onChange={(e) => set(i, { times: Number(e.target.value) })} />
+            <button type="button" onClick={() => onChange(value.filter((_, j) => j !== i))}
+              className="mb-2.5 text-sm text-stone-500 hover:text-stone-800">
+              Remove
+            </button>
+          </li>
+        ))}
+      </ul>
+      <button type="button" onClick={() => onChange([...value, { track_id: '', times: 0 }])}
+        className="mt-2 text-sm font-semibold text-brand-800 hover:text-brand-900">
+        + Add a trek
+      </button>
+      {error && <p className="mt-1 text-sm text-laterite-600">{error}</p>}
+    </fieldset>
   )
 }
