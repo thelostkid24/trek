@@ -85,6 +85,9 @@ trek/
 2. **Webhook signature verification** — Razorpay webhooks verified via HMAC before any processing; processing is idempotent. A Checkout success reported by the browser is re-verified server-side (order|payment HMAC) before anything is marked paid. Card data never touches our servers (§7.4).
 3. **Secrets only via environment variables** — listed in `.env.example`, never committed. In production they come from AWS Secrets Manager.
 4. **Rate limits** — WAF at the edge (per-IP flood rule, managed rule sets) and `RateLimitFilter` in the app (§7.8), plus the per-email login lockout and per-phone OTP throttles (§7.2).
+5. **Browser hardening** — the frontend host (`frontend/firebase.json`) sends HSTS, `nosniff`, `X-Frame-Options: DENY`, a Permissions-Policy and a CSP (report-only until sign-in and Checkout are confirmed clean in prod, then renamed to `Content-Security-Policy`). Inline scripts are allowed by sha256 only; `npm run check:csp` fails CI and deploy if a built page has an inline script whose hash isn't listed. CORS allows only `CORS_ALLOWED_ORIGINS` (never `*`; startup refuses it) and the `Authorization`, `Content-Type` and `Accept` headers.
+6. **No credentials in logs** — the dev `log` SMS and mail providers print OTPs and email bodies (verify/reset links) only while `AUTH_COOKIE_SECURE=false`; on a secure deployment they log that nothing was sent, without the code, address or body.
+7. **Dependencies** — `.github/dependabot.yml` opens weekly update PRs (npm, Maven, Actions); CI fails on a high-severity advisory in production npm dependencies.
 
 > Current state: JWT + role guards are live (§7.2). Account endpoints (§7.3) accept any signed-in role; ownership comes from the token subject, never the request.
 
@@ -349,7 +352,7 @@ Like `/api/auth/me`, account and profile endpoints return `401 UNAUTHENTICATED` 
 - **Phone:** codes follow the §7.2 OTP rules (validity, attempts, resend, hourly cap) but are purpose-scoped: a sign-in code can't attach a phone and a phone-change code can't sign in. Success sets the phone as verified, so `auth_methods` gains `PHONE_OTP`. `PHONE_ALREADY_VERIFIED` = the number is already this account's verified phone.
 - **Password:** `current_password` is required (and checked) only if the account already has a password; `new_password` follows the §7.2 rule. Setting a password needs an email on the account (`EMAIL_REQUIRED`), because password sign-in is by email. 5 wrong `current_password` in 15 min → `TOO_MANY_ATTEMPTS`. Success revokes **every** existing session and returns a fresh one (`auth_methods` gains `PASSWORD` when set for the first time).
 - Changing the name, photo or phone changes `User`; the UI should update its in-memory user from the response (or from `full_name` in the profile response).
-- Dev only: emails are not sent; the backend logs them, including the verification link.
+- Dev only: emails are not sent; the backend logs them, including the verification link (not when `AUTH_COOKIE_SECURE=true`, §4).
 
 #### Frontend
 - `api/profile.ts` (profile types + calls) and `api/account.ts` (photo, email, phone, password); `api/client.ts` passes `FormData` bodies through untouched. All authenticated calls go through `withAuth`.
@@ -955,7 +958,7 @@ Gear rental and its payment, add-ons after booking (they're chosen at checkout, 
 | `GET /api/guide/tracks` | GUIDE | — | `200 { items: [{ id, slug, name }] }` — tracks with a `PUBLISHED` or `COMPLETED` departure they lead | — |
 | `GET /api/{admin,guide}/tracks/{id}/snow-reports` | ADMIN / GUIDE | — | `200 { items: SnowReport[] }`, newest first (≤ 52) | `403 FORBIDDEN` (guide not leading it), `404 TRACK_NOT_FOUND` |
 | `POST /api/{admin,guide}/tracks/{id}/snow-reports` | ADMIN / GUIDE | `{ reported_on, reported_from, snowline_m?, night_temp_c?, snowfall? (NONE | LIGHT | HEAVY), conditions?: [{label ≤ 40, value ≤ 60}] (≤ 4), crowd_place?, crowd_tents? (0..2000), note? ≤ 500 }` | `201` SnowReport | `400 VALIDATION_FAILED` (`reported_on` in the future; `crowd_place`/`crowd_tents` given alone), `403`, `404` |
-| `POST /api/{admin,guide}/snow-reports/{id}/photo` | ADMIN / GUIDE | multipart `file` | `200` SnowReport with `photo_url` | `403`, `404 REPORT_NOT_FOUND`, `409 REPORT_HAS_PHOTO` |
+| `POST /api/{admin,guide}/snow-reports/{id}/photo` | ADMIN / GUIDE | multipart `file` | `200` SnowReport with `photo_url` | `403` (a guide adding to someone else's report), `404 REPORT_NOT_FOUND`, `409 REPORT_HAS_PHOTO` |
 | `GET /api/public/files/snow-reports/{id}.jpg` | — | — | `200 image/jpeg` | `404` |
 
 - `SnowReport` = `{ id, reported_on, reported_from, snowline_m, night_temp_c, snowfall, conditions, crowd_place, crowd_tents, note, photo_url, reported_by: { id, full_name }, created_at }`.

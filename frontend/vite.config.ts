@@ -7,7 +7,8 @@ const FIRST_HERO = 'src/assets/hero/hero-1.jpg'
 /**
  * Starts the first landing photo downloading from index.html, alongside the app's script, instead of only
  * once React has rendered the hero. Only on the home page: other pages never show it. In a build the link
- * points at the photo's hashed file; in dev, at the source file.
+ * points at the photo's hashed file; in dev, at the source file. The URL rides in a meta tag so the inline
+ * script never changes and its CSP hash in firebase.json stays valid (scripts/check-csp.mjs).
  */
 function preloadFirstHero(): Plugin {
   return {
@@ -22,10 +23,11 @@ function preloadFirstHero(): Plugin {
           }
         }
         return [
+          { tag: 'meta', attrs: { name: 'hero-preload', content: href }, injectTo: 'head-prepend' },
           {
             tag: 'script',
             injectTo: 'head-prepend',
-            children: `if(location.pathname==='/'){var l=document.createElement('link');l.rel='preload';l.as='image';l.href=${JSON.stringify(href)};l.fetchPriority='high';document.head.appendChild(l)}`,
+            children: `if(location.pathname==='/'){var h=document.querySelector('meta[name=hero-preload]');if(h){var l=document.createElement('link');l.rel='preload';l.as='image';l.href=h.content;l.fetchPriority='high';document.head.appendChild(l)}}`,
           },
         ]
       },
