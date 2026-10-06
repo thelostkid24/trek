@@ -269,7 +269,9 @@ function DetailsFields({ guideId, initial, onDone }: { guideId: string; initial:
         error={errors.languages} hint="E.g. Hindi, Garhwali, English" />
       <datalist id="mountaineering-institutes">
         {INSTITUTES.map((i) => (
-          <option key={i} value={i} />
+          <option key={i} value={i}>
+            {i}
+          </option>
         ))}
       </datalist>
       <TextField label="BMC institute" name="bmc_institute" maxLength={160} list="mountaineering-institutes"

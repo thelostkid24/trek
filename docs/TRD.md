@@ -105,7 +105,7 @@ Carried from PRD/TRD v1.2. These are rules, not schema. Each feature that touche
 Defined per feature. Each feature appends a subsection: tables/columns added, constraints, migration filename.
 
 ### 6.1 Auth — `V1__auth.sql`
-- **`users`** — `id UUID PK`, `full_name TEXT NULL`, `email TEXT UNIQUE NULL` (stored lowercased), `phone TEXT UNIQUE NULL` (E.164), `password_hash TEXT NULL` (bcrypt), `google_subject TEXT UNIQUE NULL`, `role TEXT NOT NULL CHECK IN ('TREKKER','GUIDE','ADMIN')`, `status TEXT NOT NULL CHECK IN ('ACTIVE','DISABLED')`, `email_verified_at TIMESTAMPTZ NULL`, `phone_verified_at TIMESTAMPTZ NULL`, `created_at`, `updated_at TIMESTAMPTZ NOT NULL`.
+- **`users`** — `id UUID PK`, `full_name TEXT NULL`, `email TEXT UNIQUE NULL` (stored lowercased), `phone TEXT UNIQUE NULL` (E.164), `password_hash TEXT NULL` (bcrypt), `google_subject TEXT UNIQUE NULL`, `role TEXT NOT NULL CHECK IN ('TREKKER','GUIDE','ADMIN')`, `status TEXT NOT NULL CHECK IN ('ACTIVE','DISABLED')` (`'DELETED'` since V19, §6.15), `email_verified_at TIMESTAMPTZ NULL`, `phone_verified_at TIMESTAMPTZ NULL`, `created_at`, `updated_at TIMESTAMPTZ NOT NULL`.
   CHECK: at least one of `email`, `phone`, `google_subject` is not null (dropped in V5 so guest-checkout accounts can exist, §6.5).
 - **`refresh_tokens`** — `id UUID PK`, `user_id UUID FK → users`, `token_hash TEXT UNIQUE NOT NULL` (SHA-256 of the opaque token; raw token never stored), `expires_at`, `revoked_at NULL`, `replaced_by_id UUID NULL`, `created_at`. Presenting a revoked token revokes every live token of that user (reuse detection).
 - **`otp_challenges`** — `id UUID PK`, `phone TEXT NOT NULL`, `code_hash TEXT NOT NULL`, `expires_at`, `attempts INT NOT NULL DEFAULT 0`, `consumed_at NULL`, `created_at`. Index `(phone, created_at)`.
@@ -144,7 +144,7 @@ Defined per feature. Each feature appends a subsection: tables/columns added, co
 - **`track_itinerary_days`** — `id UUID PK`, `track_id UUID FK → tracks ON DELETE CASCADE`, `day_number INT NOT NULL CHECK 1..7`, `summary TEXT NOT NULL`. `UNIQUE (track_id, day_number)`. Empty, or exactly one row per day of `duration_days` (service rule).
 
 ### 6.8 Trek photos — `V8__track_photos.sql`
-- **`track_photos`** — `id UUID PK` (also the storage key `track-photos/<id>.jpg`), `track_id UUID FK → tracks ON DELETE CASCADE`, `caption TEXT NULL CHECK length 1..200`, `created_at TIMESTAMPTZ NOT NULL`. Index `(track_id, created_at)`. At most 30 per track (service rule).
+- **`track_photos`** — `id UUID PK` (also the storage key `track-photos/<id>.jpg`), `track_id UUID FK → tracks ON DELETE CASCADE`, `caption TEXT NULL CHECK length 1..200`, `created_at TIMESTAMPTZ NOT NULL`. Index `(track_id, created_at)`. At most 30 per track (service rule). Credit and licence since V18 (§6.14).
 
 ### 6.9 Trek catalog — `V9__track_catalog.sql`
 - **`tracks`** — adds `listed BOOLEAN NOT NULL DEFAULT FALSE`: show this track in the public catalog even when it has no upcoming dates. A track with an upcoming published departure is in the catalog whatever `listed` says.
@@ -170,6 +170,12 @@ NULL everywhere = not captured (rows made before V11, or nothing sent). Tracking
 
 ### 6.13 Treks led before Sahyātri — `V17__guide_prior_treks.sql`
 - **`guide_prior_treks`** — `guide_id UUID FK → users ON DELETE CASCADE`, `track_id UUID FK → tracks ON DELETE CASCADE`, `times INT NOT NULL CHECK 1..1000`, `created_at`. `PK (guide_id, track_id)`. Entered by an admin (§7.12); replaced as a set.
+
+### 6.14 Trek photo credits — `V18__photo_credits.sql`
+- **`track_photos`** — adds `credit TEXT NULL CHECK length 1..100` (who took it; shown under the photo) and `licence TEXT NULL CHECK IN ('OURS','WITH_PERMISSION','CC_BY','CC_BY_SA','CC0','UNSPLASH')`. NULL = not recorded (photos uploaded before V18).
+
+### 6.15 Account deletion — `V19__account_deletion.sql`
+- **`users`** — `status` may also be `DELETED`; adds `deleted_at TIMESTAMPTZ NULL`. CHECK `users_deleted`: `status = 'DELETED'` ⇔ `deleted_at` is set. A deleted row keeps its id, role, `signup_method`, `heard_from`, campaign tags, `device_type`, `first_seen_at` and timestamps; everything that identifies the person is NULL (§7.18).
 
 ## 7. Feature log
 Each feature appends: scope, endpoints, tables, screens, tests.
@@ -776,14 +782,15 @@ Payments: §7.4 endpoints, with the changes listed there. Checkout `prefill` com
 ```jsonc
 // TrackPhoto — on TrackDetail.photos (public) and Track.photos (admin), oldest upload first
 { "id": "…-uuid", "url": "http://localhost:8081/api/public/files/track-photos/<id>.jpg",
-  "caption": "Summit ridge at first light", "place": "Kedarkantha summit", "day_number": 4 }
+  "caption": "Summit ridge at first light", "place": "Kedarkantha summit", "day_number": 4,
+  "credit": "Rohan Negi", "licence": "OURS" }   // credit and licence: §7.18
 ```
 
 #### Endpoints
 | Method & path | Auth | Request | Success | Errors |
 |---|---|---|---|---|
-| `POST /api/admin/tracks/{id}/photos` | ADMIN | multipart: `file` (JPEG/PNG ≤ 5 MB), optional `caption` (≤ 200 after trim; blank = none), `place` (≤ 100), `day_number` (a day of the trek) | `201` TrackPhoto | `400 UNSUPPORTED_IMAGE`, `400 VALIDATION_FAILED` (`caption`, `place`, `day_number`), `404 TRACK_NOT_FOUND`, `409 TOO_MANY_PHOTOS` (30), `413 FILE_TOO_LARGE` |
-| `PUT /api/admin/tracks/{id}/photos/{photoId}` | ADMIN | `{ caption, place, day_number }` (blank clears) | `200` TrackPhoto | `400 VALIDATION_FAILED`, `404 PHOTO_NOT_FOUND` |
+| `POST /api/admin/tracks/{id}/photos` | ADMIN | multipart: `file` (JPEG/PNG ≤ 5 MB), optional `caption` (≤ 200 after trim; blank = none), `place` (≤ 100), `day_number` (a day of the trek), `credit` (≤ 100), `licence` | `201` TrackPhoto | `400 UNSUPPORTED_IMAGE`, `400 VALIDATION_FAILED` (`caption`, `place`, `day_number`), `404 TRACK_NOT_FOUND`, `409 TOO_MANY_PHOTOS` (30), `413 FILE_TOO_LARGE` |
+| `PUT /api/admin/tracks/{id}/photos/{photoId}` | ADMIN | `{ caption, place, day_number, credit, licence }` (blank or omitted clears) | `200` TrackPhoto | `400 VALIDATION_FAILED`, `404 PHOTO_NOT_FOUND` |
 | `DELETE /api/admin/tracks/{id}/photos/{photoId}` | ADMIN | — | `204` | `404 PHOTO_NOT_FOUND` |
 | `GET /api/public/files/track-photos/{id}.jpg` | — | — | `200 image/jpeg`, cached for a year (immutable) | `404 NOT_FOUND` |
 
@@ -841,7 +848,7 @@ Payments: §7.4 endpoints, with the changes listed there. Checkout `prefill` com
 - "Lead a trek" is a footer link only. It opens the external guide sign-up form (Tally, `SITE_LINKS.leadATrek`) in a new tab. The `/lead-a-trek` placeholder page is gone.
 - Header, once signed in: the avatar opens a profile menu. Trekkers see "My profile" and "Sign out"; other roles see only "Sign out". The other account pages are reached from the account sidebar. Admins keep the "Admin" link beside it. There's no separate "My treks" or "Sign out" in the bar.
 - Business details live in `lib/business.ts`: trading and legal name "The Empty Valley" (Terms and Privacy skip the "operated by" line while the two match), support and grievance email info@theemptyvalley.com. **Address, support phone and grievance officer are still placeholders to fill in before launch.**
-- The privacy policy has a "Signing in with Google" section (which Google data we receive and how it's used) and a "Cookies and browser storage" section. Google's OAuth consent screen links to `/privacy` and `/terms`, and the app can't be published there without them.
+- The privacy policy has a "Signing in with Google" section (which Google data we receive and how it's used) and a "Cookies and browser storage" section, which points to `/cookies` (§7.18). Google's OAuth consent screen links to `/privacy` and `/terms`, and the app can't be published there without them.
 - New error copy for `RATE_LIMITED` and `SMS_UNAVAILABLE`.
 
 **CI/CD:**
@@ -982,7 +989,7 @@ Gear rental and its payment, add-ons after booking (they're chosen at checkout, 
 
 **Scope:** record where every account and booking came from, how people heard of us, and marketing consent, and show the funnel, sources and business health to admins. Everything on the dashboard is computed at read time; nothing aggregated is stored.
 
-**Capture (frontend, `src/analytics/attribution.ts`):** `captureVisit()` runs once per page load (before the router) and reads `utm_source|medium|campaign|term|content`, `gclid`, `fbclid`, the outside referrer and the landing path. The first visit is kept in `localStorage` (`tev.first_touch`) and never replaced; `tev.last_touch` is replaced by any visit with tags or an outside referrer. Storage failures are swallowed. Sign-up, OTP verify, Google, guest checkout and signed-in booking requests all send:
+**Capture (frontend, `src/analytics/attribution.ts`):** `captureVisit()` runs once per page load (before the router) and reads `utm_source|medium|campaign|term|content`, `gclid`, `fbclid`, the outside referrer and the landing path. The first visit is kept in `localStorage` (`tev.first_touch`) and never replaced; `tev.last_touch` is replaced by any visit with tags or an outside referrer. Storage failures are swallowed. Only with cookie consent (§7.18): before it, nothing is stored or sent. Sign-up, OTP verify, Google, guest checkout and signed-in booking requests all send:
 
 ```
 acquisition?: {
@@ -1030,7 +1037,7 @@ Google renders the SPA, so there's no SSR. It needs a sitemap, robots.txt and pe
 | `GET /api/public/sitemap.xml` | — | — | `200 application/xml` `<urlset>`, `Cache-Control: public, max-age=3600` | — |
 | `GET /robots.txt` (API host) | — | — | `200 text/plain`: allows only `/api/public/` (Google fetches the catalog API to render the SPA's pages), disallows the rest; cached 1 day | — |
 
-- `seo.service.SitemapService`: `app.frontend-base-url` + the static public paths (`/`, `/treks`, `/guides`, vision, faqs, cancellations, contact, terms, privacy), `/treks/{slug}` for every trek in the public catalog (`CatalogService.catalog()`), and `/guides/{id}` for each guide leading one of its upcoming departures. Departures are left out because they expire (law 9). No `lastmod`/`priority`.
+- `seo.service.SitemapService`: `app.frontend-base-url` + the static public paths (`/`, `/treks`, `/guides`, vision, faqs, cancellations, contact, terms, privacy, cookies, credits), `/treks/{slug}` for every trek in the public catalog (`CatalogService.catalog()`), and `/guides/{id}` for each guide leading one of its upcoming departures. Departures are left out because they expire (law 9). No `lastmod`/`priority`.
 - The site (Firebase) and API are on different hosts, so `frontend/public/robots.txt` points to the sitemap on `api.theemptyvalley.com`. It disallows account, admin, guide console, checkout and auth paths.
 - Frontend: `components/Seo.tsx` renders `<title>`, description, canonical (`SITE_ORIGIN` in `lib/siteLinks.ts`), Open Graph and `twitter:card` tags through React 19's head hoisting, plus optional JSON-LD (`jsonLd`). Public pages pass `path`. Trek and departure pages pass the first trek photo as `image` (default `/hero.jpg`). Not-found and error states, plus every private route (wrapped in `<Private>` in `router.tsx`), are `noindex`.
 - Link previews: WhatsApp, Facebook, X and other link-preview fetchers don't run JavaScript. `index.html` carries the site-wide title, description and og: tags between `<!-- static-head:start/end -->` markers, each tagged `data-static-head`; `main.tsx` removes them on load so `<Seo>` owns the head. `scripts/prerender.mjs` (`npm run prerender`, run by the deploy workflow after the build) reads `GET /api/public/tracks` and writes `dist/treks/<slug>.html` with that trek's title, summary, canonical and `cover_url`. `firebase.json` `cleanUrls` serves it at `/treks/<slug>` ahead of the SPA rewrite. A trek added after a deploy gets the site-wide preview until the next deploy.
@@ -1052,6 +1059,51 @@ Google renders the SPA, so there's no SSR. It needs a sitemap, robots.txt and pe
 - Order: guides leading upcoming dates first, then most treks led, then name. Computed on each read, never stored (law 8).
 - Frontend: `/guides` (`pages/GuidesPage.tsx`): one card per guide (photo, name, home, rating, "Certified" as on the departure page, years guiding · treks led · languages, "Knows <first three treks> +N more", then "N upcoming dates →" or "Know your guide →"); the card opens `/guides/:id`. Header gains "Our Guides" after "All Treks". In the sitemap (§7.16).
 - Tests: `GuideListTests`.
+
+### 7.18 Privacy, cookies and accessibility
+**Status:** backend and frontend implemented.
+
+**Scope:** a cookie policy and consent banner, account deletion, photo credits and a credits page, a self-hosted font, and an accessibility pass (contrast, skip link, a11y lint).
+
+#### Cookie consent
+- One question: may we remember the link a visitor arrived by (`tev.first_touch` / `tev.last_touch`, §7.15)? `CookieBanner` (in `Layout`, a fixed bar at the bottom, not a dialog) offers **Accept** and **No thanks**, equally prominent. The answer is `tev.consent` in `localStorage` (`{ analytics, at, version }`); bump `VERSION` in `analytics/consent.ts` to ask everyone again.
+- Until the visitor accepts, `analytics/attribution.ts` stores nothing and sign-up, sign-in and booking requests carry no `first_touch` / `last_touch` (`device_type` and the "heard from" answers still go). The landing visit waits in memory, so accepting later in the same tab still records it. Saying no deletes both keys.
+- The refresh cookie, `theme`, `tev.consent` and `tev.chunk_reload` are needed for the site to work and don't ask.
+- `/cookies` (`CookiesPage`) lists every cookie and storage key (`STORAGE_ITEMS`), says Google and Razorpay set their own cookies only when used, and has Allow / Don't allow buttons to change the answer. Footer gains "Cookies" and "Credits"; both pages are in the sitemap (§7.16).
+
+#### Account deletion
+| Method & path | Auth | Request | Success | Errors |
+|---|---|---|---|---|
+| `POST /api/account/delete` | Bearer | `{ password? }` (required, and checked, only when the account has a password) | `204` + `Set-Cookie` clearing the refresh cookie | `400 CURRENT_PASSWORD_INCORRECT`, `409 UPCOMING_TRIP`, `409 ACCOUNT_DELETION_UNAVAILABLE`, `429 TOO_MANY_ATTEMPTS` (5 wrong passwords in 15 min) |
+
+- Trekkers only. Guide and admin accounts carry departures and payouts, so our team closes them (`ACCOUNT_DELETION_UNAVAILABLE`).
+- Refused while the trekker has a `HELD` or `CONFIRMED` booking whose departure hasn't ended (`UPCOMING_TRIP`). A paid booking stands (law 1); they can cancel it under the normal policy first.
+- `AccountDeletionService`, in one transaction with the user row locked:
+  - deletes `trekker_profiles`, `email_verifications`, `password_resets` and the phone's `otp_challenges`;
+  - on the user's bookings, NULLs `contact_*`, `gclid`, `fbclid`, `referrer`, `landing_path`, and sets every traveller's `full_name` to "Removed" and `phone` to NULL;
+  - revokes every refresh token;
+  - `User.erase()`: NULLs name, email, phone, password, Google subject, avatar, verification times, `heard_from_note`, marketing consents and the identifying parts of the first touch; sets `status = DELETED`, `deleted_at`;
+  - writes `ACCOUNT_DELETED` to `audit_events` (`data.bookings_kept`).
+  The avatar file is deleted after commit.
+- Kept: bookings, payments (VPA already masked), refunds, reviews (first name only), audit events, and the campaign totals in Insights. A deleted account counts as signed out everywhere (`User.isDisabled()` is true for any status but `ACTIVE`), and its email, phone and Google account are free to sign up again.
+- Frontend: Profile → "Sign-in & security" → Account → "Delete…" (`DeletePanel` in `SecuritySection.tsx`). It explains what goes and what stays, then asks for the password, or for `DELETE` to be typed when there's no password. On success it goes to `/` and drops the session.
+- The privacy policy's retention and rights sections describe the self-serve deletion. Guest bookers still write to the grievance officer.
+- Tests: `AccountDeletionTests`.
+
+#### Photo credits and credits page
+- Trek photos take an optional `credit` and `licence` (§6.14) on upload (multipart fields) and on edit (`PUT` replaces all fields, so the admin form sends them back). `TrackPhoto` gains both. Bad licence → `400 VALIDATION_FAILED` (`licence`).
+- Admin track editor → Photos: "Photo by" and "Licence" per photo and for each upload batch. The caption field's hint says screen readers read it out, so it should describe the photo.
+- Trek page: when a photo has a credit, "Photo: Rohan Negi" shows under it, plus the licence for CC BY, CC BY-SA, CC0 and Unsplash.
+- `/credits` (`CreditsPage`): the typeface and its licence (`public/licenses/plus-jakarta-sans-OFL.txt`), the Unsplash landing photos, how trek photos are credited, and an address for takedown requests.
+- Tests: `TrackPhotoTests.photosCarryACreditAndLicence`.
+
+#### Fonts
+- Plus Jakarta Sans is bundled from `@fontsource-variable/plus-jakarta-sans` (variable weight, regular and italic) instead of Google Fonts, so pages make no third-party requests and Google never sees visitors' IP addresses.
+
+#### Accessibility
+- Contrast (WCAG AA 4.5:1 for text): `laterite-600` darkened to `#a65316` (≥ 4.6:1 on white, `paper-100` and `paper-200`). Placeholder and muted text moved from `stone-400` (2.6:1) to `stone-500`. The contact page labels moved from `ink-400` to `stone-500`. `stone-400` stays only on disabled controls.
+- "Skip to content" link, first in the tab order, jumps to `<main id="main">`.
+- oxlint runs `jsx-a11y`. Fixes from it: the booking "⋯" menu is now a plain disclosure (it had `role="menu"` without arrow keys); the photo carousel is a labelled `region`; the marketing switches carry `aria-checked`; guide photo alt text is the guide's name (no "photo of").
 
 ### Charity share
 `app.charity` (`CHARITY_NAME`, `CHARITY_BPS`, default 100 = 1%) is part of the price, never added on top. It only shows as a line on the trek page ("1% goes to …, and the rest runs the company"); no money is split or recorded per booking yet.

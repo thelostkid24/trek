@@ -14,7 +14,7 @@ import {
   type TrackInput,
 } from '../../api/admin.ts'
 import type { Items, TrackPhoto } from '../../api/catalog.ts'
-import { DIFFICULTY_LABEL, type Difficulty } from '../../api/catalog.ts'
+import { DIFFICULTY_LABEL, PHOTO_LICENCE_LABEL, type Difficulty, type PhotoLicence } from '../../api/catalog.ts'
 import { fieldErrors } from '../../auth/errorMessages.ts'
 import { useAuth } from '../../auth/useAuth.ts'
 import { Button, ErrorNote, Loading, Panel } from '../../components/admin/AdminUi.tsx'
@@ -437,7 +437,8 @@ function DayFields({
 }
 
 const MAX_PHOTOS = 30
-const NO_WORDS: PhotoWords = { caption: null, place: null, day_number: null }
+const NO_WORDS: PhotoWords = { caption: null, place: null, day_number: null, credit: null, licence: null }
+const CAPTION_HINT = 'Screen readers read it out, so say what’s in the photo.'
 
 /** Photos from past runs, shown on the trek page. Uploads save straight away, apart from the track form. */
 function TrackPhotos({ track }: { track: Track }) {
@@ -477,7 +478,8 @@ function TrackPhotos({ track }: { track: Track }) {
     <Panel title={`Photos (${photos.length} of ${MAX_PHOTOS})`}>
       <p className="text-sm text-stone-600">
         Shown on the trek page in the order you add them; the first one is the cover. Each has a caption, where it
-        was taken and which day, e.g. “Summit ridge at first light” · “Kedarkantha summit” · Day 4.
+        was taken and which day, e.g. “Summit ridge at first light” · “Kedarkantha summit” · Day 4. Record who took it
+        and on what terms; a credit shows under the photo, and CC BY photos must have one.
       </p>
       {photos.length > 0 && (
         <ul className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -487,11 +489,14 @@ function TrackPhotos({ track }: { track: Track }) {
         </ul>
       )}
       <div className="mt-5 grid gap-3 sm:grid-cols-3">
-        <TextField label="Caption" name="photo_caption" maxLength={200} value={words.caption ?? ''}
+        <TextField label="Caption" name="photo_caption" maxLength={200} value={words.caption ?? ''} hint={CAPTION_HINT}
           onChange={(e) => setWords((w) => ({ ...w, caption: e.target.value }))} error={uploadErrors.caption} />
         <TextField label="Place" name="photo_place" maxLength={100} value={words.place ?? ''}
           onChange={(e) => setWords((w) => ({ ...w, place: e.target.value }))} error={uploadErrors.place} />
         <DaySelect days={track.duration_days} value={words.day_number} onChange={(day_number) => setWords((w) => ({ ...w, day_number }))} name="photo_day" />
+        <TextField label="Photo by" name="photo_credit" maxLength={100} value={words.credit ?? ''}
+          onChange={(e) => setWords((w) => ({ ...w, credit: e.target.value }))} error={uploadErrors.credit} />
+        <LicenceSelect value={words.licence} onChange={(licence) => setWords((w) => ({ ...w, licence }))} name="photo_licence" />
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <input
@@ -530,7 +535,13 @@ function TrackPhotos({ track }: { track: Track }) {
 function PhotoRow({ photo, track, onDelete }: { photo: TrackPhoto; track: Track; onDelete: () => void }) {
   const { withAuth } = useAuth()
   const queryClient = useQueryClient()
-  const saved: PhotoWords = { caption: photo.caption, place: photo.place, day_number: photo.day_number }
+  const saved: PhotoWords = {
+    caption: photo.caption,
+    place: photo.place,
+    day_number: photo.day_number,
+    credit: photo.credit,
+    licence: photo.licence,
+  }
   const [words, setWords] = useState<PhotoWords>(saved)
   const save = useMutation({
     mutationFn: () => withAuth((token) => describeTrackPhoto(token, track.id, photo.id, words)),
@@ -543,12 +554,18 @@ function PhotoRow({ photo, track, onDelete }: { photo: TrackPhoto; track: Track;
       <img src={photo.url} alt={photo.caption ?? ''} loading="lazy" className="aspect-[16/9] w-full object-cover" />
       <div className="grid gap-2 p-3">
         <TextField label="Caption" name={`caption-${photo.id}`} maxLength={200} value={words.caption ?? ''}
+          hint={photo.caption ? undefined : CAPTION_HINT}
           onChange={(e) => setWords((w) => ({ ...w, caption: e.target.value || null }))} error={errors.caption} />
         <div className="grid grid-cols-[1fr_7rem] gap-2">
           <TextField label="Place" name={`place-${photo.id}`} maxLength={100} value={words.place ?? ''}
             onChange={(e) => setWords((w) => ({ ...w, place: e.target.value || null }))} error={errors.place} />
           <DaySelect days={track.duration_days} value={words.day_number} name={`day-${photo.id}`}
             onChange={(day_number) => setWords((w) => ({ ...w, day_number }))} />
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <TextField label="Photo by" name={`credit-${photo.id}`} maxLength={100} value={words.credit ?? ''}
+            onChange={(e) => setWords((w) => ({ ...w, credit: e.target.value || null }))} error={errors.credit} />
+          <LicenceSelect value={words.licence} name={`licence-${photo.id}`} onChange={(licence) => setWords((w) => ({ ...w, licence }))} />
         </div>
         <div className="flex items-center justify-between gap-2">
           <Button tone="secondary" disabled={!dirty || save.isPending} onClick={() => save.mutate()}>
@@ -561,6 +578,14 @@ function PhotoRow({ photo, track, onDelete }: { photo: TrackPhoto; track: Track;
         {save.error && Object.keys(errors).length === 0 && <ErrorNote error={save.error} />}
       </div>
     </li>
+  )
+}
+
+function LicenceSelect({ value, onChange, name }: { value: PhotoLicence | null; onChange: (licence: PhotoLicence | null) => void; name: string }) {
+  return (
+    <SelectField label="Licence" name={name} placeholder="Not recorded" value={value ?? ''}
+      onChange={(e) => onChange(e.target.value === '' ? null : (e.target.value as PhotoLicence))}
+      options={(Object.keys(PHOTO_LICENCE_LABEL) as PhotoLicence[]).map((l) => ({ value: l, label: PHOTO_LICENCE_LABEL[l] }))} />
   )
 }
 

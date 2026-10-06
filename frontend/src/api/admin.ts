@@ -6,6 +6,7 @@ import type {
   Difficulty,
   ItineraryDay,
   Items,
+  PhotoLicence,
   SnowReport,
   Snowfall,
   TrackPhoto,
@@ -111,7 +112,13 @@ export const updateTrack = (token: string, id: string, body: TrackInput) =>
 export const setTrackListed = (token: string, id: string, listed: boolean) =>
   apiFetch<Track>(`/api/admin/tracks/${id}/listed`, { method: 'PUT', token, body: { listed } })
 
-export type PhotoWords = { caption: string | null; place: string | null; day_number: number | null }
+export type PhotoWords = {
+  caption: string | null
+  place: string | null
+  day_number: number | null
+  credit: string | null
+  licence: PhotoLicence | null
+}
 
 export const uploadTrackPhoto = (token: string, trackId: string, file: Blob, words: PhotoWords) => {
   const body = new FormData()
@@ -119,6 +126,8 @@ export const uploadTrackPhoto = (token: string, trackId: string, file: Blob, wor
   if (words.caption?.trim()) body.append('caption', words.caption.trim())
   if (words.place?.trim()) body.append('place', words.place.trim())
   if (words.day_number) body.append('day_number', String(words.day_number))
+  if (words.credit?.trim()) body.append('credit', words.credit.trim())
+  if (words.licence) body.append('licence', words.licence)
   return apiFetch<TrackPhoto>(`/api/admin/tracks/${trackId}/photos`, { method: 'POST', token, body })
 }
 

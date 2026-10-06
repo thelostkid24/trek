@@ -73,7 +73,7 @@ function Profile({ guide: g, departureId }: { guide: GuideProfile; departureId: 
 
         <header className="grid gap-6 sm:grid-cols-[auto_1fr] sm:items-center">
           {g.avatar_url ? (
-            <img src={g.avatar_url} alt={`${name}'s photo`} className="h-44 w-36 rounded-2xl object-cover" />
+            <img src={g.avatar_url} alt={name} className="h-44 w-36 rounded-2xl object-cover" />
           ) : (
             <Avatar url={null} name={name} size="lg" className="size-36! rounded-2xl! text-5xl!" />
           )}

@@ -50,7 +50,7 @@ export function GuideProfileCard({ guide: g, trekName, departureId }: { guide: G
       <p className="text-xs font-semibold tracking-[0.16em] text-laterite-600 uppercase">Your guide</p>
       <div className="mt-3 flex gap-4">
         {g.avatar_url ? (
-          <img src={g.avatar_url} alt={`${name}'s photo`} className="h-24 w-20 shrink-0 rounded-xl object-cover" />
+          <img src={g.avatar_url} alt={name} className="h-24 w-20 shrink-0 rounded-xl object-cover" />
         ) : (
           <Avatar url={null} name={name} size="lg" className="rounded-xl!" />
         )}
@@ -181,10 +181,10 @@ export function CredentialList({ guide: g }: { guide: GuideCredentials }) {
                 <span className="inline-block rounded-md bg-brand-100 px-2 py-0.5 text-xs font-bold tracking-wide text-brand-900">{c.short}</span>
                 <span className="mt-1 block text-xs font-normal text-stone-500">{c.name}</span>
               </th>
-              <td className={`sm:px-4 sm:py-3 sm:align-top ${c.institute ? 'text-stone-800' : 'text-stone-400'}`}>
+              <td className={`sm:px-4 sm:py-3 sm:align-top ${c.institute ? 'text-stone-800' : 'text-stone-500'}`}>
                 {c.institute ?? 'Not added yet'}
               </td>
-              <td className={`sm:px-4 sm:py-3 sm:align-top ${c.number ? 'font-medium text-stone-900' : 'text-stone-400'}`}>
+              <td className={`sm:px-4 sm:py-3 sm:align-top ${c.number ? 'font-medium text-stone-900' : 'text-stone-500'}`}>
                 {c.number ? (
                   <>
                     <span className="font-normal text-stone-500 sm:hidden">No. </span>
@@ -202,7 +202,7 @@ export function CredentialList({ guide: g }: { guide: GuideCredentials }) {
         {rows.map(([label, value]) => (
           <div key={label} className="flex justify-between gap-4 py-3 text-sm">
             <dt className="text-stone-500">{label}</dt>
-            <dd className={`text-right ${value ? 'font-medium text-stone-900' : 'text-stone-400'}`}>{value ?? 'Not added yet'}</dd>
+            <dd className={`text-right ${value ? 'font-medium text-stone-900' : 'text-stone-500'}`}>{value ?? 'Not added yet'}</dd>
           </div>
         ))}
       </dl>

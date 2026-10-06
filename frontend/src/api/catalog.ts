@@ -84,6 +84,21 @@ export type TrackPhoto = {
   /** "Kedarkantha summit". */
   place: string | null
   day_number: number | null
+  /** Who took it, e.g. "Rohan Negi"; shown under the photo. */
+  credit: string | null
+  /** null = not recorded. */
+  licence: PhotoLicence | null
+}
+
+export type PhotoLicence = 'OURS' | 'WITH_PERMISSION' | 'CC_BY' | 'CC_BY_SA' | 'CC0' | 'UNSPLASH'
+
+export const PHOTO_LICENCE_LABEL: Record<PhotoLicence, string> = {
+  OURS: 'Ours (our guides or team)',
+  WITH_PERMISSION: 'Used with permission',
+  CC_BY: 'CC BY',
+  CC_BY_SA: 'CC BY-SA',
+  CC0: 'CC0 (public domain)',
+  UNSPLASH: 'Unsplash License',
 }
 
 /** Credentials an admin fills in; null until then. */

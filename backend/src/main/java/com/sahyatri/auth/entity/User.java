@@ -70,6 +70,8 @@ public class User {
 
     private Instant marketingWhatsappConsentAt;
 
+    private Instant deletedAt;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -115,8 +117,35 @@ public class User {
         return methods;
     }
 
+    /** Can't sign in or be used: disabled by us, or deleted by its owner. */
     public boolean isDisabled() {
-        return status == UserStatus.DISABLED;
+        return status != UserStatus.ACTIVE;
+    }
+
+    /**
+     * Account deletion (§7.18): erases what identifies the person. The row stays because bookings, payments, reviews
+     * and audit events point at it. Role, sign-up method, "heard from" and the campaign tags stay: they count towards
+     * totals and no longer name anyone.
+     */
+    public void erase(Instant now) {
+        fullName = null;
+        email = null;
+        phone = null;
+        passwordHash = null;
+        googleSubject = null;
+        avatarKey = null;
+        emailVerifiedAt = null;
+        phoneVerifiedAt = null;
+        heardFromNote = null;
+        firstTouch = firstTouch == null ? null : firstTouch.withoutIdentifiers();
+        marketingEmailConsentAt = null;
+        marketingWhatsappConsentAt = null;
+        status = UserStatus.DELETED;
+        deletedAt = now;
+    }
+
+    public Instant getDeletedAt() {
+        return deletedAt;
     }
 
     public UUID getId() {

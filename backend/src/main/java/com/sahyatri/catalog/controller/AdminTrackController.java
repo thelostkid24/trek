@@ -3,6 +3,7 @@ package com.sahyatri.catalog.controller;
 import com.sahyatri.catalog.dto.TrackListingRequest;
 import com.sahyatri.catalog.dto.TrackPhotoRequest;
 import com.sahyatri.catalog.dto.TrackPhotoResponse;
+import com.sahyatri.catalog.entity.PhotoLicence;
 import com.sahyatri.catalog.dto.TrackRequest;
 import com.sahyatri.catalog.dto.TrackResponse;
 import com.sahyatri.catalog.service.TrackAdminService;
@@ -68,8 +69,10 @@ public class AdminTrackController {
     public TrackPhotoResponse uploadPhoto(@PathVariable UUID id, @RequestPart("file") MultipartFile file,
                                           @RequestParam(required = false) String caption,
                                           @RequestParam(required = false) String place,
-                                          @RequestParam(name = "day_number", required = false) Integer dayNumber) {
-        return photos.upload(id, file, caption, place, dayNumber);
+                                          @RequestParam(name = "day_number", required = false) Integer dayNumber,
+                                          @RequestParam(required = false) String credit,
+                                          @RequestParam(required = false) PhotoLicence licence) {
+        return photos.upload(id, file, caption, place, dayNumber, credit, licence);
     }
 
     @PutMapping("/{id}/photos/{photoId}")

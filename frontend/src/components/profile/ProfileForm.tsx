@@ -539,7 +539,7 @@ function BmiReadout({ heightCm, weightKg }: { heightCm: string; weightKg: string
         aria-live="polite"
       >
         {bmi === null ? (
-          <span className="text-sm text-stone-400">Add height and weight</span>
+          <span className="text-sm text-stone-500">Add height and weight</span>
         ) : (
           <>
             <span key={bmi.toFixed(1)} className="bmi-tick font-medium text-stone-900 tabular-nums">

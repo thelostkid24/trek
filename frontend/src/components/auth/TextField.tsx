@@ -30,7 +30,7 @@ export function TextField({ label, error, hint, prefix, suffix, id, className = 
           id={fieldId}
           aria-invalid={error ? true : undefined}
           aria-describedby={describedBy}
-          className={`w-full rounded-(--field-radius) bg-transparent px-3 py-2.5 text-stone-900 outline-none placeholder:text-stone-400 disabled:text-stone-500 ${className}`}
+          className={`w-full rounded-(--field-radius) bg-transparent px-3 py-2.5 text-stone-900 outline-none placeholder:text-stone-500 disabled:text-stone-500 ${className}`}
         />
         {suffix && <span className="pr-3 text-sm text-stone-500">{suffix}</span>}
       </div>

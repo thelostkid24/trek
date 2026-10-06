@@ -11,4 +11,6 @@ export const SITE_LINKS = {
   leadATrek: 'https://tally.so/r/KYXzKV',
   terms: '/terms',
   privacy: '/privacy',
+  cookies: '/cookies',
+  credits: '/credits',
 }

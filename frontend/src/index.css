@@ -16,7 +16,7 @@
   --color-laterite-100: #fbe6d6;
   --color-laterite-400: #e79558;
   --color-laterite-500: #d9772b;
-  --color-laterite-600: #b95e1b;
+  --color-laterite-600: #a65316; /* text on white, paper-100 and paper-200 clears WCAG AA 4.5:1 */
 
   /* Trekker account area: slate sidebar, paper page, pine actions */
   --color-ink-950: #12161c;
@@ -39,7 +39,7 @@
    * One typeface across the whole site (landing, catalog, account, admin): a clean grotesk,
    * light at display sizes. The older family names stay as aliases so every page picks it up.
    */
-  --font-grotesk: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-grotesk: "Plus Jakarta Sans Variable", "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-sans: var(--font-grotesk);
   --font-display: var(--font-grotesk);
   --font-serif: var(--font-grotesk);

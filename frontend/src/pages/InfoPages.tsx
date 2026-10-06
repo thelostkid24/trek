@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import { setConsent, useConsent } from '../analytics/consent.ts'
 import { FaqList } from '../components/FaqList.tsx'
 import { BUSINESS } from '../lib/business.ts'
 import { FAQS } from '../lib/faqs.ts'
@@ -68,7 +69,7 @@ export function CancellationsPage() {
     >
       <table className="mt-8 w-full border-collapse text-left text-sm">
         <thead>
-          <tr className="border-b border-paper-300 text-[0.7rem] tracking-[0.08em] text-ink-400 uppercase">
+          <tr className="border-b border-paper-300 text-[0.7rem] tracking-[0.08em] text-stone-500 uppercase">
             <th className="py-3 pr-4 font-medium">When you cancel</th>
             <th className="py-3 pr-4 font-medium">Cash refund</th>
             <th className="py-3 font-medium">Or a credit note</th>
@@ -177,21 +178,21 @@ export function ContactPage() {
       intro="Have a question about a booking? Open it from My treks — your booking page has your guide, dates and payment details in one place."
     >
       <dl className="mt-8 grid gap-4 rounded-(--card-radius) border border-paper-300 bg-paper-50 p-6 text-sm sm:grid-cols-[10rem_1fr]">
-        <dt className="text-ink-400">Email</dt>
+        <dt className="text-stone-500">Email</dt>
         <dd>
           <a href={`mailto:${BUSINESS.supportEmail}`} className={linkClass}>
             {BUSINESS.supportEmail}
           </a>
         </dd>
-        <dt className="text-ink-400">Phone / WhatsApp</dt>
+        <dt className="text-stone-500">Phone / WhatsApp</dt>
         <dd>
           <a href={`tel:${BUSINESS.supportPhone.replace(/\s/g, '')}`} className={linkClass}>
             {BUSINESS.supportPhone}
           </a>
         </dd>
-        <dt className="text-ink-400">Hours</dt>
+        <dt className="text-stone-500">Hours</dt>
         <dd className="text-ink-700">{BUSINESS.supportHours}</dd>
-        <dt className="text-ink-400">Address</dt>
+        <dt className="text-stone-500">Address</dt>
         <dd className="text-ink-700">
           {BUSINESS.legalName}
           <br />
@@ -251,7 +252,8 @@ export function TermsPage() {
       <Section title="Accounts">
         <p>
           Keep your sign-in details to yourself. You’re responsible for bookings made from your account. We may suspend
-          accounts used for fraud or abuse. How we handle your data, including when you sign in with Google, is in our{' '}
+          accounts used for fraud or abuse. You can delete your account from your profile whenever you have no upcoming
+          trek. How we handle your data, including when you sign in with Google, is in our{' '}
           <Link to={SITE_LINKS.privacy} className={linkClass}>
             privacy policy
           </Link>
@@ -336,9 +338,13 @@ export function PrivacyPage() {
       <Section title="Cookies and browser storage">
         <p>
           We set one cookie, which keeps you signed in. It is only sent to our own servers and can’t be read by page
-          scripts. Your browser also remembers your light or dark theme, and the link you first arrived by until you sign up
-          or book. We don’t use advertising or third-party tracking cookies. Our pages load fonts from Google Fonts, which
-          sees your IP address when your browser fetches them.
+          scripts. Your browser also remembers your light or dark theme and, only if you accept our cookie banner, the
+          link you first arrived by. We don’t use advertising or third-party tracking cookies, and our fonts and images
+          come from our own servers. The{' '}
+          <Link to={SITE_LINKS.cookies} className={linkClass}>
+            cookie policy
+          </Link>{' '}
+          lists each item and lets you change your choice.
         </p>
       </Section>
       <Section title="Why we use it">
@@ -360,7 +366,13 @@ export function PrivacyPage() {
       <Section title="How long we keep it">
         <p>
           Account data is kept while your account is open. Booking and payment records are kept for 8 years for tax and
-          accounting. Medical notes are kept only until you delete them or ask us to close your account.
+          accounting. Medical notes are kept only until you delete them or delete your account.
+        </p>
+        <p>
+          When you delete your account we erase your name, email, phone, photo, profile, safety and medical details,
+          sign-in methods and offer choices straight away. Booking and payment records we must keep stay for the 8 years,
+          with your name and contact details removed from them. Reviews you wrote stay on the guide’s page under your
+          first name only.
         </p>
       </Section>
       <Section title="Children">
@@ -373,9 +385,10 @@ export function PrivacyPage() {
       <Section title="Your rights">
         <p>
           You can see and correct most of your data on your profile, and switch trek offers on or off there at any time.
-          You can also ask us for a summary of your data, to
-          correct or erase it, or to withdraw consent, by writing to our grievance officer. We reply within 30 days. If
-          you’re not satisfied, you may complain to the Data Protection Board of India.
+          You can delete your account yourself from your profile, under “Sign-in & security”, once you have no upcoming
+          paid trek. Guest bookers, or anyone who would rather not, can write to our grievance officer instead. You can
+          also ask us for a summary of your data, to correct or erase it, or to withdraw consent, the same way. We reply
+          within 30 days. If you’re not satisfied, you may complain to the Data Protection Board of India.
         </p>
       </Section>
       <Section title="Grievance officer">
@@ -392,6 +405,188 @@ export function PrivacyPage() {
           When we change this policy we update the date at the top. If a change affects how we use data you’ve already given
           us, we’ll tell you by email before it applies.
         </p>
+      </Section>
+    </InfoPage>
+  )
+}
+
+/** One row of the cookie policy's table. Keep in step with what the code actually stores. */
+const STORAGE_ITEMS: { name: string; kind: string; purpose: string; kept: string; needed: boolean }[] = [
+  {
+    name: 'sahyatri_refresh',
+    kind: 'Cookie (our API, httpOnly)',
+    purpose: 'Keeps you signed in. Sent only to our sign-in endpoints; page scripts can’t read it.',
+    kept: '30 days from your last visit, or until you sign out',
+    needed: true,
+  },
+  {
+    name: 'tev.consent',
+    kind: 'Browser storage',
+    purpose: 'Your answer to the cookie banner, so we don’t ask on every page.',
+    kept: 'Until you clear your browser data',
+    needed: true,
+  },
+  {
+    name: 'theme',
+    kind: 'Browser storage',
+    purpose: 'Light or dark theme, once you pick one with the header switch.',
+    kept: 'Until you clear your browser data',
+    needed: true,
+  },
+  {
+    name: 'tev.chunk_reload',
+    kind: 'Browser storage (this tab only)',
+    purpose: 'Reloads the page once if we released a new version while it was open.',
+    kept: 'Until you close the tab',
+    needed: true,
+  },
+  {
+    name: 'tev.first_touch, tev.last_touch',
+    kind: 'Browser storage',
+    purpose:
+      'The first and the latest link you arrived by: campaign tags, ad click ids, the site that sent you and the page you landed on. Sent with your sign-up or booking so we learn, in totals, which channels bring trekkers.',
+    kept: 'Until you clear your browser data or say no below',
+    needed: false,
+  },
+]
+
+export function CookiesPage() {
+  const consent = useConsent()
+  const button = 'rounded-full px-5 py-2 text-sm font-medium transition disabled:cursor-default'
+  return (
+    <InfoPage
+      title="Cookie policy"
+      path={SITE_LINKS.cookies}
+      wide
+      intro={`What ${BRAND} stores in your browser, why, and for how long. Last updated ${BUSINESS.lastUpdated}.`}
+    >
+      <Section title="The short version">
+        <p>
+          One cookie keeps you signed in. A few small notes in your browser make the site work. One thing, remembering
+          the link you arrived by, waits for your OK. No advertising cookies, no third-party trackers, and our fonts and
+          images are served by us.
+        </p>
+      </Section>
+      <Section title="What we store">
+        <div className="-mx-5 overflow-x-auto px-5 sm:mx-0 sm:px-0">
+          <table className="w-full min-w-[40rem] text-left text-sm">
+            <caption className="sr-only">Cookies and browser storage used by {BRAND}</caption>
+            <thead>
+              <tr className="border-b border-paper-300 text-[0.7rem] tracking-[0.08em] text-stone-500 uppercase">
+                <th scope="col" className="py-3 pr-4 font-medium">Name</th>
+                <th scope="col" className="py-3 pr-4 font-medium">What it does</th>
+                <th scope="col" className="py-3 pr-4 font-medium">Kept for</th>
+                <th scope="col" className="py-3 font-medium">Needs your OK</th>
+              </tr>
+            </thead>
+            <tbody>
+              {STORAGE_ITEMS.map((item) => (
+                <tr key={item.name} className="border-b border-paper-300 align-top">
+                  <td className="py-3 pr-4">
+                    <code className="text-ink-900">{item.name}</code>
+                    <span className="mt-0.5 block text-xs text-stone-500">{item.kind}</span>
+                  </td>
+                  <td className="py-3 pr-4 text-ink-700">{item.purpose}</td>
+                  <td className="py-3 pr-4 text-ink-700">{item.kept}</td>
+                  <td className="py-3 text-ink-700">{item.needed ? 'No, the site needs it' : 'Yes'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Section>
+      <Section title="When other services set cookies">
+        <p>
+          Two services we use set their own cookies, on their own domains, only when you use them: Google, if you choose
+          “Sign in with Google”, and Razorpay, when you open the payment window to pay for a booking. Their cookie
+          policies apply to those.
+        </p>
+      </Section>
+      <Section title="Your choice">
+        <p>
+          {consent === 'granted'
+            ? 'You’ve allowed us to remember the link you arrived by.'
+            : consent === 'denied'
+              ? 'You’ve said no to remembering the link you arrived by.'
+              : 'You haven’t chosen yet. Until you do, we don’t remember the link you arrived by.'}{' '}
+          Saying no also deletes what we’d already stored in this browser. It doesn’t change anything already sent with
+          a sign-up or booking; for that, write to our grievance officer ({BUSINESS.grievanceEmail}).
+        </p>
+        <div className="flex flex-wrap gap-2 pt-1">
+          <button
+            type="button"
+            onClick={() => setConsent('granted')}
+            disabled={consent === 'granted'}
+            aria-pressed={consent === 'granted'}
+            className={`${button} bg-stone-900 text-paper-50 hover:bg-stone-700 disabled:opacity-60`}
+          >
+            Allow
+          </button>
+          <button
+            type="button"
+            onClick={() => setConsent('denied')}
+            disabled={consent === 'denied'}
+            aria-pressed={consent === 'denied'}
+            className={`${button} border border-stone-300 text-stone-900 hover:border-stone-500 disabled:opacity-60`}
+          >
+            Don’t allow
+          </button>
+        </div>
+      </Section>
+      <Section title="More">
+        <p>
+          How we use personal data, and your rights over it, are in our{' '}
+          <Link to={SITE_LINKS.privacy} className={linkClass}>
+            privacy policy
+          </Link>
+          .
+        </p>
+      </Section>
+    </InfoPage>
+  )
+}
+
+/** The landing photos (src/assets/hero). Free under the Unsplash License, which asks for no credit; we give it anyway. */
+const LANDING_PHOTOGRAPHERS = ['Nika Tchokhonelidze', 'Tim Foster', 'Todd Diemer', 'Vivek']
+
+export function CreditsPage() {
+  return (
+    <InfoPage title="Credits" path={SITE_LINKS.credits} intro="The work of other people this site is built with.">
+      <Section title="Typeface">
+        <p>
+          Plus Jakarta Sans, by Tokotype (Gumpita Rahayu) and the Plus Jakarta Sans Project Authors, used under the{' '}
+          <a href="/licenses/plus-jakarta-sans-OFL.txt" className={linkClass}>
+            SIL Open Font License 1.1
+          </a>
+          . We serve it from our own servers.
+        </p>
+      </Section>
+      <Section title="Photos">
+        <p>
+          Landing page photos by {LANDING_PHOTOGRAPHERS.slice(0, -1).join(', ')} and {LANDING_PHOTOGRAPHERS.at(-1)}, from{' '}
+          <a href="https://unsplash.com" target="_blank" rel="noopener noreferrer" className={linkClass}>
+            Unsplash
+          </a>
+          , used under the{' '}
+          <a href="https://unsplash.com/license" target="_blank" rel="noopener noreferrer" className={linkClass}>
+            Unsplash License
+          </a>
+          .
+        </p>
+        <p>
+          Trek photos are taken by our guides and team, or used with permission. Where a photo is someone else’s work, its
+          credit shows under it on the trek page. Guides’ portraits are their own.
+        </p>
+        <p>
+          If you think we’re using your work without permission, write to{' '}
+          <a href={`mailto:${BUSINESS.supportEmail}`} className={linkClass}>
+            {BUSINESS.supportEmail}
+          </a>{' '}
+          and we’ll sort it out.
+        </p>
+      </Section>
+      <Section title="Software">
+        <p>Built with React, React Router, TanStack Query, Tailwind CSS and Vite, all open-source software.</p>
       </Section>
     </InfoPage>
   )

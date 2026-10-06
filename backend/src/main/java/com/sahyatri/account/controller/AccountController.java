@@ -1,10 +1,12 @@
 package com.sahyatri.account.controller;
 
+import com.sahyatri.account.dto.AccountDeleteRequest;
 import com.sahyatri.account.dto.EmailChangeRequest;
 import com.sahyatri.account.dto.EmailChangeResponse;
 import com.sahyatri.account.dto.MarketingConsentRequest;
 import com.sahyatri.account.dto.PasswordChangeRequest;
 import com.sahyatri.account.dto.PhoneVerifyRequest;
+import com.sahyatri.account.service.AccountDeletionService;
 import com.sahyatri.account.service.AvatarService;
 import com.sahyatri.account.service.EmailChangeService;
 import com.sahyatri.account.service.MarketingConsentService;
@@ -45,15 +47,18 @@ public class AccountController {
     private final PhoneChangeService phone;
     private final PasswordService password;
     private final MarketingConsentService consent;
+    private final AccountDeletionService deletion;
     private final RefreshCookie cookie;
 
     public AccountController(AvatarService avatars, EmailChangeService email, PhoneChangeService phone,
-                             PasswordService password, MarketingConsentService consent, RefreshCookie cookie) {
+                             PasswordService password, MarketingConsentService consent,
+                             AccountDeletionService deletion, RefreshCookie cookie) {
         this.avatars = avatars;
         this.email = email;
         this.phone = phone;
         this.password = password;
         this.consent = consent;
+        this.deletion = deletion;
         this.cookie = cookie;
     }
 
@@ -97,6 +102,14 @@ public class AccountController {
     public UserResponse updateMarketingConsent(@AuthenticationPrincipal Jwt jwt,
                                                @RequestBody MarketingConsentRequest req) {
         return consent.update(userId(jwt), req);
+    }
+
+    /** A POST, not a DELETE with a body: some proxies drop DELETE bodies. Contract: docs/TRD.md §7.18. */
+    @PostMapping("/delete")
+    public ResponseEntity<Void> deleteAccount(@AuthenticationPrincipal Jwt jwt,
+                                              @RequestBody(required = false) AccountDeleteRequest req) {
+        deletion.delete(userId(jwt), req);
+        return ResponseEntity.noContent().header(HttpHeaders.SET_COOKIE, cookie.clear()).build();
     }
 
     private static UUID userId(Jwt jwt) {
