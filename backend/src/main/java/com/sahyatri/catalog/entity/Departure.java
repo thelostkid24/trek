@@ -88,6 +88,11 @@ public class Departure {
         updatedAt = Instant.now();
     }
 
+    /** New per-seat price for bookings made from now on; existing bookings keep the price they were made at. */
+    public void reprice(long pricePaise) {
+        this.pricePaise = pricePaise;
+    }
+
     /** Draft fields. The end date follows from the track's duration. */
     public void plan(Track track, User guide, LocalDate startDate, long pricePaise, int maxGroupSize) {
         this.track = track;

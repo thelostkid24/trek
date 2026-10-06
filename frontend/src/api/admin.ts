@@ -143,6 +143,10 @@ export const deleteDeparture = (token: string, id: string) =>
 export const publishDeparture = (token: string, id: string) =>
   apiFetch<AdminDeparture>(`/api/admin/departures/${id}/publish`, { method: 'POST', token })
 
+/** Published and not started yet; bookings already made keep the price they were made at. */
+export const changeDeparturePrice = (token: string, id: string, pricePaise: number) =>
+  apiFetch<AdminDeparture>(`/api/admin/departures/${id}/price`, { method: 'PUT', token, body: { price_paise: pricePaise } })
+
 export const cancelDeparture = (token: string, id: string, body: { reason_code: CancelReason; reason_note: string }) =>
   apiFetch<AdminDeparture>(`/api/admin/departures/${id}/cancel`, { method: 'POST', token, body })
 

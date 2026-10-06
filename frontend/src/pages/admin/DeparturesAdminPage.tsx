@@ -3,6 +3,7 @@ import { useState, type FormEvent } from 'react'
 import {
   CANCEL_REASON_LABEL,
   cancelDeparture,
+  changeDeparturePrice,
   createDeparture,
   deleteDeparture,
   listAdminDepartures,
@@ -61,6 +62,7 @@ function DepartureRow({ departure: d, onEdit }: { departure: AdminDeparture; onE
   const { withAuth } = useAuth()
   const queryClient = useQueryClient()
   const [cancelling, setCancelling] = useState(false)
+  const [repricing, setRepricing] = useState(false)
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: KEY })
     void queryClient.invalidateQueries({ queryKey: ['public-departures'] })
@@ -115,18 +117,72 @@ function DepartureRow({ departure: d, onEdit }: { departure: AdminDeparture; onE
               </Button>
             </>
           )}
-          {d.status === 'PUBLISHED' && !cancelling && d.start_date > todayIst() && (
-            <Button tone="danger" onClick={() => setCancelling(true)}>
-              Cancel departure
-            </Button>
+          {d.status === 'PUBLISHED' && !cancelling && !repricing && d.start_date > todayIst() && (
+            <>
+              <Button tone="secondary" onClick={() => setRepricing(true)}>
+                Change price
+              </Button>
+              <Button tone="danger" onClick={() => setCancelling(true)}>
+                Cancel departure
+              </Button>
+            </>
           )}
         </div>
       </div>
       <div className="mt-2 space-y-2">
         <ErrorNote error={publish.error ?? remove.error} />
         {cancelling && <CancelForm departure={d} onDone={() => setCancelling(false)} onCancelled={refresh} />}
+        {repricing && <PriceForm departure={d} onDone={() => setRepricing(false)} onChanged={refresh} />}
       </div>
     </li>
+  )
+}
+
+/** A published departure's price, before it starts. Bookings already made keep what they paid. */
+function PriceForm({ departure, onDone, onChanged }: { departure: AdminDeparture; onDone: () => void; onChanged: () => void }) {
+  const { withAuth } = useAuth()
+  const [priceRupees, setPriceRupees] = useState(String(departure.price_paise / 100))
+  const save = useMutation({
+    mutationFn: () => withAuth((token) => changeDeparturePrice(token, departure.id, Math.round(Number(priceRupees) * 100))),
+    onSuccess: () => {
+      onChanged()
+      onDone()
+    },
+  })
+  const errors = fieldErrors(save.error)
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault()
+        save.mutate()
+      }}
+      className="space-y-3 rounded-xl bg-paper-200/60 p-4"
+    >
+      <TextField
+        label="New price per seat"
+        name={`price-${departure.id}`}
+        type="number"
+        required
+        prefix="₹"
+        min={100}
+        max={100000}
+        step="1"
+        value={priceRupees}
+        onChange={(e) => setPriceRupees(e.target.value)}
+        error={errors.price_paise}
+        hint="Applies to new bookings. Trekkers who already booked keep the price they paid."
+      />
+      {save.error && Object.keys(errors).length === 0 && <ErrorNote error={save.error} />}
+      <div className="flex gap-2">
+        <Button type="submit" disabled={save.isPending || !priceRupees}>
+          {save.isPending ? 'Saving…' : 'Save price'}
+        </Button>
+        <Button tone="secondary" onClick={onDone}>
+          Keep {rupees(departure.price_paise)}
+        </Button>
+      </div>
+    </form>
   )
 }
 

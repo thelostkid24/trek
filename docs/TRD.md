@@ -584,6 +584,7 @@ A payment owned by another user returns `404 PAYMENT_NOT_FOUND`, so the API does
 | `POST /api/admin/departures` | ADMIN | `{ track_id, guide_id, start_date, price_paise, max_group_size }` | `201` AdminDeparture (`DRAFT`) | `400 VALIDATION_FAILED`, `404 TRACK_NOT_FOUND`, `409 NOT_A_GUIDE` |
 | `PUT /api/admin/departures/{id}` | ADMIN | same as POST | `200` AdminDeparture | `404 DEPARTURE_NOT_FOUND`, `409 DEPARTURE_NOT_DRAFT`, `409 NOT_A_GUIDE` |
 | `POST /api/admin/departures/{id}/publish` | ADMIN | — | `200` AdminDeparture (`PUBLISHED`) | `404`, `409 DEPARTURE_NOT_DRAFT`, `409 NOT_A_GUIDE`, `409 START_DATE_TOO_SOON` |
+| `PUT /api/admin/departures/{id}/price` | ADMIN | `{ price_paise }` (same bounds as POST) | `200` AdminDeparture. Bookings freeze `price_paise_per_seat` at hold time, so only new bookings pay the new price. Audited as `DEPARTURE_PRICE_CHANGED { from_paise, to_paise }` | `400 VALIDATION_FAILED`, `404`, `409 DEPARTURE_PRICE_LOCKED` (not `PUBLISHED`, or already started; drafts use `PUT /{id}`) |
 | `POST /api/admin/departures/{id}/cancel` | ADMIN | `{ reason_code, reason_note }` | `200` AdminDeparture (`CANCELLED`) | `400 VALIDATION_FAILED`, `404`, `409 DEPARTURE_NOT_CANCELLABLE` (not `PUBLISHED`, or already started) |
 | `DELETE /api/admin/departures/{id}` | ADMIN | — | `204` (drafts only) | `404`, `409 DEPARTURE_NOT_DRAFT` |
 | `GET /api/admin/guides` | ADMIN | — | `200 { items: Guide[] }` | — |
@@ -623,7 +624,7 @@ A payment owned by another user returns `404 PAYMENT_NOT_FOUND`, so the API does
 - `api/catalog.ts`, `api/admin.ts`; `lib/format.ts` (rupees, dates).
 - `HomePage` departures section reads `GET /api/public/departures` (sample data removed); cards link to `/departures/:id`.
 - `/departures/:id` (`pages/DepartureDetailPage.tsx`): track, guide, dates, seats left, price, "Book seats" CTA (booking arrives in §7.6).
-- `/admin` (`RequireAuth role="ADMIN"`, `pages/admin/`): Departures (create, edit draft, publish, cancel), Tracks, Guides. Header shows "Admin" for admins.
+- `/admin` (`RequireAuth role="ADMIN"`, `pages/admin/`): Departures (create, edit draft, publish, change a published departure's price before it starts, cancel), Tracks, Guides. Header shows "Admin" for admins.
 
 ### 7.6 Bookings, holds and cancellations
 **Status:** contract agreed; backend (`com.sahyatri.booking`, `com.sahyatri.payment`) and frontend implemented.
