@@ -11,10 +11,25 @@ const BRAND = 'The Empty Valley'
 const operatedBy = BUSINESS.legalName === BRAND ? '' : ` ${BRAND} is operated by ${BUSINESS.legalName}.`
 
 /** Plain text pages linked from the header and footer, in the landing page's style. */
-function InfoPage({ title, intro, path, wide = false, children }: { title: string; intro?: string; path: string; wide?: boolean; children?: ReactNode }) {
+function InfoPage({
+  title,
+  intro,
+  description = intro,
+  path,
+  wide = false,
+  children,
+}: {
+  title: string
+  intro?: string
+  /** For search results, when the intro doesn't say what the page offers; the intro by default. */
+  description?: string
+  path: string
+  wide?: boolean
+  children?: ReactNode
+}) {
   return (
     <div className="min-h-[calc(100dvh-4rem)] bg-paper-50 font-plex text-ink-900">
-      <Seo title={title} description={intro} path={path} />
+      <Seo title={title} description={description} path={path} />
       <section className={`mx-auto px-5 py-16 sm:px-10 sm:py-20 ${wide ? 'max-w-5xl' : 'max-w-[44rem]'}`}>
         <h1 className="font-serif text-4xl font-light tracking-tight sm:text-[2.8rem]">{title}</h1>
         {intro && <p className="mt-3 max-w-[40rem] text-base leading-relaxed text-ink-700">{intro}</p>}
@@ -37,7 +52,12 @@ const linkClass = 'font-medium text-pine-600 hover:text-pine-700'
 
 export function FaqsPage() {
   return (
-    <InfoPage title="FAQs" path={SITE_LINKS.faqs} intro="Everything trekkers ask us before they book.">
+    <InfoPage
+      title="FAQs"
+      path={SITE_LINKS.faqs}
+      intro="Everything trekkers ask us before they book."
+      description="Answers before you book a Himalayan trek in Uttarakhand: choosing your guide, group size, safety, experience needed, payments and cancellations."
+    >
       <FaqList items={FAQS} />
       <p className="mt-6 text-sm text-ink-700">
         Refund details are in the{' '}
@@ -117,6 +137,7 @@ export function VisionPage() {
       wide
       title="Our vision"
       path={SITE_LINKS.vision}
+      description="Why we built The Empty Valley: certified local guides run their own Himalayan treks, keep most of what you pay, and you choose who leads you."
     >
       {/* One page: the founder's story. */}
       <div className="mt-8 max-w-[40rem] space-y-3 text-sm leading-relaxed text-ink-700">
@@ -174,6 +195,7 @@ export function ContactPage() {
     <InfoPage
       title="Contact"
       path={SITE_LINKS.contact}
+      description={`Reach The Empty Valley by email, phone or WhatsApp about a trek or a booking. ${BUSINESS.supportHours}.`}
       intro="Have a question about a booking? Open it from My treks — your booking page has your guide, dates and payment details in one place."
     >
       <dl className="mt-8 grid gap-4 rounded-(--card-radius) border border-paper-300 bg-paper-50 p-6 text-sm sm:grid-cols-[10rem_1fr]">

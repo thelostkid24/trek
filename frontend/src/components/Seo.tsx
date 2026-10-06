@@ -5,6 +5,17 @@ const SITE_NAME = 'The Empty Valley'
 const DEFAULT_TITLE = `${SITE_NAME} — Small batches. Guaranteed departures.`
 const DEFAULT_DESCRIPTION = 'Small-batch Himalayan treks in Uttarakhand, led by certified local guides you choose. Ten trekkers at most, and every departure is guaranteed.'
 const DEFAULT_IMAGE = `${SITE_ORIGIN}/hero.jpg`
+/** Roughly what Google shows of a description before cutting it off. */
+const DESCRIPTION_MAX = 155
+
+/** The first paragraph on one line, cut at a word with "…" when it's longer than search results show. */
+function metaDescription(text: string): string {
+  const first = text.trim().split(/\n\s*\n/)[0].replace(/\s+/g, ' ')
+  if (first.length <= DESCRIPTION_MAX) return first
+  const cut = first.slice(0, DESCRIPTION_MAX - 1)
+  const space = cut.lastIndexOf(' ')
+  return (space > 0 ? cut.slice(0, space) : cut).replace(/[\s,;:.–—-]+$/, '') + '…'
+}
 
 type Props = {
   /** Page name; the site name is appended. Omit for the home page. */
@@ -24,7 +35,8 @@ type Props = {
  * The page's head tags (docs/TRD.md §7.16). React 19 hoists these into <head>; render exactly one per page.
  * index.html's own head tags are for link previews only and main.tsx removes them on load, so every route renders this.
  */
-export function Seo({ title, description = DEFAULT_DESCRIPTION, path, image = DEFAULT_IMAGE, jsonLd, noindex = false }: Props) {
+export function Seo({ title, description: text = DEFAULT_DESCRIPTION, path, image = DEFAULT_IMAGE, jsonLd, noindex = false }: Props) {
+  const description = metaDescription(text) || DEFAULT_DESCRIPTION
   const fullTitle = title ? `${title} · ${SITE_NAME}` : DEFAULT_TITLE
   const url = path === undefined ? undefined : SITE_ORIGIN + path
   return (
