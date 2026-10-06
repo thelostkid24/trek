@@ -153,6 +153,58 @@ class TrekContentTests extends AuthTestSupport {
                 .andExpect(jsonPath("$.reviews", hasSize(0)));
     }
 
+    @Test
+    void treksLedBeforeSahyatriAddToTheCounts() throws Exception {
+        String admin = adminToken();
+        UUID track = createTrack(admin, 2);
+        UUID other = createTrack(admin, 2);
+        UUID guide = guideUser();
+        UUID done = createDraft(admin, track, guide, today().plusDays(20), 1_045_000, 10);
+        authed(post("/api/admin/departures/" + done + "/publish"), admin, null).andExpect(status().isOk());
+        jdbc.update("UPDATE departures SET status = 'COMPLETED' WHERE id = ?", done);
+        UUID id = createDraft(admin, track, guide, today().plusDays(30), 1_045_000, 10);
+        authed(post("/api/admin/departures/" + id + "/publish"), admin, null).andExpect(status().isOk());
+
+        authed(put("/api/admin/guides/" + guide + "/details"), admin, """
+                {"prior_treks":[{"track_id":"%s","times":30},{"track_id":"%s","times":40}]}"""
+                .formatted(track, other))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.prior_treks[*].times", contains(40, 30)));
+        // Saving credentials without the list leaves it alone.
+        authed(put("/api/admin/guides/" + guide + "/details"), admin, """
+                {"languages":"Hindi"}""")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.prior_treks", hasSize(2)));
+
+        mockMvc.perform(get("/api/public/tracks/" + slugOf(track)))
+                .andExpect(jsonPath("$.departures[0].guide.led_this_trek").value(31));
+        mockMvc.perform(get("/api/public/departures/" + id))
+                .andExpect(jsonPath("$.guide.led_this_trek").value(31));
+        mockMvc.perform(get("/api/public/guides/" + guide))
+                .andExpect(jsonPath("$.treks_led").value(71))
+                .andExpect(jsonPath("$.treks[*].times", contains(40, 31)))
+                .andExpect(jsonPath("$.treks[0].track.slug").value(slugOf(other)));
+
+        authed(put("/api/admin/guides/" + guide + "/details"), admin, """
+                {"prior_treks":[{"track_id":"%s","times":3},{"track_id":"%s","times":4}]}"""
+                .formatted(track, track))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.details.fields.prior_treks").exists());
+        authed(put("/api/admin/guides/" + guide + "/details"), admin, """
+                {"prior_treks":[{"track_id":"%s","times":3}]}""".formatted(UUID.randomUUID()))
+                .andExpect(status().isBadRequest());
+        authed(put("/api/admin/guides/" + guide + "/details"), admin, """
+                {"prior_treks":[{"track_id":"%s","times":0}]}""".formatted(track))
+                .andExpect(status().isBadRequest());
+
+        authed(put("/api/admin/guides/" + guide + "/details"), admin, """
+                {"prior_treks":[]}""")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.prior_treks", hasSize(0)));
+        mockMvc.perform(get("/api/public/departures/" + id))
+                .andExpect(jsonPath("$.guide.led_this_trek").value(1));
+    }
+
     private String emailTrekkerEmail() throws Exception {
         String email = uniqueEmail();
         emailTrekker(email);

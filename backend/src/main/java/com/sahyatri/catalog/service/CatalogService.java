@@ -194,17 +194,20 @@ public class CatalogService {
                 .orElseThrow(CatalogService::guideNotFound);
         TrekkerProfile profile = profiles.findById(id).orElse(null);
 
-        List<DepartureRepository.LedCount> counts =
-                departures.countByGuideAndTrack(Set.of(id), DepartureStatus.COMPLETED);
-        Map<UUID, Track> ledTracks = tracks.findAllById(counts.stream().map(DepartureRepository.LedCount::getTrackId).toList())
+        GuideDetailsResponse details = guideDetails.forGuides(Set.of(id)).get(id);
+        // Completed departures with us plus the times an admin recorded from before Sahyātri.
+        Map<UUID, Long> ledByTrack = new HashMap<>();
+        departures.countByGuideAndTrack(Set.of(id), DepartureStatus.COMPLETED)
+                .forEach(c -> ledByTrack.merge(c.getTrackId(), c.getTimes(), Long::sum));
+        details.priorTreks().forEach(p -> ledByTrack.merge(p.trackId(), (long) p.times(), Long::sum));
+        Map<UUID, Track> ledTracks = tracks.findAllById(ledByTrack.keySet())
                 .stream().collect(Collectors.toMap(Track::getId, Function.identity()));
-        List<GuideProfile.TrekLed> treks = counts.stream()
-                .map(c -> new GuideProfile.TrekLed(TrackBrief.of(ledTracks.get(c.getTrackId())), c.getTimes()))
+        List<GuideProfile.TrekLed> treks = ledByTrack.entrySet().stream()
+                .map(e -> new GuideProfile.TrekLed(TrackBrief.of(ledTracks.get(e.getKey())), e.getValue()))
                 .sorted(Comparator.comparingLong(GuideProfile.TrekLed::times).reversed())
                 .toList();
         List<DepartureSummary> upcoming = departures.findListedForGuide(id, DepartureStatus.PUBLISHED, today())
                 .stream().map(this::toSummary).toList();
-        GuideDetailsResponse details = guideDetails.forGuides(Set.of(id)).get(id);
         RatingSummary rating = reviews.ratings(Set.of(id)).getOrDefault(id, RatingSummary.NONE);
 
         return new GuideProfile(guide.getId(), guide.getFullName(), avatars.url(guide.getAvatarKey()),
@@ -216,7 +219,7 @@ public class CatalogService {
     }
 
     /**
-     * Each departure's guide with their home city and bio, how often they've completed that departure's trek, their
+     * Each departure's guide with their home city and bio, how often they've led that departure's trek, their
      * credentials and rating.
      */
     private Map<UUID, GuideCard> guideCards(List<Departure> list) {
@@ -226,10 +229,13 @@ public class CatalogService {
         }
         Map<UUID, TrekkerProfile> guideProfiles = new HashMap<>();
         profiles.findAllById(guideIds).forEach(p -> guideProfiles.put(p.getUserId(), p));
+        Map<UUID, GuideDetailsResponse> details = guideDetails.forGuides(guideIds);
+        // Completed departures with us plus the times an admin recorded from before Sahyātri.
         Map<String, Long> led = new HashMap<>();
         departures.countByGuideAndTrack(guideIds, DepartureStatus.COMPLETED)
-                .forEach(c -> led.put(c.getGuideId() + "/" + c.getTrackId(), c.getTimes()));
-        Map<UUID, GuideDetailsResponse> details = guideDetails.forGuides(guideIds);
+                .forEach(c -> led.merge(c.getGuideId() + "/" + c.getTrackId(), c.getTimes(), Long::sum));
+        details.values().forEach(gd -> gd.priorTreks()
+                .forEach(p -> led.merge(gd.guideId() + "/" + p.trackId(), (long) p.times(), Long::sum)));
         Map<UUID, RatingSummary> ratings = reviews.ratings(guideIds);
 
         Map<UUID, GuideCard> cards = new HashMap<>();

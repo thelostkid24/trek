@@ -175,6 +175,8 @@ export type GuideDetails = {
   amc_institute: string | null
   amc_certificate_number: string | null
   quote: string | null
+  /** How often they led each trek before Sahyātri; the pages add departures completed with us. */
+  prior_treks: { track_id: string; times: number }[]
 }
 
 export type GuideDetailsInput = Omit<GuideDetails, 'guide_id' | 'years_leading'>
