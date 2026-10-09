@@ -1,19 +1,18 @@
 import { useQuery } from '@tanstack/react-query'
-import type { ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { getDeparture, getGuide, trekQueryOptions, type DepartureDetail, type TrekPage } from '../api/catalog.ts'
+import { getDeparture, getGuide, type DepartureDetail } from '../api/catalog.ts'
 import { ApiError } from '../api/client.ts'
 import { messageFor } from '../auth/errorMessages.ts'
 import { FillBar } from '../components/catalog/DeparturePieces.tsx'
-import { CredentialList, GuideProfileCard, ReviewList } from '../components/catalog/GuideProfileCard.tsx'
+import { GuideProfileCard, ReviewList } from '../components/catalog/GuideProfileCard.tsx'
 import { SectionLabel } from '../components/catalog/TrekSections.tsx'
 import { Ridgeline } from '../components/Ridgeline.tsx'
 import { rupees, shortRange, weekdaysAndYear } from '../lib/format.ts'
 import { Seo } from '../components/Seo.tsx'
 
 /**
- * /departures/:id — public. One dated run: who leads it (above the Book button), their certificates and what
- * trekkers say about them, and the full price. The charity line comes from the trek page.
+ * /departures/:id — public. One dated run: who leads it, the dates and guide picked (above "Proceed with booking")
+ * and what trekkers say about them. The full credentials table lives on the guide's page.
  */
 export function DepartureDetailPage() {
   const { id = '' } = useParams()
@@ -52,9 +51,6 @@ export function DepartureDetailPage() {
 
 function Detail({ departure: d }: { departure: DepartureDetail }) {
   const { track, guide } = d
-  // The trek page carries the lists, refund tiers and charity; the departure page shows them for these dates.
-  const trek = useQuery(trekQueryOptions(track.slug))
-  const extras: TrekPage | undefined = trek.data
   const cover = track.photos[0]
   const guideName = guide.full_name ?? 'a local guide'
 
@@ -92,18 +88,17 @@ function Detail({ departure: d }: { departure: DepartureDetail }) {
         </header>
 
         <aside className="hidden lg:sticky lg:top-20 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:block lg:self-start">
-          <PriceCard departure={d} extras={extras} />
+          <SelectionCard departure={d} />
         </aside>
 
         <div className="min-w-0 space-y-8 lg:col-start-1">
           <GuideProfileCard guide={guide} trekName={track.name} departureId={d.id} />
 
-          {/* Phones: the full price and Book right under the guide; the bar at the bottom keeps Book in reach. */}
+          {/* Phones: the selection and Proceed right under the guide; the bar at the bottom keeps it in reach. */}
           <div className="lg:hidden">
-            <PriceCard departure={d} extras={extras} />
+            <SelectionCard departure={d} />
           </div>
 
-          <CredentialList guide={guide} />
           <GuideReviews departure={d} />
         </div>
       </div>
@@ -112,7 +107,7 @@ function Detail({ departure: d }: { departure: DepartureDetail }) {
         <div className="fixed inset-x-0 bottom-0 z-20 flex items-center justify-between gap-4 border-t border-paper-300 bg-paper-50/95 px-4 py-3 backdrop-blur lg:hidden">
           <p className="font-semibold text-stone-900">{rupees(d.price_paise)} <span className="text-sm font-normal text-stone-500">per person</span></p>
           <Link to={`/book/${d.id}`} className="rounded-full bg-brand-900 px-5 py-3 font-semibold text-white hover:bg-brand-800">
-            Book these dates
+            Proceed with booking
           </Link>
         </div>
       )}
@@ -147,58 +142,37 @@ function GuideReviews({ departure: d }: { departure: DepartureDetail }) {
   )
 }
 
-/** The full price, what's extra, the charity share, then Book. */
-function PriceCard({ departure: d, extras }: { departure: DepartureDetail; extras: TrekPage | undefined }) {
-  const { track } = d
+/** The price, the dates and guide the trekker picked, then Proceed. Add-ons are chosen at checkout. */
+function SelectionCard({ departure: d }: { departure: DepartureDetail }) {
   return (
-    <section aria-label="Price" className="rounded-2xl bg-white p-5 ring-1 ring-paper-300 sm:p-6">
-      <p className="text-xs font-semibold tracking-[0.16em] text-laterite-600 uppercase">Full price</p>
-      <p className="mt-2">
-        <span className="font-serif text-4xl font-light text-stone-900">{rupees(d.price_paise)}</span>
+    <section aria-label="Your selection" className="rounded-2xl bg-white p-5 ring-1 ring-paper-300 sm:p-6">
+      <p className="text-xs font-semibold tracking-[0.16em] text-laterite-600 uppercase">Price</p>
+      <p className="mt-1">
+        <span className="font-serif text-3xl font-light text-stone-900">{rupees(d.price_paise)}</span>
         <span className="text-stone-500"> per person</span>
       </p>
-      <p className="mt-1 text-sm text-stone-600">
-        {track.pickup_drop && `${track.pickup_drop}. `}Nothing is added at checkout.
-      </p>
-      <ul className="mt-4 space-y-2 border-t border-paper-200 pt-4 text-sm text-stone-700">
-        {track.offloading && (
-          <Line>
-            Bag offloading is extra
-            {track.offloading_price_paise ? `: ${rupees(track.offloading_price_paise)}` : ', priced separately'}
-          </Line>
-        )}
-        <Line>No account needed: name, WhatsApp and email</Line>
-        <Line>Full refund if weather, permits or safety stop the trek</Line>
-        {extras?.charity && (
-          <Line>
-            {extras.charity.bps / 100}% goes to {extras.charity.name}, from the price, not on top
-          </Line>
-        )}
-      </ul>
+      {d.status === 'PUBLISHED' && d.bookable && (
+        <p className="mt-4 border-t border-paper-200 pt-4 text-stone-700">
+          You have selected{' '}
+          <strong className="font-semibold text-stone-900">
+            {shortRange(d.start_date, d.end_date)} {d.end_date.slice(0, 4)}
+          </strong>{' '}
+          to go with <strong className="font-semibold text-stone-900">{d.guide.full_name ?? 'a local guide'}</strong>.
+        </p>
+      )}
       <BookingCta departure={d} />
     </section>
-  )
-}
-
-function Line({ children }: { children: ReactNode }) {
-  return (
-    <li className="flex gap-2">
-      <span className="text-brand-700" aria-hidden="true">
-        ✓
-      </span>
-      <span>{children}</span>
-    </li>
   )
 }
 
 function BookingCta({ departure: d }: { departure: DepartureDetail }) {
   if (d.status !== 'PUBLISHED') {
     const label = { CANCELLED: 'This departure was cancelled', EXPIRED: 'This departure has closed', COMPLETED: 'This trek has taken place' }[d.status]
-    return <p className="mt-5 rounded-xl bg-paper-100 px-4 py-3 text-center text-sm font-medium text-stone-600">{label}</p>
+    return <p className="mt-5 rounded-xl bg-paper-100 first:mt-0 px-4 py-3 text-center text-sm font-medium text-stone-600">{label}</p>
   }
   if (!d.bookable) {
     return (
-      <p className="mt-5 rounded-xl bg-paper-100 px-4 py-3 text-center text-sm font-medium text-stone-600">
+      <p className="mt-5 rounded-xl bg-paper-100 first:mt-0 px-4 py-3 text-center text-sm font-medium text-stone-600">
         {d.seats_left === 0 ? 'This batch is full' : 'Bookings for this departure have closed'}
       </p>
     )
@@ -207,9 +181,9 @@ function BookingCta({ departure: d }: { departure: DepartureDetail }) {
   return (
     <Link
       to={`/book/${d.id}`}
-      className="mt-5 block rounded-full bg-brand-900 px-6 py-3.5 text-center font-semibold text-white hover:bg-brand-800"
+      className="mt-5 block rounded-full bg-brand-900 first:mt-0 px-6 py-3.5 text-center font-semibold text-white hover:bg-brand-800"
     >
-      Book these dates
+      Proceed with booking
     </Link>
   )
 }
