@@ -18,6 +18,9 @@
   --color-laterite-500: #d9772b;
   --color-laterite-600: #a65316; /* text on white, paper-100 and paper-200 clears WCAG AA 4.5:1 */
 
+  /* Sunset — the sun in the logo */
+  --color-sunset-500: #f0582a;
+
   /* Trekker account area: slate sidebar, paper page, pine actions */
   --color-ink-950: #12161c;
   --color-ink-900: #171c23;

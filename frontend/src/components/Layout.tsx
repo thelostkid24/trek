@@ -96,7 +96,7 @@ export function Layout() {
         <div className="mx-auto flex h-16 max-w-[90rem] items-center justify-between gap-3 px-5 sm:gap-6 sm:px-10">
           <div className="flex items-center gap-10">
             <Link to="/" viewTransition className="flex shrink-0 items-center gap-2 text-[1.05rem] font-semibold tracking-tight whitespace-nowrap sm:text-[1.2rem]">
-              <Peak className="size-6" />
+              <Logo className="h-6 w-auto" onLight={tone === 'light'} />
               The Empty Valley
             </Link>
             <nav className="hidden items-center gap-7 text-sm md:flex">
@@ -195,12 +195,25 @@ function ThemeToggle() {
   )
 }
 
-/** The wordmark's glyph: a flat-topped Sahyadri mesa beside a sharper peak. */
-function Peak({ className = '' }: { className?: string }) {
+/**
+ * The Empty Valley mark: two peaks with the valley between them, and the sun (the traveller) above.
+ * Peaks are brand green on the light header and white over photos, the menu and the dark theme; the sun is
+ * always sunset red-orange.
+ */
+function Logo({ className = '', onLight = false }: { className?: string; onLight?: boolean }) {
   return (
-    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-      <path d="M2 19 8.5 8h3L14 12l2.5-5L22 19Z" strokeLinejoin="round" />
-      <path d="M2 19h20" strokeLinecap="round" />
+    <svg viewBox="200 38 744 418" className={className} aria-hidden="true">
+      <path
+        d="M215 440 479 108 645 276 735 193 928 440 730 440 611 320 494 440Z"
+        className={
+          onLight
+            ? 'fill-brand-800 stroke-brand-800 in-data-[theme=dark]:fill-white in-data-[theme=dark]:stroke-white'
+            : 'fill-white stroke-white'
+        }
+        strokeWidth="22"
+        strokeLinejoin="round"
+      />
+      <circle cx="612" cy="100" r="58" className="fill-sunset-500" />
     </svg>
   )
 }
