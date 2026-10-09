@@ -218,7 +218,7 @@ function Footer() {
           </a>
         </div>
         <div className="flex flex-col gap-2 py-6 text-xs sm:flex-row sm:items-center sm:justify-between">
-          <p>Fair-trade, micro-batch trekking. Registered in Mumbai, Maharashtra.</p>
+          <p>Fair-trade, micro-batch trekking. Based in Bengaluru, Karnataka.</p>
           {import.meta.env.DEV && <ApiStatus />}
         </div>
       </div>
