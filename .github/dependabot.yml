@@ -1,15 +1,29 @@
 # Weekly version-update PRs. Security-update PRs also need "Dependabot security updates" on in the repo settings.
+# Minor and patch bumps arrive as one grouped PR per ecosystem; majors still come one per package so each gets a look.
 version: 2
 updates:
   - package-ecosystem: npm
     directory: /frontend
     schedule:
       interval: weekly
+    groups:
+      frontend:
+        update-types: [minor, patch]
+    ignore:
+      # Types track the Node major CI and deploy run on (22), not the newest Node.
+      - dependency-name: "@types/node"
+        update-types: [version-update:semver-major]
   - package-ecosystem: maven
     directory: /backend
     schedule:
       interval: weekly
+    groups:
+      backend:
+        update-types: [minor, patch]
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
