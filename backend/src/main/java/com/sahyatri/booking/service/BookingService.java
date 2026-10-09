@@ -119,12 +119,18 @@ public class BookingService {
                 required("full_name", req.fullName(), user.getFullName()),
                 required("phone", req.phone(), user.getPhone()),
                 required("email", req.email(), user.getEmail()).toLowerCase(Locale.ROOT));
-        List<TravellerRequest> travellers = req.travellers() == null ? List.of() : req.travellers();
-        if (!travellers.isEmpty() && travellers.size() != req.seats()) {
-            throw ApiException.validation("travellers", "must list exactly " + req.seats() + " traveller(s)");
-        }
+        List<TravellerRequest> travellers = travellersFor(req.seats(), req.travellers());
         return toResponse(hold(userId, req.departureId(), req.seats(), contact, travellers,
                 lastTouch(req.acquisition())));
+    }
+
+    /** None yet, or exactly one per seat. */
+    private static List<TravellerRequest> travellersFor(int seats, List<TravellerRequest> given) {
+        List<TravellerRequest> travellers = given == null ? List.of() : given;
+        if (!travellers.isEmpty() && travellers.size() != seats) {
+            throw ApiException.validation("travellers", "must list exactly " + seats + " traveller(s)");
+        }
+        return travellers;
     }
 
     /**
@@ -133,13 +139,14 @@ public class BookingService {
      */
     @Transactional
     public GuestBooking createForGuest(GuestBookingRequest req) {
+        List<TravellerRequest> travellers = travellersFor(req.seats(), req.travellers());
         User guest = User.newGuest(req.fullName().trim());
         acquisition.apply(guest, SignupMethod.GUEST_CHECKOUT, req.acquisition());
         guest = users.saveAndFlush(guest);
         acquisition.recordSignupConsent(guest);
         BookingContact contact = new BookingContact(req.fullName().trim(), req.phone(),
                 req.email().trim().toLowerCase(Locale.ROOT));
-        Booking booking = hold(guest.getId(), req.departureId(), req.seats(), contact, List.of(),
+        Booking booking = hold(guest.getId(), req.departureId(), req.seats(), contact, travellers,
                 lastTouch(req.acquisition()));
         return new GuestBooking(toResponse(booking), auth.firstSession(guest));
     }
