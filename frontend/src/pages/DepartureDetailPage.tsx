@@ -92,7 +92,7 @@ function Detail({ departure: d }: { departure: DepartureDetail }) {
         </aside>
 
         <div className="min-w-0 space-y-8 lg:col-start-1">
-          <GuideProfileCard guide={guide} trekName={track.name} departureId={d.id} />
+          <GuideProfileCard guide={guide} departureId={d.id} />
 
           {/* Phones: the selection and Proceed right under the guide; the bar at the bottom keeps it in reach. */}
           <div className="lg:hidden">

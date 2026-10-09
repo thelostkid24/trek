@@ -38,7 +38,7 @@ export function TrekDepartures({ trek }: { trek: TrekPage }) {
       <SectionLabel id="departures-heading">Departures</SectionLabel>
       {departures.length === 0 ? (
         <p className="mt-3 rounded-xl bg-white/80 p-4 text-sm text-stone-600 ring-1 ring-paper-300">
-          No dates are open right now. Check back soon.
+          Upcoming: dates for this trek open soon.
         </p>
       ) : (
         <>

@@ -25,23 +25,18 @@ export function RatingLine({ rating, count, className = '' }: { rating: number |
 
 /**
  * The departure's guide, shown above the Book button so nobody commits before knowing who they walk with:
- * photo, home, record on this trek, languages, rating, their bio and own words, then their page. `departureId`
+ * photo, rating, "Certified", years leading, languages, their bio and own words, then their page. The course
+ * details live on the guide's page. `departureId`
  * rides along so the guide page can offer this departure to book.
  */
-export function GuideProfileCard({ guide: g, trekName, departureId }: { guide: GuideCard; trekName: string; departureId: string }) {
+export function GuideProfileCard({ guide: g, departureId }: { guide: GuideCard; departureId: string }) {
   const name = g.full_name ?? 'Your guide'
   const first = name.split(' ')[0]
   const verified = isCertified(g)
-  // Only BMC and AMC are the IMF-recognised courses; another certificate alone doesn't earn this line.
-  const imfCourses = [
-    g.bmc_institute !== null && g.bmc_certificate_number !== null && 'BMC',
-    g.amc_institute !== null && g.amc_certificate_number !== null && 'AMC',
-  ].filter(Boolean)
   const facts: Fact[] = [
     ...(g.years_leading !== null
       ? [{ label: 'Leading treks', value: `${g.years_leading} ${g.years_leading === 1 ? 'year' : 'years'}`, icon: 'calendar' as const }]
       : []),
-    { label: `${trekName} summits`, value: g.led_this_trek > 0 ? String(g.led_this_trek) : 'First time leading it', icon: 'summit' },
     ...(g.languages ? [{ label: 'Speaks', value: g.languages, icon: 'speech' as const }] : []),
   ]
 
@@ -71,19 +66,6 @@ export function GuideProfileCard({ guide: g, trekName, departureId }: { guide: G
           )}
         </div>
       </div>
-
-      {imfCourses.length > 0 && (
-        <div className="mt-5 flex items-start gap-3 rounded-xl bg-brand-50 p-4 ring-1 ring-brand-700/30">
-          <svg viewBox="0 0 20 20" className="mt-0.5 size-5 shrink-0 text-brand-800" fill="currentColor" aria-hidden="true">
-            <path d="M10 1.5 3.5 4v5c0 4 2.8 7.6 6.5 9 3.7-1.4 6.5-5 6.5-9V4L10 1.5Zm-1 12L5.5 10l1.4-1.4L9 10.7l4.1-4.1 1.4 1.4L9 13.5Z" />
-          </svg>
-          <p className="text-sm text-stone-700">
-            <span className="block font-semibold text-brand-900">Certified to lead {trekName}</span>
-            {first} holds the {imfCourses.join(' and ')} {imfCourses.length === 1 ? 'course' : 'courses'}, recognised by the Indian
-            Mountaineering Foundation (IMF).
-          </p>
-        </div>
-      )}
 
       <IconFacts facts={facts} className="mt-5 grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-3" />
       {g.bio && <Bio text={g.bio} />}

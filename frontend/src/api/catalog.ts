@@ -221,7 +221,7 @@ export type CatalogDeparture = {
   guide: GuideBrief
 }
 
-/** One trek in the catalog. Empty `departures` means "dates coming soon". */
+/** One trek in the catalog. Empty `departures` shows it as "Upcoming". */
 export type CatalogTrek = {
   slug: string
   name: string

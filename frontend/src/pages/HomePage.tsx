@@ -5,7 +5,7 @@ import { listCatalog, trekQueryOptions, type CatalogTrek } from '../api/catalog.
 import { messageFor } from '../auth/errorMessages.ts'
 import { FaqList } from '../components/FaqList.tsx'
 import { FAQS } from '../lib/faqs.ts'
-import { rupees, shortRange } from '../lib/format.ts'
+import { feet, rupees, shortRange } from '../lib/format.ts'
 import { revealClass, staggerStyle, useInView } from '../lib/reveal.ts'
 import { Logo } from '../components/Logo.tsx'
 import { Ridgeline } from '../components/Ridgeline.tsx'
@@ -220,15 +220,50 @@ function HeroSlides() {
   )
 }
 
+/** How many treks the home page shows; the rest are a tap away on /treks. */
+const HOME_TREKS = 5
+
 /**
- * Every listed trek as a row of square cards that slides sideways. A cover shares its
- * view-transition name with the trek page hero, so opening a card grows it into the hero. The trek is
- * fetched before navigating (usually already warm from hover) so the hero exists when the new page is snapshotted.
+ * Treks we're preparing that aren't in the catalog yet: shown as "Upcoming" cards that don't open anything. One
+ * drops out on its own once a trek with the same slug is added in Admin.
+ */
+const PLANNED_TREKS = [
+  { slug: 'har-ki-dun', name: 'Har Ki Dun', facts: '7 days · 11,700 ft', where: 'Sankri, Uttarkashi' },
+  { slug: 'tungnath-chandrashila', name: 'Tungnath Chandrashila', facts: '3 days · 13,000 ft', where: 'Chopta, Rudraprayag' },
+  { slug: 'dayara-bugyal', name: 'Dayara Bugyal', facts: '6 days · 12,000 ft', where: 'Raithal, Uttarkashi' },
+]
+
+/**
+ * A short row of treks, bookable ones first, then upcoming ones dimmed; arrows (or a swipe) move along it and
+ * "See all treks" leads to the catalog. Each card shares a view-transition name with the trek page hero, so opening
+ * a card grows it into the hero. The trek is fetched before navigating (usually already warm from hover) so the
+ * hero exists when the new page is snapshotted.
  */
 function Destinations() {
   const catalog = useCatalog()
-  const treks = catalog.data?.items ?? []
+  const all = catalog.data?.items ?? []
+  const listed = [...all.filter((t) => t.departures.length > 0), ...all.filter((t) => t.departures.length === 0)]
+  const planned = PLANNED_TREKS.filter((p) => !all.some((t) => t.slug === p.slug || t.slug.startsWith(`${p.slug}-`)))
+  const treks = listed.slice(0, HOME_TREKS)
+  const plannedShown = planned.slice(0, Math.max(0, HOME_TREKS - treks.length))
+  const cards = treks.length + plannedShown.length
   const { ref, ...reveal } = useInView<HTMLUListElement>()
+  const row = useRef<HTMLUListElement | null>(null)
+  const [edges, setEdges] = useState({ start: true, end: false })
+  const setRow = (el: HTMLUListElement | null) => {
+    row.current = el
+    ref(el)
+  }
+  const onScroll = () => {
+    const el = row.current
+    if (!el) return
+    setEdges({ start: el.scrollLeft <= 4, end: el.scrollLeft + el.clientWidth >= el.scrollWidth - 4 })
+  }
+  const move = (dir: 1 | -1) => {
+    const el = row.current
+    const card = el?.querySelector('li')
+    if (el && card) el.scrollBy({ left: dir * (card.clientWidth + 16), behavior: 'smooth' })
+  }
 
   return (
     <section id="treks" className="scroll-mt-16 py-20 sm:py-28">
@@ -238,15 +273,28 @@ function Destinations() {
             <Eyebrow>This season</Eyebrow>
             <h2 className="mt-4 text-4xl font-light tracking-[-0.02em] sm:text-5xl">Where we’re walking</h2>
           </div>
-          <PillLink to="/treks" dark>
-            See all treks
-          </PillLink>
+          {cards > 1 && (
+            <div className="flex gap-2">
+              {([-1, 1] as const).map((dir) => (
+                <button
+                  key={dir}
+                  type="button"
+                  onClick={() => move(dir)}
+                  disabled={dir === -1 ? edges.start : edges.end}
+                  aria-label={dir === -1 ? 'Previous treks' : 'Next treks'}
+                  className="flex size-11 items-center justify-center rounded-full border border-paper-300 text-ink-900 transition hover:bg-ink-950 hover:text-white disabled:pointer-events-none disabled:opacity-30"
+                >
+                  <Arrow className={`size-4 ${dir === -1 ? 'rotate-180' : ''}`} />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {catalog.isPending ? (
-          <ul className="-mx-5 mt-10 flex snap-x snap-mandatory scroll-px-5 gap-4 overflow-x-auto px-5 pb-2 [scrollbar-width:none] sm:-mx-10 sm:scroll-px-10 sm:px-10 [&::-webkit-scrollbar]:hidden" aria-busy="true" aria-label="Loading treks">
-            {[0, 1, 2, 3, 4].map((i) => (
-              <li key={i} className="aspect-square w-72 shrink-0 animate-pulse rounded-[1.5rem] bg-paper-200 sm:w-80" />
+          <ul className={ROW} aria-busy="true" aria-label="Loading treks">
+            {[0, 1, 2, 3].map((i) => (
+              <li key={i} className={`${CARD_WIDTH} aspect-[3/4] animate-pulse rounded-[1.5rem] bg-paper-200`} />
             ))}
           </ul>
         ) : catalog.isError ? (
@@ -260,22 +308,38 @@ function Destinations() {
               Try again
             </button>
           </div>
-        ) : treks.length === 0 ? (
+        ) : cards === 0 ? (
           <div className="mt-10 rounded-[1.5rem] border border-paper-300 bg-paper-50 p-10 text-center">
             <p className="text-2xl font-light">New departures are on the way</p>
             <p className="mt-2 text-sm text-ink-700/75">Our guides are planning the next batches. Check back soon.</p>
           </div>
         ) : (
-          <ul ref={ref} className="-mx-5 mt-10 flex snap-x snap-mandatory scroll-px-5 gap-4 overflow-x-auto px-5 pb-2 [scrollbar-width:none] sm:-mx-10 sm:scroll-px-10 sm:px-10 [&::-webkit-scrollbar]:hidden">
+          <ul ref={setRow} onScroll={onScroll} className={ROW}>
             {treks.map((t, i) => (
               <DestinationCard key={t.slug} trek={t} reveal={reveal} delay={i * 90} />
             ))}
+            {plannedShown.map((p, i) => (
+              <PlannedCard key={p.slug} trek={p} reveal={reveal} delay={(treks.length + i) * 90} />
+            ))}
           </ul>
         )}
+
+        <Link
+          to="/treks"
+          viewTransition
+          className="group mt-8 inline-flex items-center gap-2 border-b border-current pb-1 text-sm font-medium text-ink-900"
+        >
+          See all treks
+          <Arrow className="size-4 transition-transform group-hover:translate-x-1" />
+        </Link>
       </Container>
     </section>
   )
 }
+
+const ROW =
+  '-mx-5 mt-10 flex snap-x snap-mandatory scroll-px-5 gap-4 overflow-x-auto px-5 pb-2 [scrollbar-width:none] sm:-mx-10 sm:scroll-px-10 sm:px-10 [&::-webkit-scrollbar]:hidden'
+const CARD_WIDTH = 'w-64 shrink-0 snap-start sm:w-72 lg:w-[calc((100%-3rem)/4)]'
 
 function DestinationCard({
   trek,
@@ -298,9 +362,12 @@ function DestinationCard({
   }
   const from = trek.departures.length > 0 ? Math.min(...trek.departures.map((d) => d.price_paise)) : null
   const next = trek.departures[0]
+  const facts = [`${trek.duration_days} ${trek.duration_days === 1 ? 'day' : 'days'}`, trek.max_altitude_m ? feet(trek.max_altitude_m) : null]
+    .filter(Boolean)
+    .join(' · ')
 
   return (
-    <li style={staggerStyle(reveal, delay)} className={`w-72 shrink-0 snap-start sm:w-80 ${revealClass(reveal.inView)}`}>
+    <li style={staggerStyle(reveal, delay)} className={`${CARD_WIDTH} ${revealClass(reveal.inView)}`}>
       <Link
         to={to}
         viewTransition
@@ -308,7 +375,9 @@ function DestinationCard({
         onFocus={prefetch}
         onTouchStart={prefetch}
         onClick={(e) => void open(e)}
-        className="group relative isolate flex aspect-square flex-col justify-between overflow-hidden rounded-[1.5rem] bg-brand-950 p-5 text-white"
+        className={`group relative isolate flex aspect-[3/4] flex-col justify-between overflow-hidden rounded-[1.5rem] bg-brand-950 p-5 text-white transition-opacity ${
+          next ? '' : 'opacity-70 hover:opacity-100'
+        }`}
       >
         <div
           className="absolute inset-0 -z-10"
@@ -320,29 +389,54 @@ function DestinationCard({
             <Ridgeline className="size-full transition-transform duration-[1200ms] ease-out group-hover:scale-110" />
           )}
         </div>
-        <div className="absolute inset-0 -z-10 bg-gradient-to-t from-ink-950/80 via-ink-950/10 to-ink-950/20" aria-hidden="true" />
+        <div className="absolute inset-0 -z-10 bg-gradient-to-t from-ink-950/90 via-ink-950/20 to-ink-950/30" aria-hidden="true" />
 
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex flex-wrap gap-1.5">
-            {[trek.region, `${trek.duration_days} ${trek.duration_days === 1 ? 'day' : 'days'}`].map((tag) => (
-              <span key={tag} className="rounded-full border border-white/25 bg-white/15 px-2.5 py-1 text-[0.7rem] font-medium backdrop-blur-sm">
-                {tag}
-              </span>
-            ))}
-          </div>
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white text-ink-950 transition duration-300 group-hover:-rotate-45 group-hover:bg-laterite-400">
-            <Arrow className="size-4" />
-          </span>
-        </div>
+        <span
+          className={`self-start rounded-full border px-3 py-1 text-[0.65rem] font-medium tracking-[0.18em] uppercase backdrop-blur-sm ${
+            next ? 'border-brand-300/50 bg-brand-950/40 text-brand-200' : 'border-white/25 bg-ink-950/40 text-white/80'
+          }`}
+        >
+          {next ? 'Booking open' : 'Upcoming'}
+        </span>
 
         <div className="transition-transform duration-500 group-hover:-translate-y-1">
           <h3 className="text-2xl leading-tight font-normal tracking-[-0.01em]">{trek.name}</h3>
-          <p className="mt-2 text-xs text-white/75">
-            {next ? `Next ${shortRange(next.start_date, next.end_date)}` : trek.season_label ?? 'Dates coming soon'}
-            {from !== null && ` · from ${rupees(from)}`}
+          <p className="mt-2 text-sm text-white/75">{facts}</p>
+          <p className="mt-0.5 text-sm text-white/75">
+            {next
+              ? `${shortRange(next.start_date, next.end_date)}${from !== null ? ` · from ${rupees(from)}` : ''}`
+              : (trek.season_label ?? trek.region)}
           </p>
         </div>
       </Link>
+    </li>
+  )
+}
+
+/** A trek that isn't bookable or listed yet. Not a link: there's no page to open. */
+function PlannedCard({
+  trek,
+  reveal,
+  delay,
+}: {
+  trek: (typeof PLANNED_TREKS)[number]
+  reveal: { inView: boolean; settled: boolean }
+  delay: number
+}) {
+  return (
+    <li style={staggerStyle(reveal, delay)} className={`${CARD_WIDTH} ${revealClass(reveal.inView)}`}>
+      <div className="relative isolate flex aspect-[3/4] flex-col justify-between overflow-hidden rounded-[1.5rem] bg-brand-950 p-5 text-white opacity-70">
+        <Ridgeline className="absolute inset-0 -z-10 size-full" />
+        <div className="absolute inset-0 -z-10 bg-gradient-to-t from-ink-950/90 via-ink-950/20 to-ink-950/30" aria-hidden="true" />
+        <span className="self-start rounded-full border border-white/25 bg-ink-950/40 px-3 py-1 text-[0.65rem] font-medium tracking-[0.18em] text-white/80 uppercase backdrop-blur-sm">
+          Upcoming
+        </span>
+        <div>
+          <h3 className="text-2xl leading-tight font-normal tracking-[-0.01em]">{trek.name}</h3>
+          <p className="mt-2 text-sm text-white/75">{trek.facts}</p>
+          <p className="mt-0.5 text-sm text-white/75">{trek.where}</p>
+        </div>
+      </div>
     </li>
   )
 }
