@@ -80,7 +80,7 @@ jobs:
           VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
           VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
           VITE_PHONE_OTP: ${{ vars.VITE_PHONE_OTP }}
-      # A page per trek with its own link preview, read from the API the backend job just deployed (docs/TRD.md §7.16).
+      # Each public page, trek and guide gets its own head tags, read from the API the backend job just deployed (docs/TRD.md §7.16).
       - run: npm run prerender
         working-directory: frontend
         env:
