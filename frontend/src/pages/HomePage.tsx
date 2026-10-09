@@ -1,13 +1,13 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { listCatalog, trekQueryOptions, type CatalogTrek, type ContentItem } from '../api/catalog.ts'
+import { listCatalog, trekQueryOptions, type CatalogTrek } from '../api/catalog.ts'
 import { messageFor } from '../auth/errorMessages.ts'
-import { WhyUs } from '../components/catalog/TrekSections.tsx'
 import { FaqList } from '../components/FaqList.tsx'
 import { FAQS } from '../lib/faqs.ts'
-import { rupees, shortRange } from '../lib/format.ts'
+import { feet, rupees, shortRange } from '../lib/format.ts'
 import { revealClass, staggerStyle, useInView } from '../lib/reveal.ts'
+import { Logo } from '../components/Logo.tsx'
 import { Ridgeline } from '../components/Ridgeline.tsx'
 import { SITE_LINKS } from '../lib/siteLinks.ts'
 import { Seo } from '../components/Seo.tsx'
@@ -220,15 +220,50 @@ function HeroSlides() {
   )
 }
 
+/** How many treks the home page shows; the rest are a tap away on /treks. */
+const HOME_TREKS = 5
+
 /**
- * Every listed trek as a row of square cards that slides sideways. A cover shares its
- * view-transition name with the trek page hero, so opening a card grows it into the hero. The trek is
- * fetched before navigating (usually already warm from hover) so the hero exists when the new page is snapshotted.
+ * Treks we're preparing that aren't in the catalog yet: shown as "Upcoming" cards that don't open anything. One
+ * drops out on its own once a trek with the same slug is added in Admin.
+ */
+const PLANNED_TREKS = [
+  { slug: 'har-ki-dun', name: 'Har Ki Dun', facts: '7 days · 11,700 ft', where: 'Sankri, Uttarkashi' },
+  { slug: 'tungnath-chandrashila', name: 'Tungnath Chandrashila', facts: '3 days · 13,000 ft', where: 'Chopta, Rudraprayag' },
+  { slug: 'dayara-bugyal', name: 'Dayara Bugyal', facts: '6 days · 12,000 ft', where: 'Raithal, Uttarkashi' },
+]
+
+/**
+ * A short row of treks, bookable ones first, then upcoming ones dimmed; arrows (or a swipe) move along it and
+ * "See all treks" leads to the catalog. Each card shares a view-transition name with the trek page hero, so opening
+ * a card grows it into the hero. The trek is fetched before navigating (usually already warm from hover) so the
+ * hero exists when the new page is snapshotted.
  */
 function Destinations() {
   const catalog = useCatalog()
-  const treks = catalog.data?.items ?? []
+  const all = catalog.data?.items ?? []
+  const listed = [...all.filter((t) => t.departures.length > 0), ...all.filter((t) => t.departures.length === 0)]
+  const planned = PLANNED_TREKS.filter((p) => !all.some((t) => t.slug === p.slug || t.slug.startsWith(`${p.slug}-`)))
+  const treks = listed.slice(0, HOME_TREKS)
+  const plannedShown = planned.slice(0, Math.max(0, HOME_TREKS - treks.length))
+  const cards = treks.length + plannedShown.length
   const { ref, ...reveal } = useInView<HTMLUListElement>()
+  const row = useRef<HTMLUListElement | null>(null)
+  const [edges, setEdges] = useState({ start: true, end: false })
+  const setRow = (el: HTMLUListElement | null) => {
+    row.current = el
+    ref(el)
+  }
+  const onScroll = () => {
+    const el = row.current
+    if (!el) return
+    setEdges({ start: el.scrollLeft <= 4, end: el.scrollLeft + el.clientWidth >= el.scrollWidth - 4 })
+  }
+  const move = (dir: 1 | -1) => {
+    const el = row.current
+    const card = el?.querySelector('li')
+    if (el && card) el.scrollBy({ left: dir * (card.clientWidth + 16), behavior: 'smooth' })
+  }
 
   return (
     <section id="treks" className="scroll-mt-16 py-20 sm:py-28">
@@ -238,15 +273,28 @@ function Destinations() {
             <Eyebrow>This season</Eyebrow>
             <h2 className="mt-4 text-4xl font-light tracking-[-0.02em] sm:text-5xl">Where we’re walking</h2>
           </div>
-          <PillLink to="/treks" dark>
-            See all treks
-          </PillLink>
+          {cards > 1 && (
+            <div className="flex gap-2">
+              {([-1, 1] as const).map((dir) => (
+                <button
+                  key={dir}
+                  type="button"
+                  onClick={() => move(dir)}
+                  disabled={dir === -1 ? edges.start : edges.end}
+                  aria-label={dir === -1 ? 'Previous treks' : 'Next treks'}
+                  className="flex size-11 items-center justify-center rounded-full border border-paper-300 text-ink-900 transition hover:bg-ink-950 hover:text-white disabled:pointer-events-none disabled:opacity-30"
+                >
+                  <Arrow className={`size-4 ${dir === -1 ? 'rotate-180' : ''}`} />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {catalog.isPending ? (
-          <ul className="-mx-5 mt-10 flex snap-x snap-mandatory scroll-px-5 gap-4 overflow-x-auto px-5 pb-2 [scrollbar-width:none] sm:-mx-10 sm:scroll-px-10 sm:px-10 [&::-webkit-scrollbar]:hidden" aria-busy="true" aria-label="Loading treks">
-            {[0, 1, 2, 3, 4].map((i) => (
-              <li key={i} className="aspect-square w-72 shrink-0 animate-pulse rounded-[1.5rem] bg-paper-200 sm:w-80" />
+          <ul className={ROW} aria-busy="true" aria-label="Loading treks">
+            {[0, 1, 2, 3].map((i) => (
+              <li key={i} className={`${CARD_WIDTH} aspect-[3/4] animate-pulse rounded-[1.5rem] bg-paper-200`} />
             ))}
           </ul>
         ) : catalog.isError ? (
@@ -260,22 +308,38 @@ function Destinations() {
               Try again
             </button>
           </div>
-        ) : treks.length === 0 ? (
+        ) : cards === 0 ? (
           <div className="mt-10 rounded-[1.5rem] border border-paper-300 bg-paper-50 p-10 text-center">
             <p className="text-2xl font-light">New departures are on the way</p>
             <p className="mt-2 text-sm text-ink-700/75">Our guides are planning the next batches. Check back soon.</p>
           </div>
         ) : (
-          <ul ref={ref} className="-mx-5 mt-10 flex snap-x snap-mandatory scroll-px-5 gap-4 overflow-x-auto px-5 pb-2 [scrollbar-width:none] sm:-mx-10 sm:scroll-px-10 sm:px-10 [&::-webkit-scrollbar]:hidden">
+          <ul ref={setRow} onScroll={onScroll} className={ROW}>
             {treks.map((t, i) => (
               <DestinationCard key={t.slug} trek={t} reveal={reveal} delay={i * 90} />
             ))}
+            {plannedShown.map((p, i) => (
+              <PlannedCard key={p.slug} trek={p} reveal={reveal} delay={(treks.length + i) * 90} />
+            ))}
           </ul>
         )}
+
+        <Link
+          to="/treks"
+          viewTransition
+          className="group mt-8 inline-flex items-center gap-2 border-b border-current pb-1 text-sm font-medium text-ink-900"
+        >
+          See all treks
+          <Arrow className="size-4 transition-transform group-hover:translate-x-1" />
+        </Link>
       </Container>
     </section>
   )
 }
+
+const ROW =
+  '-mx-5 mt-10 flex snap-x snap-mandatory scroll-px-5 gap-4 overflow-x-auto px-5 pb-2 [scrollbar-width:none] sm:-mx-10 sm:scroll-px-10 sm:px-10 [&::-webkit-scrollbar]:hidden'
+const CARD_WIDTH = 'w-64 shrink-0 snap-start sm:w-72 lg:w-[calc((100%-3rem)/4)]'
 
 function DestinationCard({
   trek,
@@ -298,9 +362,12 @@ function DestinationCard({
   }
   const from = trek.departures.length > 0 ? Math.min(...trek.departures.map((d) => d.price_paise)) : null
   const next = trek.departures[0]
+  const facts = [`${trek.duration_days} ${trek.duration_days === 1 ? 'day' : 'days'}`, trek.max_altitude_m ? feet(trek.max_altitude_m) : null]
+    .filter(Boolean)
+    .join(' · ')
 
   return (
-    <li style={staggerStyle(reveal, delay)} className={`w-72 shrink-0 snap-start sm:w-80 ${revealClass(reveal.inView)}`}>
+    <li style={staggerStyle(reveal, delay)} className={`${CARD_WIDTH} ${revealClass(reveal.inView)}`}>
       <Link
         to={to}
         viewTransition
@@ -308,7 +375,9 @@ function DestinationCard({
         onFocus={prefetch}
         onTouchStart={prefetch}
         onClick={(e) => void open(e)}
-        className="group relative isolate flex aspect-square flex-col justify-between overflow-hidden rounded-[1.5rem] bg-brand-950 p-5 text-white"
+        className={`group relative isolate flex aspect-[3/4] flex-col justify-between overflow-hidden rounded-[1.5rem] bg-brand-950 p-5 text-white transition-opacity ${
+          next ? '' : 'opacity-70 hover:opacity-100'
+        }`}
       >
         <div
           className="absolute inset-0 -z-10"
@@ -320,26 +389,23 @@ function DestinationCard({
             <Ridgeline className="size-full transition-transform duration-[1200ms] ease-out group-hover:scale-110" />
           )}
         </div>
-        <div className="absolute inset-0 -z-10 bg-gradient-to-t from-ink-950/80 via-ink-950/10 to-ink-950/20" aria-hidden="true" />
+        <div className="absolute inset-0 -z-10 bg-gradient-to-t from-ink-950/90 via-ink-950/20 to-ink-950/30" aria-hidden="true" />
 
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex flex-wrap gap-1.5">
-            {[trek.region, `${trek.duration_days} ${trek.duration_days === 1 ? 'day' : 'days'}`].map((tag) => (
-              <span key={tag} className="rounded-full border border-white/25 bg-white/15 px-2.5 py-1 text-[0.7rem] font-medium backdrop-blur-sm">
-                {tag}
-              </span>
-            ))}
-          </div>
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white text-ink-950 transition duration-300 group-hover:-rotate-45 group-hover:bg-laterite-400">
-            <Arrow className="size-4" />
-          </span>
-        </div>
+        <span
+          className={`self-start rounded-full border px-3 py-1 text-[0.65rem] font-medium tracking-[0.18em] uppercase backdrop-blur-sm ${
+            next ? 'border-brand-300/50 bg-brand-950/40 text-brand-200' : 'border-white/25 bg-ink-950/40 text-white/80'
+          }`}
+        >
+          {next ? 'Booking open' : 'Upcoming'}
+        </span>
 
         <div className="transition-transform duration-500 group-hover:-translate-y-1">
           <h3 className="text-2xl leading-tight font-normal tracking-[-0.01em]">{trek.name}</h3>
-          <p className="mt-2 text-xs text-white/75">
-            {next ? `Next ${shortRange(next.start_date, next.end_date)}` : trek.season_label ?? 'Dates coming soon'}
-            {from !== null && ` · from ${rupees(from)}`}
+          <p className="mt-2 text-sm text-white/75">{facts}</p>
+          <p className="mt-0.5 text-sm text-white/75">
+            {next
+              ? `${shortRange(next.start_date, next.end_date)}${from !== null ? ` · from ${rupees(from)}` : ''}`
+              : (trek.season_label ?? trek.region)}
           </p>
         </div>
       </Link>
@@ -347,85 +413,154 @@ function DestinationCard({
   )
 }
 
-const STEPS = [
+/** A trek that isn't bookable or listed yet. Not a link: there's no page to open. */
+function PlannedCard({
+  trek,
+  reveal,
+  delay,
+}: {
+  trek: (typeof PLANNED_TREKS)[number]
+  reveal: { inView: boolean; settled: boolean }
+  delay: number
+}) {
+  return (
+    <li style={staggerStyle(reveal, delay)} className={`${CARD_WIDTH} ${revealClass(reveal.inView)}`}>
+      <div className="relative isolate flex aspect-[3/4] flex-col justify-between overflow-hidden rounded-[1.5rem] bg-brand-950 p-5 text-white opacity-70">
+        <Ridgeline className="absolute inset-0 -z-10 size-full" />
+        <div className="absolute inset-0 -z-10 bg-gradient-to-t from-ink-950/90 via-ink-950/20 to-ink-950/30" aria-hidden="true" />
+        <span className="self-start rounded-full border border-white/25 bg-ink-950/40 px-3 py-1 text-[0.65rem] font-medium tracking-[0.18em] text-white/80 uppercase backdrop-blur-sm">
+          Upcoming
+        </span>
+        <div>
+          <h3 className="text-2xl leading-tight font-normal tracking-[-0.01em]">{trek.name}</h3>
+          <p className="mt-2 text-sm text-white/75">{trek.facts}</p>
+          <p className="mt-0.5 text-sm text-white/75">{trek.where}</p>
+        </div>
+      </div>
+    </li>
+  )
+}
+
+const STEPS: { title: string; body: ReactNode; icon: ReactNode }[] = [
   {
     title: 'Pick a trek',
-    body: 'Open any route to see every upcoming departure — the guide running it and the date.',
-    icon: (
-      <path d="M3 17 8 7l3 5 2-3 4 8H3Z M14.5 5.5a1.5 1.5 0 1 0 0-.01" strokeLinejoin="round" />
+    body: (
+      <>
+        You’ll find every departure listed in the{' '}
+        <Link to="/treks" viewTransition className="underline decoration-laterite-400/60 underline-offset-4 hover:text-ink-900">
+          All Treks
+        </Link>{' '}
+        section.
+      </>
     ),
+    // The brand mark itself, drawn large: the trek is where it starts.
+    icon: <Logo onLight className="h-auto w-[4.5rem]" />,
   },
   {
     title: 'Choose your guide',
-    body: 'See where they live, the treks they have led, their credentials and what past trekkers said.',
+    body: 'See the months and dates each guide is leading the trek. Pick your date and guide, then open the departure for the details.',
     icon: (
-      <>
+      <StepIcon>
         <circle cx="10" cy="7" r="3" />
         <path d="M4 17c.8-3.2 3.1-5 6-5s5.2 1.8 6 5" strokeLinecap="round" />
-      </>
+      </StepIcon>
     ),
   },
   {
     title: 'Book your departure',
-    body: 'Hold your seats and pay in one go. Walk with a small group and get to know the local culture along the way.',
-    icon: <path d="M2.5 16.5 10 4l7.5 12.5M7 16.5 10 11l3 5.5M1.5 16.5h17" strokeLinecap="round" strokeLinejoin="round" />,
+    body: 'Check the guide’s credentials and experience in detail, then book your seat and pay in one go.',
+    icon: (
+      <StepIcon>
+        <rect x="3" y="4.5" width="14" height="12.5" rx="2" />
+        <path d="M3 8.5h14M7 2.5v4M13 2.5v4M7.5 12.5l1.75 1.75L12.5 11" strokeLinecap="round" strokeLinejoin="round" />
+      </StepIcon>
+    ),
   },
 ]
+
+function StepIcon({ children }: { children: ReactNode }) {
+  return (
+    <svg viewBox="0 0 20 20" className="size-11" fill="none" stroke="currentColor" strokeWidth="1.2" aria-hidden="true">
+      {children}
+    </svg>
+  )
+}
 
 function HowItWorks() {
   const { ref, ...steps } = useInView<HTMLOListElement>()
   return (
     <section id="how-it-works" className="scroll-mt-16 py-20 sm:py-28">
       <Container>
-        <div className="mx-auto max-w-2xl text-center">
+        <div className="mx-auto max-w-3xl text-center">
           <div className="flex justify-center">
-            <Eyebrow>How it works</Eyebrow>
+            <Eyebrow>How to book</Eyebrow>
           </div>
+          <h2 className="mt-4 text-4xl font-light tracking-[-0.02em] sm:text-5xl">Book your trek in 3 simple steps</h2>
         </div>
-        <ol ref={ref} className="relative mt-14 grid gap-10 md:grid-cols-3 md:gap-8">
-          {/* The trail between the steps draws itself left to right. */}
+        <ol ref={ref} className="relative mx-auto mt-14 grid max-w-6xl gap-12 md:mt-16 md:grid-cols-3 md:gap-8">
+          {/* The trail between the circles draws itself left to right. */}
           <span
             aria-hidden="true"
-            className={`trail-draw absolute top-8 right-[16.6%] left-[16.6%] hidden origin-left border-t-2 border-dashed border-pine-400/60 transition-transform duration-[1600ms] ease-out md:block ${
+            className={`absolute top-14 right-[16.6%] left-[16.6%] hidden h-px origin-left bg-laterite-400/50 transition-transform duration-[1600ms] ease-out md:block ${
               steps.inView ? 'scale-x-100' : 'scale-x-0'
             }`}
           />
           {STEPS.map((step, i) => (
             <li key={step.title} style={staggerStyle(steps, 200 + i * 250)} className={`group relative text-center ${revealClass(steps.inView)}`}>
-              <span className="relative mx-auto flex size-16 items-center justify-center rounded-full border border-paper-300 bg-white text-pine-600 shadow-sm transition duration-300 group-hover:-translate-y-1 group-hover:bg-pine-600 group-hover:text-white">
-                <svg viewBox="0 0 20 20" className="size-6" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-                  {step.icon}
-                </svg>
-                <span className="absolute -top-1 -right-1 flex size-6 items-center justify-center rounded-full bg-ink-950 text-[0.7rem] text-white">
-                  {i + 1}
-                </span>
+              <span className="relative mx-auto flex size-28 items-center justify-center rounded-full border border-laterite-400 bg-paper-50 text-laterite-600 transition duration-300 group-hover:-translate-y-1">
+                {step.icon}
               </span>
-              <h3 className="mt-6 text-xl">{step.title}</h3>
-              <p className="mx-auto mt-2 max-w-xs text-sm leading-relaxed text-ink-700/80">{step.body}</p>
+              <p className="mt-6 text-xs font-medium tracking-[0.2em] text-laterite-600 uppercase">Step {i + 1}</p>
+              <h3 className="mt-3 text-2xl font-semibold tracking-[-0.01em]">{step.title}</h3>
+              <p className="mx-auto mt-3 max-w-xs text-sm leading-relaxed text-ink-700/80">{step.body}</p>
             </li>
           ))}
         </ol>
+        <p className="mx-auto mt-14 flex max-w-5xl flex-wrap items-center justify-center gap-x-3 gap-y-2 rounded-3xl border border-paper-300 px-6 py-4 text-center text-sm text-ink-700/80 sm:mt-16 sm:rounded-full">
+          <svg viewBox="0 0 20 20" className="size-5 shrink-0 text-laterite-600" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+            <circle cx="10" cy="7" r="3" />
+            <path d="M4 17c.8-3.2 3.1-5 6-5s5.2 1.8 6 5" strokeLinecap="round" />
+          </svg>
+          <span>
+            <strong className="font-semibold text-ink-900">Already know who you want to trek with?</strong> Pick your guide first, then
+            choose a date they’re leading the trek you want.
+          </span>
+          <Link to="/guides" viewTransition className="font-semibold whitespace-nowrap text-laterite-600 hover:underline">
+            Browse guides →
+          </Link>
+        </p>
       </Container>
     </section>
   )
 }
 
-/** The trek page's "Why choose" cards, with the same copy. */
-const WHY_US: ContentItem[] = [
-  { badge: '1', title: 'Know who you’re going with', body: 'We believe you should know whom you are going with, and you should have the flexibility to choose. […]' },
-  { badge: 'NIM', title: 'Guides who know this route', body: 'We onboard guides who are well qualified and have led treks on this same route before. […]' },
-  { badge: '1%', title: '1% to [named cancer foundation]', body: 'From every booking. The rest runs the company.' },
-  { badge: 'Local', title: 'See the local culture', body: 'We want you to see the local culture, and the whole arrangement is made according to it.' },
+/** Three numbers that set us apart, each with the promise behind it. */
+const WHY_US = [
+  { stat: '10', title: 'trekkers, maximum', body: 'Most trek companies take 25 to 30 people, sometimes even 40.' },
+  {
+    stat: '1',
+    title: 'certified guide, chosen by you',
+    body: 'See their profile and pick them by name before you pay. A co-guide joins every trek for additional support and safety.',
+  },
+  { stat: '100%', title: 'guides verified', body: 'Credentials, certificates and experience are strictly evaluated before listing.' },
 ]
 
 function WhyChooseUs() {
   return (
     <section id="why-us" className="scroll-mt-16 py-20 sm:py-28">
       <Container>
-        <Eyebrow>Why choose The Empty Valley</Eyebrow>
-        <div className="mt-8">
-          <WhyUs items={WHY_US} />
-        </div>
+        <h2 className="text-center text-4xl font-light tracking-[-0.02em] sm:text-5xl">Why choose The Empty Valley</h2>
+        <ul className="mt-12 grid divide-y divide-paper-300 sm:mt-16 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+          {WHY_US.map((item) => (
+            <li key={item.title} className="px-6 py-8 text-center first:pt-0 last:pb-0 sm:py-0">
+              <p className="text-7xl leading-none font-extralight tracking-[-0.03em] text-laterite-400 sm:text-8xl">
+                {item.stat}
+              </p>
+              <h3 className="mt-6 text-lg font-semibold">{item.title}</h3>
+              <p className="mx-auto mt-3 max-w-xs text-sm leading-relaxed text-ink-700/80">{item.body}</p>
+            </li>
+          ))}
+        </ul>
       </Container>
     </section>
   )
@@ -443,7 +578,7 @@ function Faq() {
           </p>
           <div className="mt-6">
             <PillLink to={SITE_LINKS.faqs} dark>
-              Something else in mind?
+              Explore more queries!
             </PillLink>
           </div>
         </div>

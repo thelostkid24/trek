@@ -98,7 +98,7 @@ export type Booking = {
 
 export type TravellerInput = { full_name: string; phone: string | null; date_of_birth: string; gender: Gender } & TravellerAddons
 
-/** Signed in: contact fields left out come from the account. Travellers can wait until after payment. */
+/** Signed in: contact fields left out come from the account. Checkout sends every traveller; the API also allows none. */
 export type NewBooking = {
   departure_id: string
   seats: number
@@ -115,6 +115,7 @@ export type NewGuestBooking = {
   full_name: string
   phone: string
   email: string
+  travellers?: TravellerInput[]
 }
 
 export type GuestBookingResult = { booking: Booking; auth: AuthResponse }

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useParams } from 'react-router-dom'
 import { CANCEL_REASON_LABEL } from '../../api/admin.ts'
 import {
   cancelBooking,
@@ -10,24 +10,22 @@ import {
   updateTravellers,
   type Booking,
   type Refund,
-  type TravellerInput,
 } from '../../api/bookings.ts'
 import { getDeparture } from '../../api/catalog.ts'
 import { ApiError } from '../../api/client.ts'
 import { describeMethod } from '../../api/payments.ts'
-import type { Gender } from '../../api/profile.ts'
 import { fieldErrors, messageFor } from '../../auth/errorMessages.ts'
 import { useAuth } from '../../auth/useAuth.ts'
-import { TextField } from '../../components/auth/TextField.tsx'
 import { Avatar } from '../../components/Avatar.tsx'
 import { GuestNotice } from '../../components/booking/GuestNotice.tsx'
 import { BookingStatusBadge } from '../../components/booking/BookingStatusBadge.tsx'
 import { MoreMenu } from '../../components/booking/MoreMenu.tsx'
 import { ReviewSection } from '../../components/booking/ReviewSection.tsx'
+import { TravellerFields } from '../../components/booking/TravellerFields.tsx'
 import { usePayForBooking, type PayOutcome } from '../../components/booking/usePayForBooking.ts'
 import { clock, useSecondsUntil } from '../../components/booking/useSecondsUntil.ts'
-import { SelectField } from '../../components/profile/fields.tsx'
 import { addonsOffered, type OfferedAddon } from '../../lib/addons.ts'
+import { addonLines, blankTraveller, toInput, type TravellerDraft } from '../../lib/travellers.ts'
 import { dateRange, dateTime, longDate, rupees, todayIst } from '../../lib/format.ts'
 
 /** /account/bookings/:id — rendered inside <RequireAuth role="TREKKER">. */
@@ -223,8 +221,6 @@ function Detail({ booking: b }: { booking: Booking }) {
 function PayPanel({ booking }: { booking: Booking }) {
   const { withAuth } = useAuth()
   const queryClient = useQueryClient()
-  const location = useLocation()
-  const navigate = useNavigate()
   const seconds = useSecondsUntil(booking.hold_expires_at)
   const pay = usePayForBooking(booking)
   const [outcome, setOutcome] = useState<PayOutcome | null>(null)
@@ -242,16 +238,6 @@ function PayPanel({ booking }: { booking: Booking }) {
     setOutcome(null)
     mutate(undefined, { onSuccess: setOutcome })
   }, [mutate])
-
-  // Coming straight from the booking form: open Checkout once, and drop the flag so a reload doesn't reopen it.
-  const autoStarted = useRef(false)
-  const wantsPay = (location.state as { pay?: boolean } | null)?.pay === true
-  useEffect(() => {
-    if (!wantsPay || autoStarted.current) return
-    autoStarted.current = true
-    navigate(location.pathname, { replace: true, state: null })
-    start()
-  }, [wantsPay, navigate, location.pathname, start])
 
   const expired = seconds === 0
   const error = pay.error ?? release.error
@@ -315,27 +301,8 @@ function PayPanel({ booking }: { booking: Booking }) {
   )
 }
 
-const GENDERS: { value: Gender; label: string }[] = [
-  { value: 'FEMALE', label: 'Female' },
-  { value: 'MALE', label: 'Male' },
-  { value: 'NON_BINARY', label: 'Non-binary' },
-  { value: 'PREFER_NOT_TO_SAY', label: 'Prefer not to say' },
-]
-
-type TravellerDraft = {
-  full_name: string
-  phone: string
-  date_of_birth: string
-  gender: Gender | ''
-  insurance: boolean
-  insurance_id: string
-  offloading: boolean
-  transport: boolean
-}
-
 /** Saved travellers, else blanks; the booker is usually the first. Our insurance starts ticked where it's offered. */
 function initialDrafts(b: Booking, offered: OfferedAddon[]): TravellerDraft[] {
-  const insuranceOffered = offered.some((a) => a.key === 'insurance')
   return Array.from({ length: b.seats }, (_, i) => {
     const t = b.travellers[i]
     if (t) {
@@ -350,22 +317,9 @@ function initialDrafts(b: Booking, offered: OfferedAddon[]): TravellerDraft[] {
         transport: t.transport,
       }
     }
-    const blank = { phone: '', date_of_birth: '', gender: '' as const, insurance: insuranceOffered, insurance_id: '', offloading: false, transport: false }
-    return i === 0 ? { ...blank, full_name: b.contact.full_name ?? '', phone: b.contact.phone ?? '' } : { ...blank, full_name: '' }
+    const blank = blankTraveller(offered)
+    return i === 0 ? { ...blank, full_name: b.contact.full_name ?? '', phone: b.contact.phone ?? '' } : blank
   })
-}
-
-function toInput(t: TravellerDraft): TravellerInput {
-  return {
-    full_name: t.full_name.trim(),
-    phone: t.phone.trim() === '' ? null : t.phone.trim(),
-    date_of_birth: t.date_of_birth,
-    gender: t.gender as Gender,
-    insurance: t.insurance,
-    insurance_id: t.insurance ? null : t.insurance_id.trim() || null,
-    offloading: t.offloading,
-    transport: t.transport,
-  }
 }
 
 /** Names every seat (after payment where no add-ons are on offer). Changeable until the start date; paid add-ons aren't. */
@@ -488,110 +442,6 @@ function addonSummary(t: Booking['travellers'][number]): string {
   return parts.length > 0 ? parts.join(' · ') : (t.phone ?? '')
 }
 
-/** One traveller: who they are, then their add-ons. Our insurance is on unless they give their own policy ID. */
-function TravellerFields({
-  index: i,
-  traveller: t,
-  update,
-  errors,
-  startDate,
-  offered,
-  addonsLocked,
-}: {
-  index: number
-  traveller: TravellerDraft
-  update: (patch: Partial<TravellerDraft>) => void
-  errors: Record<string, string>
-  startDate: string
-  offered: OfferedAddon[]
-  addonsLocked: boolean
-}) {
-  const insurance = offered.find((a) => a.key === 'insurance')
-  const extras = offered.filter((a) => a.key !== 'insurance')
-  return (
-    <>
-      <p className="text-sm font-semibold text-stone-800">Traveller {i + 1}</p>
-      <div className="mt-3 grid gap-4 sm:grid-cols-2">
-        <TextField label="Full name" name={`travellers-${i}-full_name`} required maxLength={100} value={t.full_name}
-          onChange={(e) => update({ full_name: e.target.value })} error={errors[`travellers[${i}].full_name`]} />
-        <TextField label="Mobile (optional)" name={`travellers-${i}-phone`} type="tel" placeholder="+919876543210" value={t.phone}
-          onChange={(e) => update({ phone: e.target.value })} error={errors[`travellers[${i}].phone`]} />
-        <TextField label="Date of birth" name={`travellers-${i}-date_of_birth`} type="date" required max={startDate}
-          value={t.date_of_birth} onChange={(e) => update({ date_of_birth: e.target.value })}
-          error={errors[`travellers[${i}].date_of_birth`]} />
-        <SelectField label="Gender" name={`travellers-${i}-gender`} required value={t.gender}
-          onChange={(e) => update({ gender: e.target.value as Gender | '' })} options={GENDERS}
-          error={errors[`travellers[${i}].gender`]} hint="Helps your guide plan tents and rooms." />
-      </div>
-
-      {offered.length > 0 && (
-        <fieldset className="mt-4 rounded-xl bg-paper-100 p-4" disabled={addonsLocked}>
-          <legend className="sr-only">Add-ons for traveller {i + 1}</legend>
-          {insurance && (
-            <div>
-              <AddonCheck
-                name={`travellers-${i}-insurance`}
-                checked={t.insurance}
-                onChange={(on) => update({ insurance: on })}
-                label={insurance.label}
-                price={insurance.price}
-                note="Required for everyone. Untick if you have your own."
-                error={errors[`travellers[${i}].insurance`]}
-              />
-              {!t.insurance && (
-                <div className="mt-3 pl-7">
-                  <TextField label="Your insurance policy ID" name={`travellers-${i}-insurance_id`} required={!addonsLocked}
-                    maxLength={60} value={t.insurance_id} onChange={(e) => update({ insurance_id: e.target.value })}
-                    error={errors[`travellers[${i}].insurance_id`]} hint="The policy must cover trekking at this altitude." />
-                </div>
-              )}
-            </div>
-          )}
-          {extras.map((a) => (
-            <div key={a.key} className={insurance || a !== extras[0] ? 'mt-3 border-t border-paper-300 pt-3' : ''}>
-              <AddonCheck
-                name={`travellers-${i}-${a.key}`}
-                checked={a.key === 'offloading' ? t.offloading : t.transport}
-                onChange={(on) => update(a.key === 'offloading' ? { offloading: on } : { transport: on })}
-                label={a.label}
-                price={a.price}
-                note={a.note}
-                error={errors[`travellers[${i}].${a.key}`]}
-              />
-            </div>
-          ))}
-          {addonsLocked && <p className="mt-3 text-xs text-stone-500">Paid add-ons can't be changed.</p>}
-        </fieldset>
-      )}
-    </>
-  )
-}
-
-function AddonCheck({ name, checked, onChange, label, price, note, error }: {
-  name: string
-  checked: boolean
-  onChange: (on: boolean) => void
-  label: string
-  price: number
-  note: string
-  error?: string
-}) {
-  return (
-    <label htmlFor={name} className="flex cursor-pointer items-start gap-3">
-      <input id={name} name={name} type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)}
-        className="mt-1 size-4 accent-pine-600" />
-      <span className="min-w-0 flex-1">
-        <span className="flex justify-between gap-3 text-sm font-medium text-stone-900">
-          {label}
-          <span className="tabular-nums">{rupees(price)}</span>
-        </span>
-        <span className="block text-xs text-stone-500">{note}</span>
-        {error && <span className="block text-xs text-laterite-600">{error}</span>}
-      </span>
-    </label>
-  )
-}
-
 /**
  * Held seats with add-ons on offer: who's coming, each with their insurance (ours, or their own policy ID),
  * offloading and transport, beside a price that follows every tick. Paying saves them first, so the order is
@@ -621,9 +471,7 @@ function HeldCheckout({ booking: b, offered, children }: { booking: Booking; off
     setDrafts((current) => current.map((t, i) => (i === index ? { ...t, ...patch } : t)))
 
   const fee = b.price_paise_per_seat * b.seats
-  const lines = offered
-    .map((a) => ({ ...a, count: drafts.filter((t) => t[a.key]).length }))
-    .filter((a) => a.count > 0)
+  const lines = addonLines(drafts, offered)
   const total = fee + lines.reduce((sum, a) => sum + a.count * a.price, 0)
   const ownPolicies = drafts.filter((t) => !t.insurance && t.insurance_id.trim() !== '').length
 

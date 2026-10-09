@@ -322,10 +322,6 @@ form > .profile-card:nth-of-type(5) { --card-i: 5; }
   animation-delay: var(--d, 0ms);
 }
 
-.trail-draw {
-  stroke-dasharray: 6 8;
-}
-
 @keyframes drift {
   from {
     transform: translateY(-6%) scale(1.12);

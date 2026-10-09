@@ -14,15 +14,18 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 /**
  * Order → Checkout → verify. When Checkout closes without success, the payment is polled briefly because a
- * webhook may already have completed it.
+ * webhook may already have completed it. Checkout, which holds the seats just before paying, passes the
+ * booking to `mutate` instead.
  */
-export function usePayForBooking(booking: Booking) {
+export function usePayForBooking(booking?: Booking) {
   const { withAuth } = useAuth()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (): Promise<PayOutcome> => {
-      const order = await withAuth((token) => createPaymentOrder(token, booking.id))
+    mutationFn: async (target?: Booking): Promise<PayOutcome> => {
+      const b = target ?? booking
+      if (!b) throw new Error('No booking to pay for')
+      const order = await withAuth((token) => createPaymentOrder(token, b.id))
       const result = await openCheckout(order)
       if (result.kind === 'success') {
         const payment = await withAuth((token) => verifyPayment(token, order.payment_id, result.response))
@@ -35,10 +38,13 @@ export function usePayForBooking(booking: Booking) {
       }
       return { kind: 'closed', lastError: result.lastError }
     },
-    onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: ['booking', booking.id] })
+    onSettled: (_data, _error, target) => {
+      const b = target ?? booking
+      if (b) {
+        void queryClient.invalidateQueries({ queryKey: ['booking', b.id] })
+        void queryClient.invalidateQueries({ queryKey: ['public-departure', b.departure.id] })
+      }
       void queryClient.invalidateQueries({ queryKey: ['bookings'] })
-      void queryClient.invalidateQueries({ queryKey: ['public-departure', booking.departure.id] })
       void queryClient.invalidateQueries({ queryKey: ['public-departures'] })
     },
   })

@@ -196,7 +196,7 @@ function BookingCard({ departure: d }: { departure: DepartureSummary }) {
       </p>
       {d.bookable ? (
         <Link to={`/book/${d.id}`} className="mt-5 block rounded-full bg-brand-900 px-4 py-3.5 text-center font-semibold text-white hover:bg-brand-800">
-          Book these dates
+          Proceed with booking
         </Link>
       ) : (
         <p className="mt-4 text-sm font-medium text-stone-500">{d.seats_left === 0 ? 'Batch full' : 'Bookings closed'}</p>
