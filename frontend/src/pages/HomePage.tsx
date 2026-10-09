@@ -1,13 +1,13 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { listCatalog, trekQueryOptions, type CatalogTrek, type ContentItem } from '../api/catalog.ts'
+import { listCatalog, trekQueryOptions, type CatalogTrek } from '../api/catalog.ts'
 import { messageFor } from '../auth/errorMessages.ts'
-import { WhyUs } from '../components/catalog/TrekSections.tsx'
 import { FaqList } from '../components/FaqList.tsx'
 import { FAQS } from '../lib/faqs.ts'
 import { rupees, shortRange } from '../lib/format.ts'
 import { revealClass, staggerStyle, useInView } from '../lib/reveal.ts'
+import { Logo } from '../components/Logo.tsx'
 import { Ridgeline } from '../components/Ridgeline.tsx'
 import { SITE_LINKS } from '../lib/siteLinks.ts'
 import { Seo } from '../components/Seo.tsx'
@@ -347,85 +347,126 @@ function DestinationCard({
   )
 }
 
-const STEPS = [
+const STEPS: { title: string; body: ReactNode; icon: ReactNode }[] = [
   {
     title: 'Pick a trek',
-    body: 'Open any route to see every upcoming departure — the guide running it and the date.',
-    icon: (
-      <path d="M3 17 8 7l3 5 2-3 4 8H3Z M14.5 5.5a1.5 1.5 0 1 0 0-.01" strokeLinejoin="round" />
+    body: (
+      <>
+        You’ll find every departure listed in the{' '}
+        <Link to="/treks" viewTransition className="underline decoration-laterite-400/60 underline-offset-4 hover:text-ink-900">
+          All Treks
+        </Link>{' '}
+        section.
+      </>
     ),
+    // The brand mark itself, drawn large: the trek is where it starts.
+    icon: <Logo onLight className="h-auto w-[4.5rem]" />,
   },
   {
     title: 'Choose your guide',
-    body: 'See where they live, the treks they have led, their credentials and what past trekkers said.',
+    body: 'See the months and dates each guide is leading the trek. Pick your date and guide, then open the departure for the details.',
     icon: (
-      <>
+      <StepIcon>
         <circle cx="10" cy="7" r="3" />
         <path d="M4 17c.8-3.2 3.1-5 6-5s5.2 1.8 6 5" strokeLinecap="round" />
-      </>
+      </StepIcon>
     ),
   },
   {
     title: 'Book your departure',
-    body: 'Hold your seats and pay in one go. Walk with a small group and get to know the local culture along the way.',
-    icon: <path d="M2.5 16.5 10 4l7.5 12.5M7 16.5 10 11l3 5.5M1.5 16.5h17" strokeLinecap="round" strokeLinejoin="round" />,
+    body: 'Check the guide’s credentials and experience in detail, then book your seat and pay in one go.',
+    icon: (
+      <StepIcon>
+        <rect x="3" y="4.5" width="14" height="12.5" rx="2" />
+        <path d="M3 8.5h14M7 2.5v4M13 2.5v4M7.5 12.5l1.75 1.75L12.5 11" strokeLinecap="round" strokeLinejoin="round" />
+      </StepIcon>
+    ),
   },
 ]
+
+function StepIcon({ children }: { children: ReactNode }) {
+  return (
+    <svg viewBox="0 0 20 20" className="size-11" fill="none" stroke="currentColor" strokeWidth="1.2" aria-hidden="true">
+      {children}
+    </svg>
+  )
+}
 
 function HowItWorks() {
   const { ref, ...steps } = useInView<HTMLOListElement>()
   return (
     <section id="how-it-works" className="scroll-mt-16 py-20 sm:py-28">
       <Container>
-        <div className="mx-auto max-w-2xl text-center">
+        <div className="mx-auto max-w-3xl text-center">
           <div className="flex justify-center">
-            <Eyebrow>How it works</Eyebrow>
+            <Eyebrow>How to book</Eyebrow>
           </div>
+          <h2 className="mt-4 text-4xl font-light tracking-[-0.02em] sm:text-5xl">Book your trek in 3 simple steps</h2>
         </div>
-        <ol ref={ref} className="relative mt-14 grid gap-10 md:grid-cols-3 md:gap-8">
-          {/* The trail between the steps draws itself left to right. */}
+        <ol ref={ref} className="relative mx-auto mt-14 grid max-w-6xl gap-12 md:mt-16 md:grid-cols-3 md:gap-8">
+          {/* The trail between the circles draws itself left to right. */}
           <span
             aria-hidden="true"
-            className={`trail-draw absolute top-8 right-[16.6%] left-[16.6%] hidden origin-left border-t-2 border-dashed border-pine-400/60 transition-transform duration-[1600ms] ease-out md:block ${
+            className={`absolute top-14 right-[16.6%] left-[16.6%] hidden h-px origin-left bg-laterite-400/50 transition-transform duration-[1600ms] ease-out md:block ${
               steps.inView ? 'scale-x-100' : 'scale-x-0'
             }`}
           />
           {STEPS.map((step, i) => (
             <li key={step.title} style={staggerStyle(steps, 200 + i * 250)} className={`group relative text-center ${revealClass(steps.inView)}`}>
-              <span className="relative mx-auto flex size-16 items-center justify-center rounded-full border border-paper-300 bg-white text-pine-600 shadow-sm transition duration-300 group-hover:-translate-y-1 group-hover:bg-pine-600 group-hover:text-white">
-                <svg viewBox="0 0 20 20" className="size-6" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-                  {step.icon}
-                </svg>
-                <span className="absolute -top-1 -right-1 flex size-6 items-center justify-center rounded-full bg-ink-950 text-[0.7rem] text-white">
-                  {i + 1}
-                </span>
+              <span className="relative mx-auto flex size-28 items-center justify-center rounded-full border border-laterite-400 bg-paper-50 text-laterite-600 transition duration-300 group-hover:-translate-y-1">
+                {step.icon}
               </span>
-              <h3 className="mt-6 text-xl">{step.title}</h3>
-              <p className="mx-auto mt-2 max-w-xs text-sm leading-relaxed text-ink-700/80">{step.body}</p>
+              <p className="mt-6 text-xs font-medium tracking-[0.2em] text-laterite-600 uppercase">Step {i + 1}</p>
+              <h3 className="mt-3 text-2xl font-semibold tracking-[-0.01em]">{step.title}</h3>
+              <p className="mx-auto mt-3 max-w-xs text-sm leading-relaxed text-ink-700/80">{step.body}</p>
             </li>
           ))}
         </ol>
+        <p className="mx-auto mt-14 flex max-w-5xl flex-wrap items-center justify-center gap-x-3 gap-y-2 rounded-3xl border border-paper-300 px-6 py-4 text-center text-sm text-ink-700/80 sm:mt-16 sm:rounded-full">
+          <svg viewBox="0 0 20 20" className="size-5 shrink-0 text-laterite-600" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+            <circle cx="10" cy="7" r="3" />
+            <path d="M4 17c.8-3.2 3.1-5 6-5s5.2 1.8 6 5" strokeLinecap="round" />
+          </svg>
+          <span>
+            <strong className="font-semibold text-ink-900">Already know who you want to trek with?</strong> Pick your guide first, then
+            choose a date they’re leading the trek you want.
+          </span>
+          <Link to="/guides" viewTransition className="font-semibold whitespace-nowrap text-laterite-600 hover:underline">
+            Browse guides →
+          </Link>
+        </p>
       </Container>
     </section>
   )
 }
 
-/** The trek page's "Why choose" cards, with the same copy. */
-const WHY_US: ContentItem[] = [
-  { badge: '1', title: 'Know who you’re going with', body: 'We believe you should know whom you are going with, and you should have the flexibility to choose. […]' },
-  { badge: 'NIM', title: 'Guides who know this route', body: 'We onboard guides who are well qualified and have led treks on this same route before. […]' },
-  { badge: '1%', title: '1% to [named cancer foundation]', body: 'From every booking. The rest runs the company.' },
-  { badge: 'Local', title: 'See the local culture', body: 'We want you to see the local culture, and the whole arrangement is made according to it.' },
+/** Three numbers that set us apart, each with the promise behind it. */
+const WHY_US = [
+  { stat: '10', title: 'trekkers, maximum', body: 'Most trek companies take 25 to 30 people, sometimes even 40.' },
+  {
+    stat: '1',
+    title: 'certified guide, chosen by you',
+    body: 'See their profile and pick them by name before you pay. A co-guide joins every trek for additional support and safety.',
+  },
+  { stat: '100%', title: 'guides verified', body: 'Credentials, certificates and experience are strictly evaluated before listing.' },
 ]
 
 function WhyChooseUs() {
   return (
     <section id="why-us" className="scroll-mt-16 py-20 sm:py-28">
       <Container>
-        <Eyebrow>Why choose The Empty Valley</Eyebrow>
-        <div className="mt-8">
-          <WhyUs items={WHY_US} />
-        </div>
+        <h2 className="text-center text-4xl font-light tracking-[-0.02em] sm:text-5xl">Why choose The Empty Valley</h2>
+        <ul className="mt-12 grid divide-y divide-paper-300 sm:mt-16 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+          {WHY_US.map((item) => (
+            <li key={item.title} className="px-6 py-8 text-center first:pt-0 last:pb-0 sm:py-0">
+              <p className="text-7xl leading-none font-extralight tracking-[-0.03em] text-laterite-400 sm:text-8xl">
+                {item.stat}
+              </p>
+              <h3 className="mt-6 text-lg font-semibold">{item.title}</h3>
+              <p className="mx-auto mt-3 max-w-xs text-sm leading-relaxed text-ink-700/80">{item.body}</p>
+            </li>
+          ))}
+        </ul>
       </Container>
     </section>
   )
@@ -443,7 +484,7 @@ function Faq() {
           </p>
           <div className="mt-6">
             <PillLink to={SITE_LINKS.faqs} dark>
-              Something else in mind?
+              Explore more queries!
             </PillLink>
           </div>
         </div>
