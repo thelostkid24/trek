@@ -8,7 +8,7 @@ import { SelectField } from '../profile/fields.tsx'
 // One traveller's form (who they are, then their add-ons), shared by checkout and the booking page.
 
 
-/** One traveller: who they are, then their add-ons. Our insurance is on unless they give their own policy ID. */
+/** One traveller: who they are, then their add-ons. Our insurance is compulsory where offered. */
 export function TravellerFields({
   index: i,
   traveller: t,
@@ -51,7 +51,10 @@ export function TravellerFields({
   )
 }
 
-/** One traveller's add-ons. Our insurance is on unless they give their own policy ID. */
+/**
+ * One traveller's add-ons. Our insurance is compulsory wherever the trek offers it, so it's always ticked and can't be
+ * unticked; a paid booking from before that shows the policy it was paid with.
+ */
 export function AddonFields({
   index: i,
   traveller: t,
@@ -73,24 +76,16 @@ export function AddonFields({
     <fieldset disabled={locked}>
       <legend className="sr-only">Add-ons for traveller {i + 1}</legend>
       {insurance && (
-        <div>
-          <AddonCheck
-            name={`travellers-${i}-insurance`}
-            checked={t.insurance}
-            onChange={(on) => update({ insurance: on })}
-            label={insurance.label}
-            price={insurance.price}
-            note="Required for everyone. Untick if you have your own."
-            error={errors[`travellers[${i}].insurance`]}
-          />
-          {!t.insurance && (
-            <div className="mt-3 pl-7">
-              <TextField label="Your insurance policy ID" name={`travellers-${i}-insurance_id`} required={!locked}
-                maxLength={60} value={t.insurance_id} onChange={(e) => update({ insurance_id: e.target.value })}
-                error={errors[`travellers[${i}].insurance_id`]} hint="The policy must cover trekking at this altitude." />
-            </div>
-          )}
-        </div>
+        <AddonCheck
+          name={`travellers-${i}-insurance`}
+          checked={t.insurance}
+          onChange={() => {}}
+          disabled
+          label={insurance.label}
+          price={insurance.price}
+          note={!t.insurance && t.insurance_id ? `Own policy ${t.insurance_id}` : 'Required for everyone on this trek.'}
+          error={errors[`travellers[${i}].insurance`]}
+        />
       )}
       {extras.map((a) => (
         <div key={a.key} className={insurance || a !== extras[0] ? 'mt-3 border-t border-paper-300 pt-3' : ''}>
@@ -110,19 +105,20 @@ export function AddonFields({
   )
 }
 
-function AddonCheck({ name, checked, onChange, label, price, note, error }: {
+function AddonCheck({ name, checked, onChange, disabled = false, label, price, note, error }: {
   name: string
   checked: boolean
   onChange: (on: boolean) => void
+  disabled?: boolean
   label: string
   price: number
   note: string
   error?: string
 }) {
   return (
-    <label htmlFor={name} className="flex cursor-pointer items-start gap-3">
-      <input id={name} name={name} type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)}
-        className="mt-1 size-4 accent-pine-600" />
+    <label htmlFor={name} className={`flex items-start gap-3 ${disabled ? '' : 'cursor-pointer'}`}>
+      <input id={name} name={name} type="checkbox" checked={checked} disabled={disabled}
+        onChange={(e) => onChange(e.target.checked)} className="mt-1 size-4 accent-pine-600 disabled:opacity-100" />
       <span className="min-w-0 flex-1">
         <span className="flex justify-between gap-3 text-sm font-medium text-stone-900">
           {label}
