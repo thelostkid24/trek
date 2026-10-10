@@ -583,8 +583,6 @@ function Checkout({ departure, user }: { departure: DepartureDetail; user: User 
           <ul className="mt-4 space-y-1.5 text-xs text-stone-600">
             <li>✓ Your seats are held for 10 minutes while you pay.</li>
             <li>✓ Pay by UPI, card or netbanking.</li>
-            <li>✓ Cancel 15+ days before for a 90% refund, 7–14 days for 50%.</li>
-            <li>✓ Full refund if weather, permits or safety stop the trek.</li>
           </ul>
           <div className="mt-5 space-y-2 empty:hidden">
             <Alerts

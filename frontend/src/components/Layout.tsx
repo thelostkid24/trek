@@ -14,7 +14,7 @@ import { Logo } from './Logo.tsx'
 const NAV = [
   { label: 'All Treks', href: '/treks' },
   { label: 'Our Guides', href: '/guides' },
-  { label: 'How it works', href: '/#how-it-works' },
+  { label: 'How to book', href: '/#how-it-works' },
   { label: 'Our Vision', href: SITE_LINKS.vision },
   { label: 'FAQs', href: '/#faqs' },
 ]
