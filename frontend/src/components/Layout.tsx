@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { Link, Outlet, ScrollRestoration, useLocation } from 'react-router-dom'
+import { listBlogCategories } from '../api/blog.ts'
 import { getHealth } from '../api/client.ts'
 import { PROFILE_PATH } from '../auth/useCompleteSignIn.ts'
 import { useAuth } from '../auth/useAuth.ts'
@@ -16,6 +17,7 @@ const NAV = [
   { label: 'Our Guides', href: '/guides' },
   { label: 'How to book', href: '/#how-it-works' },
   { label: 'Our Vision', href: SITE_LINKS.vision },
+  { label: 'Blog', href: '/blog' },
   { label: 'FAQs', href: '/#faqs' },
 ]
 
@@ -95,13 +97,20 @@ export function Layout() {
         } ${HEADER_TONES[tone]}`}
       >
         <div className="mx-auto flex h-16 max-w-[90rem] items-center justify-between gap-3 px-5 sm:gap-6 sm:px-10">
-          <div className="flex items-center gap-10">
+          <div className="flex items-center gap-6 xl:gap-10">
             <Link to="/" viewTransition className="flex shrink-0 items-center gap-2 text-[1.05rem] font-semibold tracking-tight whitespace-nowrap sm:text-[1.2rem]">
               <Logo className="h-6 w-auto" onLight={tone === 'light'} />
               The Empty Valley
             </Link>
-            <nav className="hidden items-center gap-7 text-sm md:flex">
-              {NAV.map((item) => (
+            <nav className="hidden items-center gap-5 text-sm whitespace-nowrap lg:flex xl:gap-7">
+              {NAV.map((item) => item.href === BLOG_PATH ? (
+                <BlogMenu
+                  key={item.label}
+                  className={`relative flex items-center gap-1 py-1 transition-opacity hover:opacity-100 ${
+                    location.pathname.startsWith(BLOG_PATH) ? 'opacity-100' : 'opacity-75'
+                  }`}
+                />
+              ) : (
                 <NavItem
                   key={item.label}
                   href={item.href}
@@ -123,7 +132,7 @@ export function Layout() {
               aria-expanded={menuOpen}
               aria-controls="site-menu"
               onClick={() => setMenuOpen(!menuOpen)}
-              className="-mr-2 flex size-10 items-center justify-center opacity-90 hover:opacity-100 md:hidden"
+              className="-mr-2 flex size-10 items-center justify-center opacity-90 hover:opacity-100 lg:hidden"
             >
               <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
                 {menuOpen ? <path d="M6 6l12 12M18 6 6 18" /> : <path d="M4 7h16M4 12h16M4 17h16" />}
@@ -132,18 +141,16 @@ export function Layout() {
           </div>
         </div>
         {menuOpen && (
-          <nav id="site-menu" className="border-t border-white/10 px-5 pb-4 text-base sm:px-10 md:hidden">
+          <nav id="site-menu" className="border-t border-white/10 px-5 pb-4 text-base sm:px-10 lg:hidden">
             {NAV.map((item, i) => (
-              <NavItem
-                key={item.label}
-                href={item.href}
-                onClick={() => setMenuOpen(false)}
-                className="block py-3 hover:text-white"
-              >
-                <span className="fade-rise inline-block" style={{ '--d': `${i * 50}ms` } as CSSProperties}>
-                  {item.label}
-                </span>
-              </NavItem>
+              <Fragment key={item.label}>
+                <NavItem href={item.href} onClick={() => setMenuOpen(false)} className="block py-3 hover:text-white">
+                  <span className="fade-rise inline-block" style={{ '--d': `${i * 50}ms` } as CSSProperties}>
+                    {item.label}
+                  </span>
+                </NavItem>
+                {item.href === BLOG_PATH && <BlogMenuLinks onClick={() => setMenuOpen(false)} />}
+              </Fragment>
             ))}
           </nav>
         )}
@@ -290,12 +297,109 @@ function AccountLink({ tone }: { tone: HeaderTone }) {
         name={name}
         fullName={user.full_name ?? name}
         avatarUrl={user.avatar_url}
-        links={user.role === 'TREKKER' ? [{ to: PROFILE_PATH, label: 'My profile' }] : []}
+        links={[...(user.role === 'TREKKER' ? [{ to: PROFILE_PATH, label: 'My profile' }] : []), { to: BLOG_PATH, label: 'Blog' }]}
         onSignOut={() => {
           if (!user.guest || window.confirm(GUEST_SIGN_OUT_WARNING)) void auth.signOut()
         }}
       />
     </span>
+  )
+}
+
+const BLOG_PATH = '/blog'
+
+/** The categories in the Blog menu: those with 3+ published posts (docs/TRD.md §7.19). */
+function useBlogMenu() {
+  const tree = useQuery({ queryKey: ['blog-categories'], queryFn: listBlogCategories, staleTime: 5 * 60_000 })
+  return (tree.data?.items ?? []).filter((c) => c.in_menu)
+}
+
+/** Header "Blog ▾": every article, then each category in the menu. Closes on outside click, Escape or navigation. */
+function BlogMenu({ className }: { className: string }) {
+  const location = useLocation()
+  const categories = useBlogMenu()
+  const ref = useRef<HTMLDivElement>(null)
+  const [openOn, setOpenOn] = useState<string | null>(null)
+  const open = openOn === location.key
+
+  useEffect(() => {
+    if (!open) return
+    const onClick = (e: PointerEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpenOn(null)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpenOn(null)
+    }
+    document.addEventListener('pointerdown', onClick)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('pointerdown', onClick)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  // With nothing in the menu yet, it's a plain link.
+  if (categories.length === 0) {
+    return (
+      <Link to={BLOG_PATH} viewTransition className={className}>
+        Blog
+      </Link>
+    )
+  }
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-controls="blog-menu"
+        onClick={() => setOpenOn(open ? null : location.key)}
+        className={className}
+      >
+        Blog
+        <svg viewBox="0 0 20 20" className="size-4 opacity-60" fill="currentColor" aria-hidden="true">
+          <path d="M5.5 7.5 10 12l4.5-4.5z" />
+        </svg>
+      </button>
+      {open && (
+        <div
+          id="blog-menu"
+          role="menu"
+          className="absolute left-1/2 z-30 mt-3 w-64 -translate-x-1/2 overflow-hidden rounded-xl border border-paper-300 bg-paper-50 py-1 text-sm text-ink-900 shadow-lg"
+        >
+          <Link to={BLOG_PATH} role="menuitem" className="block px-4 py-2.5 font-medium hover:bg-paper-100">
+            All articles
+          </Link>
+          <div className="border-t border-paper-300 py-1">
+            {categories.map((c) => (
+              <Link
+                key={c.id}
+                to={`${BLOG_PATH}/${c.slug}`}
+                role="menuitem"
+                className={`block px-4 py-2 hover:bg-paper-100 ${location.pathname === `${BLOG_PATH}/${c.slug}` ? 'font-medium text-pine-700' : ''}`}
+              >
+                {c.name}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** The phone menu's blog categories, indented under "Blog". */
+function BlogMenuLinks({ onClick }: { onClick: () => void }) {
+  const categories = useBlogMenu()
+  if (categories.length === 0) return null
+  return (
+    <div className="mb-1 border-l border-white/15 pl-4">
+      {categories.map((c) => (
+        <Link key={c.id} to={`${BLOG_PATH}/${c.slug}`} onClick={onClick} className="block py-2 text-sm opacity-80 hover:opacity-100">
+          {c.name}
+        </Link>
+      ))}
+    </div>
   )
 }
 
