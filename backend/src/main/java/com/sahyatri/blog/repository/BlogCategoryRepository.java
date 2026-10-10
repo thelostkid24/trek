@@ -9,11 +9,12 @@ import java.util.UUID;
 
 public interface BlogCategoryRepository extends JpaRepository<BlogCategory, UUID> {
 
-    List<BlogCategory> findAllByOrderByNameAsc();
+    /** Menu order: by position, then name. */
+    List<BlogCategory> findAllByOrderByPositionAscNameAsc();
 
     Optional<BlogCategory> findBySlug(String slug);
 
-    List<BlogCategory> findByParentId(UUID parentId);
+    boolean existsBySlug(String slug);
 
     boolean existsByParentId(UUID parentId);
 

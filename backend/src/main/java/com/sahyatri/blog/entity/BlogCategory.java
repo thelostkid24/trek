@@ -8,7 +8,10 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.UUID;
 
-/** A blog category, e.g. "Kedarkantha", or a sub-category under one ({@code parentId} set; one level deep). */
+/**
+ * One of the ten blog categories (seeded by V20), or a sub-category under one ({@code parentId} set; one level deep).
+ * Posts are filed under sub-categories only.
+ */
 @Entity
 @Table(name = "blog_categories")
 public class BlogCategory {
@@ -24,22 +27,35 @@ public class BlogCategory {
     @Column(nullable = false)
     private String slug;
 
+    /** A line under the name on its page. */
+    private String description;
+
+    /** Order in menus, lowest first. */
+    @Column(nullable = false)
+    private int position;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
     protected BlogCategory() {
     }
 
-    public BlogCategory(UUID parentId, String name, String slug) {
+    public BlogCategory(UUID parentId, String name, String slug, String description, int position) {
         this.id = UUID.randomUUID();
+        this.parentId = parentId;
+        this.position = position;
         this.createdAt = Instant.now();
-        update(parentId, name, slug);
+        update(name, slug, description);
     }
 
-    public void update(UUID parentId, String name, String slug) {
-        this.parentId = parentId;
+    public void update(String name, String slug, String description) {
         this.name = name;
         this.slug = slug;
+        this.description = description;
+    }
+
+    public boolean isTopLevel() {
+        return parentId == null;
     }
 
     public UUID getId() {
@@ -56,5 +72,13 @@ public class BlogCategory {
 
     public String getSlug() {
         return slug;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public int getPosition() {
+        return position;
     }
 }

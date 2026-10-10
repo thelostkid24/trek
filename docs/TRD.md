@@ -181,9 +181,11 @@ NULL everywhere = not captured (rows made before V11, or nothing sent). Tracking
 - **`users`** — `status` may also be `DELETED`; adds `deleted_at TIMESTAMPTZ NULL`. CHECK `users_deleted`: `status = 'DELETED'` ⇔ `deleted_at` is set. A deleted row keeps its id, role, `signup_method`, `heard_from`, campaign tags, `device_type`, `first_seen_at` and timestamps; everything that identifies the person is NULL (§7.18).
 
 ### 6.16 Blog — `V20__blog.sql`
-- **`blog_categories`** — `id`, `parent_id UUID NULL → blog_categories` (set = sub-category; one level deep, enforced in `BlogAdminService`), `name TEXT 1..60`, `slug TEXT UNIQUE` (`^[a-z0-9]+(-[a-z0-9]+)*$`, ≤ 80), `created_at`. CHECK `parent_id <> id`.
-- **`blog_posts`** — `id`, `category_id → blog_categories` (NOT NULL; a category with posts can't be deleted), `slug TEXT UNIQUE` (same pattern, ≤ 100), `title TEXT 1..150`, `excerpt TEXT NULL ≤ 300`, `body TEXT NOT NULL ≤ 50,000`, `cover_photo_id UUID NULL → blog_photos ON DELETE SET NULL`, `author_id → users`, `published_at TIMESTAMPTZ NULL` (set = public), `created_at`, `updated_at`. Partial index on `published_at DESC` where set.
-- **`blog_photos`** — `id` (also the storage key `blog-photos/<id>.jpg`), `post_id → blog_posts ON DELETE CASCADE`, `caption TEXT NULL ≤ 200` (also the alt text), `created_at`.
+- **`blog_categories`** — `id` (DB default `gen_random_uuid()`), `parent_id → blog_categories` (set = sub-category; one level deep), `name TEXT 1..60`, `slug TEXT UNIQUE` (`^[a-z0-9]+(-[a-z0-9]+)*$`, ≤ 80), `description TEXT NULL ≤ 300`, `position INT` (menu order), `created_at`. CHECK `parent_id <> id`. **Seeded** with the ten categories and their 55 sub-categories (§7.19).
+- **`blog_posts`** — `id`, `category_id → blog_categories` (always a sub-category; service), `slug TEXT UNIQUE` (same pattern, ≤ 100; never a category's slug — service), `title 1..150`, `excerpt ≤ 160`, `body ≤ 50,000`, `cover_photo_id → blog_photos ON DELETE SET NULL`, `cover_caption ≤ 200`, `cover_taken_on DATE`, `author_id → users`, `author_name ≤ 100` (byline override), `faqs JSONB NOT NULL DEFAULT '[]'` (`[{question, answer}]`), `schema_type IN ('ARTICLE','FAQ_PAGE','HOW_TO')`, `research_notes ≤ 20,000` (admin only), `published_at` (set = public), `created_at`, `updated_at`. Partial index on `published_at DESC`.
+- **`blog_photos`** — `id` (storage key `blog-photos/<id>.jpg`), `post_id → blog_posts ON DELETE CASCADE`, `caption ≤ 200`, `created_at`.
+- **`blog_post_treks`** — `(post_id, track_id)` PK, both cascading: the post's related treks.
+- **`blog_slug_redirects`** — `old_slug` PK, `post_id → blog_posts ON DELETE CASCADE`, `created_at`: slugs a published post gave up.
 
 ## 7. Feature log
 Each feature appends: scope, endpoints, tables, screens, tests.
@@ -1114,32 +1116,42 @@ Google renders the SPA, so there's no SSR. It needs a sitemap, robots.txt and pe
 - oxlint runs `jsx-a11y`. Fixes from it: the booking "⋯" menu is now a plain disclosure (it had `role="menu"` without arrow keys); the photo carousel is a labelled `region`; the marketing switches carry `aria-checked`; guide photo alt text is the guide's name (no "photo of").
 
 ### 7.19 Blog (`/blog`, `/admin/blog`)
-Admins write posts (trek write-ups, snow updates, anything) filed under a category, e.g. "Kedarkantha" or "Snow", or one of its sub-categories ("Kedarkantha › Winter"). Posts stay drafts until published; only published posts are public. Package `com.sahyatri.blog`.
+Stage 1 of the blog & "How to Reach" spec (Notion "10 oct changes"). Admins write posts filed under exactly one sub-category of ten fixed categories; drafts until published. Package `com.sahyatri.blog`. Later stages (not built yet): series and tags with archive pages, the How to Reach section (regions → base villages → trailheads → routes, timetables, the transport CSV importer, conditions reports, "Is this still correct?" reports), trek pages showing their posts, and the rest of the SEO section.
+
+**The ten categories** (seeded by V20, in this order; sub-category slugs in brackets in the migration): Himalayan Treks · Plan Your Trek · Gear, Fitness & Packing · Altitude & Safety · Life on the Trail · Trekking for Beginners · Snow & Trail Updates · Villages & Mountain Culture · Responsible Trekking · Trek Experiences. Admins can add, rename and delete (empty) sub-categories and edit any category's name, slug and description; the ten can't be deleted or added to.
+
+**Rules**
+- A post has exactly one sub-category (`400 category_id` for a top-level one).
+- URLs: posts `/blog/<post>`, categories `/blog/<category>`, sub-categories `/blog/<category>/<sub>`. A post slug can never be a category slug, a category slug never a post's (or a post's old) slug → `409 SLUG_TAKEN`.
+- A category's page `404`s with no published posts, works but is `noindex` at 1–2, and is in the Blog menu, the sitemap and the prerender at 3+ (`BlogPublicService.MENU_MIN_POSTS`; a top-level category counts its sub-categories' posts).
+- Publishing needs the hero image, its caption and date, the excerpt (the Google description) and `money_rule_confirmed: true`; missing → `400 VALIDATION_FAILED` listing each field. The editor warns when the text mentions pay, salary, wages, margins, ledgers, payouts, commission, profit, fee splits or cost breakdowns (the money rule: we never publish our money; the trek price and trekkers' own costs are fine).
+- Update, never republish: a published post that changes slug keeps the old one in `blog_slug_redirects`; `GET …/posts/{old}` answers `301` to the new one and the page replaces its URL. "Last updated" shows when it was edited after publishing.
+- Bus and train timings never go in posts (editor hint); they'll live in the How to Reach tables.
 
 | Method & path | Auth | Request | Success | Errors |
 |---|---|---|---|---|
-| `GET /api/public/blog/categories` | — | — | `200 { items: [{ id, parent_id, name, slug, published_posts }] }` by name; every category, the page hides empty ones | — |
-| `GET /api/public/blog/posts?category=<slug>` | — | — | `200 { items: [BlogPostSummary] }` published, newest first; a category also brings its sub-categories' posts | `404 CATEGORY_NOT_FOUND` |
-| `GET /api/public/blog/posts/{slug}` | — | — | `200` BlogPost | `404 POST_NOT_FOUND` (also for drafts) |
-| `GET /api/admin/blog/categories` | ADMIN | — | same as public | — |
-| `POST /api/admin/blog/categories` · `PUT …/{id}` | ADMIN | `{ name, slug, parent_id? }` | `201`/`200` category | `400 VALIDATION_FAILED` (`parent_id`: not top-level, or this one has sub-categories), `409 SLUG_TAKEN`, `404 CATEGORY_NOT_FOUND` |
-| `DELETE /api/admin/blog/categories/{id}` | ADMIN | — | `204` | `409 CATEGORY_IN_USE` (has sub-categories or any post) |
-| `GET /api/admin/blog/posts` | ADMIN | — | `200 { items: [BlogPostSummary] }` drafts and published, last edited first | — |
-| `GET /api/admin/blog/posts/{id}` | ADMIN | — | `200` BlogPost | `404 POST_NOT_FOUND` |
-| `POST /api/admin/blog/posts` · `PUT …/{id}` | ADMIN | `{ title, slug, category_id, excerpt?, body }` | `201` (draft) / `200` BlogPost | `400` (`category_id` unknown, slug pattern), `409 SLUG_TAKEN` |
-| `PUT /api/admin/blog/posts/{id}/published` | ADMIN | `{ published }` | `200` BlogPost; publishing sets `published_at` = now, unpublishing clears it. Audited `BLOG_POST_PUBLISHED` / `BLOG_POST_UNPUBLISHED` | `404` |
-| `PUT /api/admin/blog/posts/{id}/cover` | ADMIN | `{ photo_id \| null }` | `200` BlogPost | `400` (`photo_id` not this post's) |
-| `DELETE /api/admin/blog/posts/{id}` | ADMIN | — | `204`; photos and their files go too. Audited `BLOG_POST_DELETED` | `404` |
-| `POST /api/admin/blog/posts/{id}/photos` | ADMIN | multipart `file`, `caption?` | `201 { id, url, caption }`; re-encoded like trek photos (long edge ≤ 2000 px), max 30 per post | `400 UNSUPPORTED_IMAGE`, `409 TOO_MANY_PHOTOS` |
-| `PUT /api/admin/blog/posts/{id}/photos/{photoId}` | ADMIN | `{ caption }` | `200` photo | `404 PHOTO_NOT_FOUND` |
-| `DELETE /api/admin/blog/posts/{id}/photos/{photoId}` | ADMIN | — | `204`; clears it as the cover | `404 PHOTO_NOT_FOUND` |
+| `GET /api/public/blog/categories` | — | — | `200 { items: [BlogCategoryNode] }` the ten in order: `{ id, name, slug, description, published_posts, in_menu, subcategories: [same] }` | — |
+| `GET /api/public/blog/categories/{slug}` | — | — | `200 { category: BlogCategoryNode, parent: BlogCategoryRef \| null, posts: [BlogPostSummary], indexable }` (a category brings its sub-categories' posts) | `404 CATEGORY_NOT_FOUND` (unknown, or no published posts) |
+| `GET /api/public/blog/posts?limit=` | — | — | `200 { items: [BlogPostSummary] }` newest first (limit 1–100, default 100) | — |
+| `GET /api/public/blog/posts/{slug}` | — | — | `200` BlogPost without `research_notes`; an old slug → `301 Location: …/posts/{new}` | `404 POST_NOT_FOUND` (also drafts) |
+| `GET /api/admin/blog/categories` | ADMIN | — | `200 { items: [{ id, parent_id, name, slug, description, position, published_posts }] }` | — |
+| `POST /api/admin/blog/categories` | ADMIN | `{ name, slug, description?, parent_id }` (one of the ten) | `201` | `400` (`parent_id`), `409 SLUG_TAKEN` |
+| `PUT /api/admin/blog/categories/{id}` | ADMIN | `{ name, slug, description? }` | `200` | `409 SLUG_TAKEN`, `404` |
+| `DELETE /api/admin/blog/categories/{id}` | ADMIN | — | `204` | `409 CATEGORY_IN_USE` (one of the ten, or has posts) |
+| `GET /api/admin/blog/posts` · `GET …/{id}` | ADMIN | — | summaries (drafts too, last edited first) · BlogPost with `research_notes` | `404 POST_NOT_FOUND` |
+| `POST /api/admin/blog/posts` · `PUT …/{id}` | ADMIN | `{ title, slug, category_id, excerpt?, body, cover_caption?, cover_taken_on?, author_name?, faqs?: [{question, answer}] (≤ 20), schema_type?, research_notes?, track_ids?: [] (≤ 20) }` | `201` draft / `200` | `400` (`category_id`, `track_ids`, field rules), `409 SLUG_TAKEN` |
+| `PUT /api/admin/blog/posts/{id}/published` | ADMIN | `{ published, money_rule_confirmed }` | `200`; audited `BLOG_POST_PUBLISHED` / `BLOG_POST_UNPUBLISHED` | `400 VALIDATION_FAILED` (what's missing) |
+| `PUT /api/admin/blog/posts/{id}/cover` | ADMIN | `{ photo_id \| null }` | `200` | `400` (not this post's photo) |
+| `DELETE /api/admin/blog/posts/{id}` | ADMIN | — | `204`; photos, files, trek links and redirects go too. Audited `BLOG_POST_DELETED` | `404` |
+| `POST /api/admin/blog/posts/{id}/photos` · `PUT/DELETE …/photos/{photoId}` | ADMIN | multipart `file`, `caption?` · `{ caption }` | `201`/`200`/`204`; re-encoded like trek photos, ≤ 30 per post; deleting the hero clears it | `400 UNSUPPORTED_IMAGE`, `409 TOO_MANY_PHOTOS`, `404 PHOTO_NOT_FOUND` |
 | `GET /api/public/files/blog-photos/{id}.jpg` | — | — | the JPEG, cached a year | `404` |
 
-- `BlogPostSummary` = `{ id, slug, title, excerpt, category: { id, name, slug, parent? }, cover_url, published_at, updated_at }`. `BlogPost` adds `body`, `cover_photo_id`, `photos: [{ id, url, caption }]`, `author_name`.
-- Body format (`frontend/src/lib/blogBody.ts`, rendered by `components/blog/BlogBody.tsx`): blank line = paragraph, `## ` / `### ` headings, `- ` lists, `**bold**`, `[text](https://… or /path)`, and `![caption](url)` on its own line for one of the post's own photos (any other image URL is skipped). Nothing is rendered as HTML.
-- `/blog` (`pages/BlogPages.tsx`, public, lazy): "From the trail", category chips (top-level categories with posts; choosing one shows its sub-categories), `?category=<slug>` filter, cards with cover, "Category · Sub-category", title, excerpt and date. `/blog/:slug`: breadcrumb (Blog / category / sub-category), title, author and date, cover, excerpt as the lead, body; `BlogPosting` JSON-LD; description = excerpt, else the body's first paragraph. "Blog" is in the header and footer nav.
-- `/admin/blog` (`pages/admin/BlogAdminPage.tsx`): Posts (status pill, New post) and Categories (add, edit name/slug/parent, delete). The editor: title (slug follows it until edited), category ("Parent › Child"), excerpt, body with Write/Preview, Save draft / Save changes, Publish (saves first) / Unpublish, Delete post. Once saved: photos (upload several with a caption, edit captions, Make cover, "Insert in post" at the cursor, delete).
-- SEO: `/blog` and every published post are in the sitemap and prerendered (`scripts/prerender.mjs`, §7.16).
+- `BlogPostSummary` = `{ id, slug, title, excerpt, category: { id, name, slug, parent? }, cover_url, published_at, updated_at }`. `BlogPost` adds `body`, `cover_photo_id`, `cover_caption`, `cover_taken_on`, `photos`, `author_name` (override, else the author's account name), `faqs`, `schema_type`, `related_treks: [{ id, slug, name }]`, `research_notes`.
+- Body format (`frontend/src/lib/blogBody.ts`, rendered by `components/blog/BlogBody.tsx`): blank line = paragraph, `## `/`### ` headings, `- ` lists, `**bold**`, `[text](https://… or /path)`, `![caption](url)` for the post's own photos only. Nothing is rendered as HTML.
+- Frontend (`pages/BlogPages.tsx`, lazy): `/blog` — "From the trail" header, the latest post featured, "Browse by topic" (categories with posts, their sub-categories listed), "Latest articles". `/blog/:slug` is a category page when the slug is one of the ten, else a post; `/blog/:category/:sub` a sub-category page. Category pages: breadcrumb, name, description, count, sub-category chips, post grid; `noindex` below 3 posts. Post page: breadcrumb (Blog / category / sub-category), title, excerpt, byline, published date, "Last updated", hero image with "caption · date", body, "Questions people ask" (FAQs, `<details>`), "Treks in this story", "More in <sub-category>". JSON-LD `@graph`: `BlogPosting` (or `HowTo`), plus `FAQPage` when it has answered FAQs.
+- Header: "Blog ▾" opens All articles plus the categories in the menu (a plain link while none are); the phone menu lists them under Blog; the profile menu has a Blog link. The header's link row shows from `lg` (1024 px) with the menu button below that, so it never wraps.
+- `/admin/blog` (`pages/admin/BlogAdminPage.tsx`): Posts (status, sub-category path) and Categories (the ten with "Add sub-category", edit, delete, published counts and "in menu"). Editor: title (slug follows until edited), slug (redirect note once published), sub-category ("Category › Sub-category"), excerpt (160), hero caption + taken on, body with Write/Preview, FAQs (add/remove), related treks (chips), author, schema type, research notes, the money-rule warning and confirm box, Save draft/Save changes, Publish (saves first; needs the box) / Unpublish, Delete. Photos once saved: upload, captions, "Make hero", "Insert in post", delete.
+- SEO: the sitemap and `scripts/prerender.mjs` include `/blog`, every published post and the categories in the menu (§7.16).
 - Prod WAF: the `xss-body-except-uploads` exemption must include `/api/admin/blog/posts/[^/]+/photos` (like trek photos). Long post bodies are fine: `SizeRestrictions_BODY` is already set to Count.
 - Tests: `BlogTests`.
 

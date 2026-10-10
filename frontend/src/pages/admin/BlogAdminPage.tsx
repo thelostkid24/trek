@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { listTracks } from '../../api/admin.ts'
 import {
   adminBlogCategories,
   adminBlogPost,
@@ -16,9 +17,11 @@ import {
   updateBlogPost,
   uploadBlogPhoto,
   type BlogCategory,
+  type BlogFaq,
   type BlogPhoto,
   type BlogPost,
   type BlogPostInput,
+  type BlogSchemaType,
 } from '../../api/blog.ts'
 import { fieldErrors } from '../../auth/errorMessages.ts'
 import { useAuth } from '../../auth/useAuth.ts'
@@ -28,12 +31,22 @@ import { BlogBody } from '../../components/blog/BlogBody.tsx'
 import { SelectField, TextAreaField } from '../../components/profile/fields.tsx'
 import { shrinkPhoto } from '../../lib/photos.ts'
 
-// /admin/blog — categories (one level of sub-categories), and posts written as drafts, then published to /blog.
-// Contract: docs/TRD.md §7.19.
+// /admin/blog — posts written as drafts and published to /blog, and the sub-categories under the ten fixed
+// categories. Contract: docs/TRD.md §7.19.
 
 const MAX_PHOTOS = 30
 const CATEGORIES_KEY = ['admin-blog-categories']
 const POSTS_KEY = ['admin-blog-posts']
+
+/** The money rule: we never publish pay, margins, cost breakdowns, ledgers or fee splits. Trek price and trekker costs are fine. */
+const MONEY_WORDS =
+  /\b(salar(y|ies)|wages?|margins?|ledgers?|payouts?|commissions?|profits?|fee splits?|cost breakdowns?|(guide|porter|staff|cook) (pay|share|fees?|earnings))\b/gi
+
+const SCHEMA_TYPES: { value: BlogSchemaType; label: string }[] = [
+  { value: 'ARTICLE', label: 'Article' },
+  { value: 'FAQ_PAGE', label: 'FAQ page' },
+  { value: 'HOW_TO', label: 'How-to' },
+]
 
 /** "Kedarkantha winter 2026" → "kedarkantha-winter-2026". */
 function slugify(text: string, max: number): string {
@@ -47,14 +60,13 @@ function slugify(text: string, max: number): string {
     .replace(/-+$/, '')
 }
 
-/** Category options for a post: top-level ones, each followed by its sub-categories as "Parent › Child". */
-function categoryOptions(all: BlogCategory[]) {
+/** Sub-categories only (a post is filed under exactly one), labelled "Category › Sub-category" in menu order. */
+function subCategoryOptions(all: BlogCategory[]) {
   return all
     .filter((c) => c.parent_id === null)
-    .flatMap((top) => [
-      { value: top.id, label: top.name },
-      ...all.filter((c) => c.parent_id === top.id).map((c) => ({ value: c.id, label: `${top.name} › ${c.name}` })),
-    ])
+    .flatMap((top) =>
+      all.filter((c) => c.parent_id === top.id).map((c) => ({ value: c.id, label: `${top.name} › ${c.name}` })),
+    )
 }
 
 const shortDate = (iso: string) =>
@@ -79,11 +91,8 @@ export function BlogAdminPage() {
 function Posts({ onEdit }: { onEdit: (id: string | 'new') => void }) {
   const { withAuth } = useAuth()
   const posts = useQuery({ queryKey: POSTS_KEY, queryFn: () => withAuth(adminBlogPosts) })
-  const categories = useQuery({ queryKey: CATEGORIES_KEY, queryFn: () => withAuth(adminBlogCategories) })
-  const noCategories = categories.data?.items.length === 0
   return (
-    <Panel title="Posts" action={<Button disabled={noCategories} onClick={() => onEdit('new')}>New post</Button>}>
-      {noCategories && <p className="mb-3 text-sm text-stone-600">Add a category below before writing the first post.</p>}
+    <Panel title="Posts" action={<Button onClick={() => onEdit('new')}>New post</Button>}>
       {posts.isPending ? (
         <Loading />
       ) : posts.isError ? (
@@ -126,38 +135,69 @@ function PublishedPill({ published }: { published: boolean }) {
 function Categories() {
   const { withAuth } = useAuth()
   const categories = useQuery({ queryKey: CATEGORIES_KEY, queryFn: () => withAuth(adminBlogCategories) })
-  const [editing, setEditing] = useState<BlogCategory | 'new' | null>(null)
+  // The category being edited, or the parent a new sub-category is being added under.
+  const [editing, setEditing] = useState<{ category: BlogCategory | null; parentId: string | null } | null>(null)
   const all = categories.data?.items ?? []
   const tops = all.filter((c) => c.parent_id === null)
+  const form = (category: BlogCategory | null, parentId: string | null) => (
+    <CategoryForm category={category} parentId={parentId} onDone={() => setEditing(null)} />
+  )
   return (
-    <Panel title="Categories" action={editing === null && <Button tone="secondary" onClick={() => setEditing('new')}>Add category</Button>}>
+    <Panel title="Categories">
       <p className="text-sm text-stone-600">
-        A category (e.g. Kedarkantha, Snow) can have sub-categories one level down (e.g. Kedarkantha › Winter). The
-        blog shows a category once it has a published post.
+        The ten categories are fixed. Every post is filed under one sub-category. A category shows in the Blog menu
+        once it has 3 published posts; with 1–2 its page works but stays out of Google.
       </p>
-      {editing === 'new' && <CategoryForm category={null} all={all} onDone={() => setEditing(null)} />}
       {categories.isPending ? (
         <div className="mt-4"><Loading /></div>
       ) : categories.isError ? (
         <div className="mt-4"><ErrorNote error={categories.error} /></div>
       ) : (
-        <ul className="mt-4 divide-y divide-stone-100">
-          {tops.flatMap((top) => [top, ...all.filter((c) => c.parent_id === top.id)]).map((c) =>
-            editing !== 'new' && editing?.id === c.id ? (
-              <li key={c.id} className="py-2">
-                <CategoryForm category={c} all={all} onDone={() => setEditing(null)} />
+        <ul className="mt-4 space-y-3">
+          {tops.map((top) => {
+            const subs = all.filter((c) => c.parent_id === top.id)
+            const total = top.published_posts + subs.reduce((n, s) => n + s.published_posts, 0)
+            return (
+              <li key={top.id} className="rounded-xl ring-1 ring-stone-200">
+                {editing?.category?.id === top.id ? (
+                  <div className="p-3">{form(top, null)}</div>
+                ) : (
+                  <div className="flex items-center justify-between gap-3 p-3">
+                    <div className="min-w-0">
+                      <p className="font-medium">
+                        {top.name}
+                        <span className={`ml-2 text-xs font-normal ${total >= 3 ? 'text-pine-700' : 'text-stone-500'}`}>
+                          {total} published{total >= 3 ? ' · in menu' : ''}
+                        </span>
+                      </p>
+                      <p className="truncate text-sm text-stone-500">/blog/{top.slug}</p>
+                    </div>
+                    <div className="flex shrink-0 gap-2">
+                      <Button tone="secondary" onClick={() => setEditing({ category: top, parentId: null })}>Edit</Button>
+                      <Button tone="secondary" onClick={() => setEditing({ category: null, parentId: top.id })}>Add sub-category</Button>
+                    </div>
+                  </div>
+                )}
+                <ul className="divide-y divide-stone-100 border-t border-stone-100">
+                  {subs.map((s) =>
+                    editing?.category?.id === s.id ? (
+                      <li key={s.id} className="p-3">{form(s, top.id)}</li>
+                    ) : (
+                      <CategoryRow key={s.id} category={s} parentSlug={top.slug} onEdit={() => setEditing({ category: s, parentId: top.id })} />
+                    ),
+                  )}
+                  {editing && editing.category === null && editing.parentId === top.id && <li className="p-3">{form(null, top.id)}</li>}
+                </ul>
               </li>
-            ) : (
-              <CategoryRow key={c.id} category={c} onEdit={() => setEditing(c)} />
-            ),
-          )}
+            )
+          })}
         </ul>
       )}
     </Panel>
   )
 }
 
-function CategoryRow({ category: c, onEdit }: { category: BlogCategory; onEdit: () => void }) {
+function CategoryRow({ category: c, parentSlug, onEdit }: { category: BlogCategory; parentSlug: string; onEdit: () => void }) {
   const { withAuth } = useAuth()
   const queryClient = useQueryClient()
   const remove = useMutation({
@@ -165,16 +205,16 @@ function CategoryRow({ category: c, onEdit }: { category: BlogCategory; onEdit: 
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: CATEGORIES_KEY }),
   })
   return (
-    <li className={`py-3 ${c.parent_id ? 'pl-6' : ''}`}>
+    <li className="px-3 py-2 pl-6">
       <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate font-medium">{c.parent_id ? `↳ ${c.name}` : c.name}</p>
-          <p className="truncate text-sm text-stone-500">
-            /blog?category={c.slug} · {c.published_posts} published
+        <div className="min-w-0 text-sm">
+          <p className="truncate">
+            ↳ {c.name} <span className="text-xs text-stone-500">· {c.published_posts} published</span>
           </p>
+          <p className="truncate text-xs text-stone-500">/blog/{parentSlug}/{c.slug}</p>
         </div>
         <div className="flex shrink-0 items-center gap-3">
-          <Button tone="secondary" onClick={onEdit}>Edit</Button>
+          <button type="button" onClick={onEdit} className="text-xs font-medium text-brand-800 hover:text-brand-900">Edit</button>
           <button type="button" disabled={remove.isPending}
             onClick={() => window.confirm(`Delete “${c.name}”?`) && remove.mutate()}
             className="text-xs font-medium text-laterite-600 hover:text-laterite-500 disabled:opacity-50">
@@ -187,16 +227,16 @@ function CategoryRow({ category: c, onEdit }: { category: BlogCategory; onEdit: 
   )
 }
 
-function CategoryForm({ category, all, onDone }: { category: BlogCategory | null; all: BlogCategory[]; onDone: () => void }) {
+function CategoryForm({ category, parentId, onDone }: { category: BlogCategory | null; parentId: string | null; onDone: () => void }) {
   const { withAuth } = useAuth()
   const queryClient = useQueryClient()
   const [name, setName] = useState(category?.name ?? '')
   const [slug, setSlug] = useState(category?.slug ?? '')
   const [slugTouched, setSlugTouched] = useState(category !== null)
-  const [parentId, setParentId] = useState(category?.parent_id ?? '')
+  const [description, setDescription] = useState(category?.description ?? '')
   const save = useMutation({
     mutationFn: () => {
-      const body = { name: name.trim(), slug, parent_id: parentId || null }
+      const body = { name: name.trim(), slug, description, parent_id: parentId }
       return withAuth((token) => (category ? updateBlogCategory(token, category.id, body) : createBlogCategory(token, body)))
     },
     onSuccess: () => {
@@ -206,44 +246,46 @@ function CategoryForm({ category, all, onDone }: { category: BlogCategory | null
     },
   })
   const errors = fieldErrors(save.error)
-  // Only top-level categories can hold sub-categories, and one with sub-categories must stay top-level.
-  const hasChildren = category !== null && all.some((c) => c.parent_id === category.id)
-  const parents = all.filter((c) => c.parent_id === null && c.id !== category?.id)
   const submit = (e: FormEvent) => {
     e.preventDefault()
     save.mutate()
   }
   return (
-    <form onSubmit={submit} className="mt-4 grid gap-3 rounded-xl bg-paper-100 p-4 sm:grid-cols-3">
+    <form onSubmit={submit} className="grid gap-3 rounded-xl bg-paper-100 p-4 sm:grid-cols-2">
       <TextField label="Name" name="category-name" required maxLength={60} value={name} error={errors.name}
         onChange={(e) => {
           setName(e.target.value)
           if (!slugTouched) setSlug(slugify(e.target.value, 80))
         }} />
       <TextField label="Slug" name="category-slug" required maxLength={80} value={slug} error={errors.slug}
-        hint="Shown in the link" onChange={(e) => {
+        hint={category?.published_posts ? 'Changing it changes the page’s link' : 'Shown in the link'}
+        onChange={(e) => {
           setSlugTouched(true)
           setSlug(e.target.value)
         }} />
-      <SelectField label="Under" name="category-parent" placeholder="Nothing (top level)" value={parentId}
-        disabled={hasChildren} hint={hasChildren ? 'Has sub-categories, so it stays top level.' : undefined}
-        error={errors.parent_id} onChange={(e) => setParentId(e.target.value)}
-        options={parents.map((c) => ({ value: c.id, label: c.name }))} />
-      <div className="flex flex-wrap items-center gap-2 sm:col-span-3">
-        <Button type="submit" disabled={save.isPending}>{save.isPending ? 'Saving…' : category ? 'Save category' : 'Add category'}</Button>
+      <div className="sm:col-span-2">
+        <TextAreaField label="Description" name="category-description" maxLength={300} rows={2} value={description}
+          error={errors.description} hint="One line under the name on its page." onChange={(e) => setDescription(e.target.value)} />
+      </div>
+      <div className="flex flex-wrap items-center gap-2 sm:col-span-2">
+        <Button type="submit" disabled={save.isPending}>{save.isPending ? 'Saving…' : category ? 'Save' : 'Add sub-category'}</Button>
         <Button tone="secondary" onClick={onDone}>Cancel</Button>
       </div>
-      {save.error && Object.keys(errors).length === 0 && <div className="sm:col-span-3"><ErrorNote error={save.error} /></div>}
+      {save.error && Object.keys(errors).length === 0 && <div className="sm:col-span-2"><ErrorNote error={save.error} /></div>}
     </form>
   )
 }
 
 // --- Post editor
 
-const FORMAT_HELP = 'Blank line = new paragraph · ## Heading · - list item · **bold** · [link text](https://…) · photos: use “Insert in post” below.'
+const FORMAT_HELP = 'Blank line = new paragraph · ## Heading · - list item · **bold** · [link text](https://…) · photos: “Insert in post” below. Never copy bus or train times; link the route page.'
 
 function PostEditor({ postId, onSaved, onDone }: { postId: string | null; onSaved: (id: string) => void; onDone: () => void }) {
   const { withAuth } = useAuth()
+  // The editor replaces the list; start it at the top rather than where the list was scrolled.
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [])
   const post = useQuery({
     queryKey: ['admin-blog-post', postId],
     queryFn: () => withAuth((token) => adminBlogPost(token, postId as string)),
@@ -254,32 +296,48 @@ function PostEditor({ postId, onSaved, onDone }: { postId: string | null; onSave
   return <PostForm post={post.data ?? null} onSaved={onSaved} onDone={onDone} />
 }
 
-function PostForm({ post, onSaved, onDone }: { post: BlogPost | null; onSaved: (id: string) => void; onDone: () => void }) {
-  const { withAuth } = useAuth()
-  const queryClient = useQueryClient()
-  const categories = useQuery({ queryKey: CATEGORIES_KEY, queryFn: () => withAuth(adminBlogCategories) })
-  const saved: BlogPostInput = {
+function toInput(post: BlogPost | null): BlogPostInput {
+  return {
     title: post?.title ?? '',
     slug: post?.slug ?? '',
     category_id: post?.category.id ?? '',
     excerpt: post?.excerpt ?? '',
     body: post?.body ?? '',
+    cover_caption: post?.cover_caption ?? '',
+    cover_taken_on: post?.cover_taken_on ?? null,
+    author_name: post?.author_name ?? '',
+    faqs: post?.faqs ?? [],
+    schema_type: post?.schema_type ?? 'ARTICLE',
+    research_notes: post?.research_notes ?? '',
+    track_ids: post?.related_treks.map((t) => t.id) ?? [],
   }
+}
+
+function PostForm({ post, onSaved, onDone }: { post: BlogPost | null; onSaved: (id: string) => void; onDone: () => void }) {
+  const { withAuth } = useAuth()
+  const queryClient = useQueryClient()
+  const categories = useQuery({ queryKey: CATEGORIES_KEY, queryFn: () => withAuth(adminBlogCategories) })
+  const tracks = useQuery({ queryKey: ['admin-tracks'], queryFn: () => withAuth(listTracks) })
+  const saved = toInput(post)
   const [draft, setDraft] = useState<BlogPostInput>(saved)
   const [slugTouched, setSlugTouched] = useState(post !== null)
   const [preview, setPreview] = useState(false)
+  const [confirmed, setConfirmed] = useState(false)
   /** Where the cursor last was in the body, so "Insert in post" lands there; null = the end. */
   const cursor = useRef<number | null>(null)
   const dirty = JSON.stringify(draft) !== JSON.stringify(saved)
   const published = post?.published_at != null
+  const moneyHits = [...new Set([draft.title, draft.excerpt, draft.body, ...draft.faqs.flatMap((f) => [f.question, f.answer])]
+    .join('\n').match(MONEY_WORDS)?.map((w) => w.toLowerCase()) ?? [])]
 
   const refresh = (updated: BlogPost) => {
     queryClient.setQueryData(['admin-blog-post', updated.id], updated)
     void queryClient.invalidateQueries({ queryKey: POSTS_KEY })
     void queryClient.invalidateQueries({ queryKey: CATEGORIES_KEY })
   }
+  const body = (): BlogPostInput => ({ ...draft, faqs: draft.faqs.filter((f) => f.question.trim() || f.answer.trim()) })
   const save = useMutation({
-    mutationFn: () => withAuth((token) => (post ? updateBlogPost(token, post.id, draft) : createBlogPost(token, draft))),
+    mutationFn: () => withAuth((token) => (post ? updateBlogPost(token, post.id, body()) : createBlogPost(token, body()))),
     onSuccess: (updated) => {
       refresh(updated)
       // A new post becomes an edit, so photos can be added to it.
@@ -289,7 +347,7 @@ function PostForm({ post, onSaved, onDone }: { post: BlogPost | null; onSaved: (
   const publish = useMutation({
     mutationFn: async (on: boolean) => {
       if (dirty) await save.mutateAsync()
-      return withAuth((token) => setBlogPostPublished(token, post!.id, on))
+      return withAuth((token) => setBlogPostPublished(token, post!.id, on, confirmed))
     },
     onSuccess: refresh,
   })
@@ -301,8 +359,10 @@ function PostForm({ post, onSaved, onDone }: { post: BlogPost | null; onSaved: (
       onDone()
     },
   })
-  const errors = fieldErrors(save.error)
+  const errors = { ...fieldErrors(publish.error), ...fieldErrors(save.error) }
   const edit = (patch: Partial<BlogPostInput>) => setDraft((d) => ({ ...d, ...patch }))
+  const editFaq = (i: number, patch: Partial<BlogFaq>) =>
+    edit({ faqs: draft.faqs.map((f, j) => (j === i ? { ...f, ...patch } : f)) })
 
   /** Puts a photo on its own line at the cursor (or the end) of the body. */
   const insertPhoto = (photo: BlogPhoto) => {
@@ -310,8 +370,7 @@ function PostForm({ post, onSaved, onDone }: { post: BlogPost | null; onSaved: (
     const at = Math.min(cursor.current ?? draft.body.length, draft.body.length)
     const before = draft.body.slice(0, at).replace(/\s*$/, '')
     const after = draft.body.slice(at).replace(/^\s*/, '')
-    const body = [before, line, after].filter(Boolean).join('\n\n')
-    edit({ body })
+    edit({ body: [before, line, after].filter(Boolean).join('\n\n') })
     // The next photo goes after this one.
     cursor.current = (before ? before.length + 2 : 0) + line.length
     setPreview(false)
@@ -336,26 +395,33 @@ function PostForm({ post, onSaved, onDone }: { post: BlogPost | null; onSaved: (
         )}
       </div>
 
-      <Panel
-        title={post ? 'Edit post' : 'New post'}
-        action={post && <PublishedPill published={published} />}
-      >
-        <form onSubmit={submit} className="grid gap-4">
+      <Panel title={post ? 'Edit post' : 'New post'} action={post && <PublishedPill published={published} />}>
+        <form onSubmit={submit} className="grid gap-5">
           <TextField label="Title" name="post-title" required maxLength={150} value={draft.title} error={errors.title}
             onChange={(e) => edit({ title: e.target.value, ...(slugTouched ? {} : { slug: slugify(e.target.value, 100) }) })} />
           <div className="grid gap-4 sm:grid-cols-2">
             <TextField label="Slug" name="post-slug" required maxLength={100} value={draft.slug} error={errors.slug}
-              hint={`theemptyvalley.com/blog/${draft.slug || '…'}${published ? ' — changing it breaks shared links' : ''}`}
+              hint={`theemptyvalley.com/blog/${draft.slug || '…'}${published ? ' — the old link will redirect' : ''}`}
               onChange={(e) => {
                 setSlugTouched(true)
                 edit({ slug: e.target.value })
               }} />
-            <SelectField label="Category" name="post-category" required value={draft.category_id} error={errors.category_id}
-              onChange={(e) => edit({ category_id: e.target.value })} options={categoryOptions(categories.data?.items ?? [])} />
+            <SelectField label="Sub-category" name="post-category" required value={draft.category_id} error={errors.category_id}
+              placeholder="Pick one…" onChange={(e) => edit({ category_id: e.target.value })}
+              options={subCategoryOptions(categories.data?.items ?? [])} />
           </div>
-          <TextAreaField label="Excerpt" name="post-excerpt" maxLength={300} rows={2} value={draft.excerpt} error={errors.excerpt}
-            hint="One or two lines under the title on the blog and in search results. Optional."
+          <TextAreaField label="Excerpt" name="post-excerpt" maxLength={160} rows={2} value={draft.excerpt} error={errors.excerpt}
+            hint="Under the title and the Google description. Needed to publish."
             onChange={(e) => edit({ excerpt: e.target.value })} />
+          <div className="grid gap-4 sm:grid-cols-[1fr_12rem]">
+            <TextField label="Hero image caption" name="post-cover-caption" maxLength={200} value={draft.cover_caption}
+              error={errors.cover_caption} hint="Pick the hero image under Photos. Caption and date are needed to publish."
+              onChange={(e) => edit({ cover_caption: e.target.value })} />
+            <TextField label="Taken on" name="post-cover-date" type="date" value={draft.cover_taken_on ?? ''}
+              error={errors.cover_taken_on} onChange={(e) => edit({ cover_taken_on: e.target.value || null })} />
+          </div>
+          {errors.cover_photo_id && <p className="-mt-3 text-sm text-laterite-600">Hero image: {errors.cover_photo_id}.</p>}
+
           <div>
             <div className="mb-1 flex gap-1 rounded-full bg-stone-100 p-1 text-sm sm:w-fit" role="tablist" aria-label="Body view">
               {(['Write', 'Preview'] as const).map((label) => (
@@ -376,12 +442,80 @@ function PostForm({ post, onSaved, onDone }: { post: BlogPost | null; onSaved: (
                 onSelect={(e) => (cursor.current = e.currentTarget.selectionStart)} />
             )}
           </div>
+
+          <fieldset className="grid gap-3">
+            <legend className="text-sm font-medium text-stone-800">FAQs</legend>
+            <p className="-mt-1 text-xs text-stone-500">Shown at the end of the post and marked up for Google.</p>
+            {draft.faqs.map((f, i) => (
+              <div key={i} className="grid gap-2 rounded-xl bg-paper-100 p-3">
+                <TextField label={`Question ${i + 1}`} name={`faq-${i}-q`} maxLength={200} value={f.question}
+                  error={errors[`faqs[${i}].question`]} onChange={(e) => editFaq(i, { question: e.target.value })} />
+                <TextAreaField label="Answer" name={`faq-${i}-a`} maxLength={2000} rows={2} value={f.answer}
+                  error={errors[`faqs[${i}].answer`]} onChange={(e) => editFaq(i, { answer: e.target.value })} />
+                <button type="button" onClick={() => edit({ faqs: draft.faqs.filter((_, j) => j !== i) })}
+                  className="justify-self-end text-xs font-medium text-laterite-600 hover:text-laterite-500">
+                  Remove
+                </button>
+              </div>
+            ))}
+            {draft.faqs.length < 20 && (
+              <Button tone="secondary" className="justify-self-start" onClick={() => edit({ faqs: [...draft.faqs, { question: '', answer: '' }] })}>
+                Add a question
+              </Button>
+            )}
+          </fieldset>
+
+          <fieldset>
+            <legend className="text-sm font-medium text-stone-800">Related treks</legend>
+            <p className="text-xs text-stone-500">None for general posts like a gear guide.</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {(tracks.data?.items ?? []).map((t) => {
+                const on = draft.track_ids.includes(t.id)
+                return (
+                  <label key={t.id} className={`cursor-pointer rounded-full px-3 py-1.5 text-sm ring-1 ${on ? 'bg-brand-900 text-white ring-brand-900' : 'bg-white text-stone-700 ring-stone-300'}`}>
+                    <input type="checkbox" className="sr-only" checked={on}
+                      onChange={() => edit({ track_ids: on ? draft.track_ids.filter((id) => id !== t.id) : [...draft.track_ids, t.id] })} />
+                    {t.name}
+                  </label>
+                )
+              })}
+            </div>
+            {errors.track_ids && <p className="mt-1 text-sm text-laterite-600">{errors.track_ids}</p>}
+          </fieldset>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <TextField label="Author" name="post-author" maxLength={100} value={draft.author_name} error={errors.author_name}
+              hint="The byline. Leave blank to use your name." onChange={(e) => edit({ author_name: e.target.value })} />
+            <SelectField label="Schema type" name="post-schema" value={draft.schema_type === 'ARTICLE' ? '' : draft.schema_type} placeholder="Article"
+              onChange={(e) => edit({ schema_type: (e.target.value || 'ARTICLE') as BlogSchemaType })}
+              options={SCHEMA_TYPES.filter((t) => t.value !== 'ARTICLE')} hint="How Google reads the page." />
+          </div>
+          <TextAreaField label="Research notes" name="post-notes" maxLength={20000} rows={3} value={draft.research_notes}
+            error={errors.research_notes} hint="Admin only. Never shown on the site."
+            onChange={(e) => edit({ research_notes: e.target.value })} />
+
+          {moneyHits.length > 0 && (
+            <p role="alert" className="rounded-lg bg-amber-100 px-4 py-3 text-sm text-amber-900">
+              <span className="font-semibold">Money rule:</span> this post mentions {moneyHits.map((w) => `“${w}”`).join(', ')}. We never
+              publish pay, margins, cost breakdowns, ledgers or fee splits. The trek price and trekkers’ own costs are fine.
+            </p>
+          )}
+          {post && !published && (
+            <label className="flex cursor-pointer items-start gap-2 text-sm text-stone-700">
+              <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} className="mt-0.5 size-4 accent-brand-800" />
+              <span>
+                This post publishes none of our money: no guide, porter or staff pay, margins, cost breakdowns, ledgers or fee splits.
+                {errors.money_rule_confirmed && <span className="block text-laterite-600">Tick this to publish.</span>}
+              </span>
+            </label>
+          )}
+
           <div className="flex flex-wrap items-center gap-2">
             <Button type="submit" disabled={save.isPending || (post !== null && !dirty)}>
               {save.isPending ? 'Saving…' : post ? (dirty ? 'Save changes' : 'Saved') : 'Save draft'}
             </Button>
             {post && (
-              <Button tone={published ? 'secondary' : 'primary'} disabled={publish.isPending}
+              <Button tone={published ? 'secondary' : 'primary'} disabled={publish.isPending || (!published && !confirmed)}
                 onClick={() => publish.mutate(!published)}>
                 {publish.isPending ? 'Working…' : published ? 'Unpublish' : dirty ? 'Save and publish' : 'Publish'}
               </Button>
@@ -394,8 +528,11 @@ function PostForm({ post, onSaved, onDone }: { post: BlogPost | null; onSaved: (
               </button>
             )}
           </div>
-          {save.error && Object.keys(errors).length === 0 && <ErrorNote error={save.error} />}
-          {publish.error && <ErrorNote error={publish.error} />}
+          {save.error && Object.keys(fieldErrors(save.error)).length === 0 && <ErrorNote error={save.error} />}
+          {publish.error && Object.keys(fieldErrors(publish.error)).length > 0 && (
+            <ErrorNote error={new Error(`Not ready to publish: ${Object.values(fieldErrors(publish.error)).join('; ')}.`)} />
+          )}
+          {publish.error && Object.keys(fieldErrors(publish.error)).length === 0 && <ErrorNote error={publish.error} />}
           {remove.error && <ErrorNote error={remove.error} />}
         </form>
       </Panel>
@@ -403,7 +540,7 @@ function PostForm({ post, onSaved, onDone }: { post: BlogPost | null; onSaved: (
       {post ? (
         <PostPhotos post={post} onInsert={insertPhoto} onChange={refresh} />
       ) : (
-        <p className="text-sm text-stone-600">Save the draft to add photos.</p>
+        <p className="text-sm text-stone-600">Save the draft to add photos and the hero image.</p>
       )}
     </>
   )
@@ -449,8 +586,8 @@ function PostPhotos({ post, onInsert, onChange }: { post: BlogPost; onInsert: (p
   return (
     <Panel title={`Photos (${post.photos.length} of ${MAX_PHOTOS})`}>
       <p className="text-sm text-stone-600">
-        Pick one as the cover (it heads the post and its card on the blog). “Insert in post” puts a photo into the body
-        where your cursor is; its caption shows under it and is read out by screen readers.
+        Pick one as the hero image (it heads the post and its card). “Insert in post” puts a photo into the body where
+        your cursor is; its caption shows under it and is read out by screen readers.
       </p>
       {post.photos.length > 0 && (
         <ul className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -511,7 +648,7 @@ function PhotoCard({ post, photo, isCover, onCover, onInsert, onDelete }: {
               {save.isPending ? 'Saving…' : 'Save caption'}
             </Button>
           )}
-          <Button tone={isCover ? 'primary' : 'secondary'} onClick={onCover}>{isCover ? 'Cover ✓' : 'Make cover'}</Button>
+          <Button tone={isCover ? 'primary' : 'secondary'} onClick={onCover}>{isCover ? 'Hero ✓' : 'Make hero'}</Button>
           <Button tone="secondary" onClick={onInsert}>Insert in post</Button>
           <button type="button" onClick={onDelete} className="ml-auto text-xs font-medium text-laterite-600 hover:text-laterite-500">
             Delete

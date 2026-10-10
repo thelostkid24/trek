@@ -154,6 +154,19 @@ function plainOpening(body) {
   return para.join(' ').replace(/\*\*(.+?)\*\*/g, '$1').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
 }
 await mkdir('dist/blog', { recursive: true })
+// Category pages in the Blog menu (3+ posts; the rest are noindex), with the same title as Category in BlogPages.tsx.
+let categories = 0
+for (const top of (await get('/api/public/blog/categories')).items) {
+  const pages = [
+    ...(top.in_menu ? [{ title: top.name, c: top, path: `/blog/${top.slug}` }] : []),
+    ...top.subcategories.filter((s) => s.in_menu).map((s) => ({ title: `${s.name} · ${top.name}`, c: s, path: `/blog/${top.slug}/${s.slug}` })),
+  ]
+  if (pages.length > 1) await mkdir(`dist/blog/${top.slug}`, { recursive: true })
+  for (const { title, c, path } of pages) {
+    await write({ title, description: c.description ?? `${c.name}: articles from The Empty Valley's trek journal.`, path })
+    categories++
+  }
+}
 let posts = 0
 for (const { slug } of (await get('/api/public/blog/posts')).items) {
   if (!/^[a-z0-9-]+$/.test(slug)) continue
@@ -163,4 +176,4 @@ for (const { slug } of (await get('/api/public/blog/posts')).items) {
   posts++
 }
 
-console.log(`prerender: wrote ${STATIC_PAGES.length} fixed pages, ${treks} trek pages, ${guides} guide pages, ${posts} blog posts`)
+console.log(`prerender: wrote ${STATIC_PAGES.length} fixed pages, ${treks} trek pages, ${guides} guide pages, ${categories} blog categories, ${posts} blog posts`)

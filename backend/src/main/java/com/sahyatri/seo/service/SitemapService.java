@@ -12,8 +12,8 @@ import java.util.Set;
 
 /**
  * The sitemap Google reads (docs/TRD.md §7.16): the site's static public pages, every trek in the public catalog,
- * the guides leading its upcoming departures and every published blog post (§7.19). Departures themselves are left
- * out because they expire.
+ * the guides leading its upcoming departures, every published blog post and the blog categories in its menu
+ * (§7.19). Departures themselves are left out because they expire.
  */
 @Service
 public class SitemapService {
@@ -37,7 +37,7 @@ public class SitemapService {
         List<CatalogTrek> treks = catalog.catalog();
         treks.forEach(t -> paths.add("/treks/" + t.slug()));
         treks.forEach(t -> t.departures().forEach(d -> paths.add("/guides/" + d.guide().id())));
-        blog.publishedSlugs().forEach(slug -> paths.add("/blog/" + slug));
+        paths.addAll(blog.sitemapPaths());
 
         StringBuilder xml = new StringBuilder("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
                 .append("<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n");

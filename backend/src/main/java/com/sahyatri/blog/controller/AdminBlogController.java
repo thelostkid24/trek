@@ -47,7 +47,7 @@ public class AdminBlogController {
 
     @GetMapping("/categories")
     public ItemsResponse<BlogCategoryResponse> categories() {
-        return new ItemsResponse<>(reads.categories());
+        return new ItemsResponse<>(reads.flat());
     }
 
     @PostMapping("/categories")
@@ -91,7 +91,7 @@ public class AdminBlogController {
     @PutMapping("/posts/{id}/published")
     public BlogPostResponse setPublished(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id,
                                          @Valid @RequestBody BlogPublishRequest req) {
-        return blog.setPublished(userId(jwt), id, req.published());
+        return blog.setPublished(userId(jwt), id, req.published(), Boolean.TRUE.equals(req.moneyRuleConfirmed()));
     }
 
     @PutMapping("/posts/{id}/cover")
