@@ -180,6 +180,11 @@ NULL everywhere = not captured (rows made before V11, or nothing sent). Tracking
 ### 6.15 Account deletion — `V19__account_deletion.sql`
 - **`users`** — `status` may also be `DELETED`; adds `deleted_at TIMESTAMPTZ NULL`. CHECK `users_deleted`: `status = 'DELETED'` ⇔ `deleted_at` is set. A deleted row keeps its id, role, `signup_method`, `heard_from`, campaign tags, `device_type`, `first_seen_at` and timestamps; everything that identifies the person is NULL (§7.18).
 
+### 6.16 Blog — `V20__blog.sql`
+- **`blog_categories`** — `id`, `parent_id UUID NULL → blog_categories` (set = sub-category; one level deep, enforced in `BlogAdminService`), `name TEXT 1..60`, `slug TEXT UNIQUE` (`^[a-z0-9]+(-[a-z0-9]+)*$`, ≤ 80), `created_at`. CHECK `parent_id <> id`.
+- **`blog_posts`** — `id`, `category_id → blog_categories` (NOT NULL; a category with posts can't be deleted), `slug TEXT UNIQUE` (same pattern, ≤ 100), `title TEXT 1..150`, `excerpt TEXT NULL ≤ 300`, `body TEXT NOT NULL ≤ 50,000`, `cover_photo_id UUID NULL → blog_photos ON DELETE SET NULL`, `author_id → users`, `published_at TIMESTAMPTZ NULL` (set = public), `created_at`, `updated_at`. Partial index on `published_at DESC` where set.
+- **`blog_photos`** — `id` (also the storage key `blog-photos/<id>.jpg`), `post_id → blog_posts ON DELETE CASCADE`, `caption TEXT NULL ≤ 200` (also the alt text), `created_at`.
+
 ## 7. Feature log
 Each feature appends: scope, endpoints, tables, screens, tests.
 
@@ -1040,7 +1045,7 @@ Google renders the SPA, so there's no SSR. It needs a sitemap, robots.txt and pe
 | `GET /api/public/sitemap.xml` | — | — | `200 application/xml` `<urlset>`, `Cache-Control: public, max-age=3600` | — |
 | `GET /robots.txt` (API host) | — | — | `200 text/plain`: allows only `/api/public/` (Google fetches the catalog API to render the SPA's pages), disallows the rest; cached 1 day | — |
 
-- `seo.service.SitemapService`: `app.frontend-base-url` + the static public paths (`/`, `/treks`, `/guides`, vision, faqs, cancellations, contact, terms, privacy, cookies, credits), `/treks/{slug}` for every trek in the public catalog (`CatalogService.catalog()`), and `/guides/{id}` for each guide leading one of its upcoming departures. Departures are left out because they expire (law 9). No `lastmod`/`priority`.
+- `seo.service.SitemapService`: `app.frontend-base-url` + the static public paths (`/`, `/treks`, `/guides`, `/blog`, vision, faqs, cancellations, contact, terms, privacy, cookies, credits), `/treks/{slug}` for every trek in the public catalog (`CatalogService.catalog()`), `/guides/{id}` for each guide leading one of its upcoming departures, and `/blog/{slug}` for every published post (§7.19). Departures are left out because they expire (law 9). No `lastmod`/`priority`.
 - The site (Firebase) and API are on different hosts, so `frontend/public/robots.txt` points to the sitemap on `api.theemptyvalley.com`. It disallows account, admin, guide console, checkout and auth paths.
 - Frontend: `components/Seo.tsx` renders `<title>`, description, canonical (`SITE_ORIGIN` in `lib/siteLinks.ts`), Open Graph and `twitter:card` tags through React 19's head hoisting, plus optional JSON-LD (`jsonLd`). Public pages pass `path`. Trek and departure pages pass the first trek photo as `image` (default `/hero.jpg`). Not-found and error states, plus every private route (wrapped in `<Private>` in `router.tsx`), are `noindex`. Descriptions are cut to the first paragraph, ~155 characters at a word boundary with "…" (empty → site-wide default). Info pages pass a search `description` where the intro doesn't say what the page offers (FAQs, Vision, Contact). Departure pages set their canonical to `/treks/{slug}`: departures expire (law 9) and repeat the trek's summary. Loading states render a plain title ("Trek", "Guide", "Departure") with no canonical. `firebase.json` has `trailingSlash: false`, so `/treks/` redirects to `/treks`.
 - Link previews: WhatsApp, Facebook, X and other link-preview fetchers don't run JavaScript. `index.html` carries the site-wide title, description and og: tags between `<!-- static-head:start/end -->` markers, each tagged `data-static-head`; `main.tsx` removes them on load so `<Seo>` owns the head. `scripts/prerender.mjs` (`npm run prerender`, run by the deploy workflow after the build) writes a copy of `index.html` with the page's own title, description, canonical and og: tags for every public page except home: the fixed pages (`/treks`, `/guides`, vision, faqs, cancellations, contact, terms, privacy, cookies, credits; a list in the script mirroring their `<Seo>` props), `dist/treks/<slug>.html` per trek from `GET /api/public/tracks` (summary, `cover_url`), and `dist/guides/<id>.html` per guide from `GET /api/public/guides` plus each profile (bio). Crawlers then see each page's own tags before rendering. `firebase.json` `cleanUrls` serves them at their paths ahead of the SPA rewrite. Home stays `index.html`, which is also the fallback for every other route, so it carries no canonical until `<Seo>` renders. A trek or guide added after a deploy gets the site-wide head until the next deploy.
@@ -1107,6 +1112,36 @@ Google renders the SPA, so there's no SSR. It needs a sitemap, robots.txt and pe
 - Contrast (WCAG AA 4.5:1 for text): `laterite-600` darkened to `#a65316` (≥ 4.6:1 on white, `paper-100` and `paper-200`). Placeholder and muted text moved from `stone-400` (2.6:1) to `stone-500`. The contact page labels moved from `ink-400` to `stone-500`. `stone-400` stays only on disabled controls.
 - "Skip to content" link, first in the tab order, jumps to `<main id="main">`.
 - oxlint runs `jsx-a11y`. Fixes from it: the booking "⋯" menu is now a plain disclosure (it had `role="menu"` without arrow keys); the photo carousel is a labelled `region`; the marketing switches carry `aria-checked`; guide photo alt text is the guide's name (no "photo of").
+
+### 7.19 Blog (`/blog`, `/admin/blog`)
+Admins write posts (trek write-ups, snow updates, anything) filed under a category, e.g. "Kedarkantha" or "Snow", or one of its sub-categories ("Kedarkantha › Winter"). Posts stay drafts until published; only published posts are public. Package `com.sahyatri.blog`.
+
+| Method & path | Auth | Request | Success | Errors |
+|---|---|---|---|---|
+| `GET /api/public/blog/categories` | — | — | `200 { items: [{ id, parent_id, name, slug, published_posts }] }` by name; every category, the page hides empty ones | — |
+| `GET /api/public/blog/posts?category=<slug>` | — | — | `200 { items: [BlogPostSummary] }` published, newest first; a category also brings its sub-categories' posts | `404 CATEGORY_NOT_FOUND` |
+| `GET /api/public/blog/posts/{slug}` | — | — | `200` BlogPost | `404 POST_NOT_FOUND` (also for drafts) |
+| `GET /api/admin/blog/categories` | ADMIN | — | same as public | — |
+| `POST /api/admin/blog/categories` · `PUT …/{id}` | ADMIN | `{ name, slug, parent_id? }` | `201`/`200` category | `400 VALIDATION_FAILED` (`parent_id`: not top-level, or this one has sub-categories), `409 SLUG_TAKEN`, `404 CATEGORY_NOT_FOUND` |
+| `DELETE /api/admin/blog/categories/{id}` | ADMIN | — | `204` | `409 CATEGORY_IN_USE` (has sub-categories or any post) |
+| `GET /api/admin/blog/posts` | ADMIN | — | `200 { items: [BlogPostSummary] }` drafts and published, last edited first | — |
+| `GET /api/admin/blog/posts/{id}` | ADMIN | — | `200` BlogPost | `404 POST_NOT_FOUND` |
+| `POST /api/admin/blog/posts` · `PUT …/{id}` | ADMIN | `{ title, slug, category_id, excerpt?, body }` | `201` (draft) / `200` BlogPost | `400` (`category_id` unknown, slug pattern), `409 SLUG_TAKEN` |
+| `PUT /api/admin/blog/posts/{id}/published` | ADMIN | `{ published }` | `200` BlogPost; publishing sets `published_at` = now, unpublishing clears it. Audited `BLOG_POST_PUBLISHED` / `BLOG_POST_UNPUBLISHED` | `404` |
+| `PUT /api/admin/blog/posts/{id}/cover` | ADMIN | `{ photo_id \| null }` | `200` BlogPost | `400` (`photo_id` not this post's) |
+| `DELETE /api/admin/blog/posts/{id}` | ADMIN | — | `204`; photos and their files go too. Audited `BLOG_POST_DELETED` | `404` |
+| `POST /api/admin/blog/posts/{id}/photos` | ADMIN | multipart `file`, `caption?` | `201 { id, url, caption }`; re-encoded like trek photos (long edge ≤ 2000 px), max 30 per post | `400 UNSUPPORTED_IMAGE`, `409 TOO_MANY_PHOTOS` |
+| `PUT /api/admin/blog/posts/{id}/photos/{photoId}` | ADMIN | `{ caption }` | `200` photo | `404 PHOTO_NOT_FOUND` |
+| `DELETE /api/admin/blog/posts/{id}/photos/{photoId}` | ADMIN | — | `204`; clears it as the cover | `404 PHOTO_NOT_FOUND` |
+| `GET /api/public/files/blog-photos/{id}.jpg` | — | — | the JPEG, cached a year | `404` |
+
+- `BlogPostSummary` = `{ id, slug, title, excerpt, category: { id, name, slug, parent? }, cover_url, published_at, updated_at }`. `BlogPost` adds `body`, `cover_photo_id`, `photos: [{ id, url, caption }]`, `author_name`.
+- Body format (`frontend/src/lib/blogBody.ts`, rendered by `components/blog/BlogBody.tsx`): blank line = paragraph, `## ` / `### ` headings, `- ` lists, `**bold**`, `[text](https://… or /path)`, and `![caption](url)` on its own line for one of the post's own photos (any other image URL is skipped). Nothing is rendered as HTML.
+- `/blog` (`pages/BlogPages.tsx`, public, lazy): "From the trail", category chips (top-level categories with posts; choosing one shows its sub-categories), `?category=<slug>` filter, cards with cover, "Category · Sub-category", title, excerpt and date. `/blog/:slug`: breadcrumb (Blog / category / sub-category), title, author and date, cover, excerpt as the lead, body; `BlogPosting` JSON-LD; description = excerpt, else the body's first paragraph. "Blog" is in the header and footer nav.
+- `/admin/blog` (`pages/admin/BlogAdminPage.tsx`): Posts (status pill, New post) and Categories (add, edit name/slug/parent, delete). The editor: title (slug follows it until edited), category ("Parent › Child"), excerpt, body with Write/Preview, Save draft / Save changes, Publish (saves first) / Unpublish, Delete post. Once saved: photos (upload several with a caption, edit captions, Make cover, "Insert in post" at the cursor, delete).
+- SEO: `/blog` and every published post are in the sitemap and prerendered (`scripts/prerender.mjs`, §7.16).
+- Prod WAF: the `xss-body-except-uploads` exemption must include `/api/admin/blog/posts/*/photos` (like trek photos), and a long post body must not trip the managed rule set's body-size rule.
+- Tests: `BlogTests`.
 
 ### Charity share
 `app.charity` (`CHARITY_NAME`, `CHARITY_BPS`, default 100 = 1%) is part of the price, never added on top. It only shows as a line on the trek page ("1% goes to …, and the rest runs the company"); no money is split or recorded per booking yet.

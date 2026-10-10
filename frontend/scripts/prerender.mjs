@@ -1,11 +1,11 @@
 // Writes a copy of dist/index.html for every public page, with that page's own title, description, canonical and
-// link-preview tags in the static-head block: the fixed pages (/treks, /faqs, …), every trek (dist/treks/<slug>.html)
-// and every guide (dist/guides/<id>.html). Link-preview fetchers (WhatsApp, Facebook, X) don't run JavaScript, and
+// link-preview tags in the static-head block: the fixed pages (/treks, /faqs, …), every trek (dist/treks/<slug>.html),
+// every guide (dist/guides/<id>.html) and every published blog post (dist/blog/<slug>.html). Link-preview fetchers (WhatsApp, Facebook, X) don't run JavaScript, and
 // search crawlers see these tags before rendering, so each page reads as itself from the first fetch. Firebase serves
 // these files before its catch-all rewrite (cleanUrls in firebase.json maps /faqs to faqs.html). See docs/TRD.md §7.16.
 //
 // Runs after `npm run build` in the deploy workflow, against the live API: `npm run prerender`. A trek or guide added
-// later gets the site-wide preview until the next deploy.
+// later (or a post published later) gets the site-wide preview until the next deploy.
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 
 const SITE_ORIGIN = 'https://theemptyvalley.com'
@@ -15,8 +15,9 @@ const DESCRIPTION_MAX = 155
 const START = '<!-- static-head:start -->'
 const END = '<!-- static-head:end -->'
 
-// The fixed public pages, mirroring the <Seo> props in TreksPage.tsx, GuidesPage.tsx and InfoPages.tsx; keep them in
-// step. "Last updated" dates are left out of the legal pages' descriptions so this file needn't change with them.
+// The fixed public pages, mirroring the <Seo> props in TreksPage.tsx, GuidesPage.tsx, BlogPages.tsx and
+// InfoPages.tsx; keep them in step. "Last updated" dates are left out of the legal pages' descriptions so this file
+// needn't change with them.
 // The home page is dist/index.html itself, which is also the fallback for every other route, so it keeps the
 // site-wide head and gets no canonical until <Seo> renders.
 const STATIC_PAGES = [
@@ -29,6 +30,11 @@ const STATIC_PAGES = [
     path: '/guides',
     title: 'Our trek guides',
     description: 'Meet the local mountain guides who lead our Himalayan treks in Uttarakhand: their certifications, the treks they know and what trekkers say.',
+  },
+  {
+    path: '/blog',
+    title: 'Blog',
+    description: 'Trail notes from the Himalaya: trek guides, snow and season updates, and stories from our small-batch treks in Uttarakhand.',
   },
   {
     path: '/vision',
@@ -135,4 +141,26 @@ for (const { id } of (await get('/api/public/guides')).items) {
   guides++
 }
 
-console.log(`prerender: wrote ${STATIC_PAGES.length} fixed pages, ${treks} trek pages, ${guides} guide pages`)
+// Same title, description, canonical and image as BlogPostPage in BlogPages.tsx: the excerpt, else the body's first
+// paragraph without markup (plainOpening in src/lib/blogBody.ts).
+function plainOpening(body) {
+  const para = []
+  for (const raw of body.split(/\r?\n/)) {
+    const line = raw.trim()
+    const prose = line && !/^(#{2,3} |[-*] |!\[)/.test(line)
+    if (prose) para.push(line)
+    else if (para.length) break
+  }
+  return para.join(' ').replace(/\*\*(.+?)\*\*/g, '$1').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+}
+await mkdir('dist/blog', { recursive: true })
+let posts = 0
+for (const { slug } of (await get('/api/public/blog/posts')).items) {
+  if (!/^[a-z0-9-]+$/.test(slug)) continue
+  const post = await get(`/api/public/blog/posts/${slug}`)
+  const description = post.excerpt || plainOpening(post.body) || STATIC_PAGES.find((p) => p.path === '/blog').description
+  await write({ title: post.title, description, path: `/blog/${slug}`, image: post.cover_url ?? undefined })
+  posts++
+}
+
+console.log(`prerender: wrote ${STATIC_PAGES.length} fixed pages, ${treks} trek pages, ${guides} guide pages, ${posts} blog posts`)

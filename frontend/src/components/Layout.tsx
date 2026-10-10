@@ -16,6 +16,7 @@ const NAV = [
   { label: 'Our Guides', href: '/guides' },
   { label: 'How it works', href: '/#how-it-works' },
   { label: 'Our Vision', href: SITE_LINKS.vision },
+  { label: 'Blog', href: '/blog' },
   { label: 'FAQs', href: '/#faqs' },
 ]
 
