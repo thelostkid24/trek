@@ -301,8 +301,12 @@ function PayPanel({ booking }: { booking: Booking }) {
   )
 }
 
-/** Saved travellers, else blanks; the booker is usually the first. Our insurance starts ticked where it's offered. */
+/**
+ * Saved travellers, else blanks; the booker is usually the first. Before payment our insurance is ticked where it's
+ * offered (it's compulsory there); a paid booking keeps what it paid for.
+ */
 function initialDrafts(b: Booking, offered: OfferedAddon[]): TravellerDraft[] {
+  const insure = b.status === 'HELD' && offered.some((a) => a.key === 'insurance')
   return Array.from({ length: b.seats }, (_, i) => {
     const t = b.travellers[i]
     if (t) {
@@ -311,8 +315,8 @@ function initialDrafts(b: Booking, offered: OfferedAddon[]): TravellerDraft[] {
         phone: t.phone ?? '',
         date_of_birth: t.date_of_birth,
         gender: t.gender,
-        insurance: t.insurance,
-        insurance_id: t.insurance_id ?? '',
+        insurance: insure || t.insurance,
+        insurance_id: insure ? '' : (t.insurance_id ?? ''),
         offloading: t.offloading,
         transport: t.transport,
       }
@@ -443,7 +447,7 @@ function addonSummary(t: Booking['travellers'][number]): string {
 }
 
 /**
- * Held seats with add-ons on offer: who's coming, each with their insurance (ours, or their own policy ID),
+ * Held seats with add-ons on offer: who's coming, each with their insurance (compulsory where offered),
  * offloading and transport, beside a price that follows every tick. Paying saves them first, so the order is
  * for exactly what's shown.
  */
@@ -473,7 +477,6 @@ function HeldCheckout({ booking: b, offered, children }: { booking: Booking; off
   const fee = b.price_paise_per_seat * b.seats
   const lines = addonLines(drafts, offered)
   const total = fee + lines.reduce((sum, a) => sum + a.count * a.price, 0)
-  const ownPolicies = drafts.filter((t) => !t.insurance && t.insurance_id.trim() !== '').length
 
   const expired = seconds === 0
   const busy = save.isPending || pay.isPending || release.isPending
@@ -502,7 +505,7 @@ function HeldCheckout({ booking: b, offered, children }: { booking: Booking; off
         >
           <h2 className="font-display text-xl font-medium text-stone-900">Who's coming?</h2>
           <p className="mt-1 text-sm text-stone-600">
-            Everyone must be 12 or older on the trek date (under 18 only with a parent or guardian on this booking) and insured: take ours, or give your own policy ID.
+            Everyone must be 12 or older on the trek date (under 18 only with a parent or guardian on this booking). Trek insurance is required for everyone.
           </p>
           {errors.travellers && <p className="mt-2 text-sm text-laterite-600">{errors.travellers}</p>}
           <ol className="mt-5 space-y-6">
@@ -536,12 +539,6 @@ function HeldCheckout({ booking: b, offered, children }: { booking: Booking; off
               <dd className="font-medium tabular-nums">+ {rupees(a.count * a.price)}</dd>
             </div>
           ))}
-          {ownPolicies > 0 && (
-            <div className="flex justify-between gap-3 text-stone-500">
-              <dt>Own insurance · {ownPolicies}</dt>
-              <dd>{rupees(0)}</dd>
-            </div>
-          )}
           <div className="flex items-baseline justify-between gap-3 border-t border-laterite-400/40 pt-2">
             <dt className="font-semibold text-stone-900">Total</dt>
             <dd className="text-2xl font-semibold tabular-nums">{rupees(total)}</dd>

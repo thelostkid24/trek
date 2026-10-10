@@ -88,15 +88,15 @@ class GuestCheckoutTests extends AuthTestSupport {
         postJson(GUEST_BOOKINGS, """
                 {"departure_id":"%s","seats":2,"full_name":"Neha Kulkarni","phone":"%s","email":"%s","travellers":[
                   {"full_name":"Neha Kulkarni","date_of_birth":"1995-04-12","gender":"FEMALE","insurance":true,"offloading":true},
-                  {"full_name":"Rohan Kulkarni","date_of_birth":"1993-01-30","gender":"MALE","insurance_id":"POL-778"}]}"""
+                  {"full_name":"Rohan Kulkarni","date_of_birth":"1993-01-30","gender":"MALE","insurance":true}]}"""
                 .formatted(departure, uniquePhone(), uniqueEmail()))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.booking.status").value("HELD"))
                 .andExpect(jsonPath("$.booking.travellers_complete").value(true))
-                .andExpect(jsonPath("$.booking.travellers[1].insurance_id").value("POL-778"))
-                .andExpect(jsonPath("$.booking.addons.insurance_seats").value(1))
+                .andExpect(jsonPath("$.booking.travellers[1].insurance").value(true))
+                .andExpect(jsonPath("$.booking.addons.insurance_seats").value(2))
                 .andExpect(jsonPath("$.booking.addons.offloading_seats").value(1))
-                .andExpect(jsonPath("$.booking.amount_paise").value(439_800 + 50_000 + 30_000));
+                .andExpect(jsonPath("$.booking.amount_paise").value(439_800 + 2 * 50_000 + 30_000));
 
         // One traveller for two seats: refused, and no guest account is left behind.
         int users = jdbc.queryForObject("SELECT count(*) FROM users", Integer.class);

@@ -22,7 +22,7 @@ import { OtherDepartures } from '../../components/catalog/OtherDepartures.tsx'
 import { GuideLine } from '../../components/catalog/TrekPieces.tsx'
 import { SelectField } from '../../components/profile/fields.tsx'
 import { addonsOffered, type OfferedAddon } from '../../lib/addons.ts'
-import { dateRange, rupees } from '../../lib/format.ts'
+import { dateRange, parseDate, rupees } from '../../lib/format.ts'
 import { SITE_LINKS } from '../../lib/siteLinks.ts'
 import { addonLines, blankTraveller, GENDERS, toInput, travellerErrors, type TravellerDraft } from '../../lib/travellers.ts'
 
@@ -95,6 +95,14 @@ function fillForm(form: ParticipantForm, known: Details, born: { date_of_birth: 
     gender: form.gender || born.gender,
   }
 }
+
+/** Nothing typed into a companion's form yet, so Pay now can simply close it. */
+const isBlank = (f: ParticipantForm) => !f.first.trim() && !f.last.trim() && !f.digits && !f.date_of_birth && !f.gender
+
+const birthDate = (iso: string) =>
+  parseDate(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
+
+const genderLabel = (g: Gender | '') => GENDERS.find((o) => o.value === g)?.label ?? ''
 
 /** Every field the primary participant needs, so they can start out already added. */
 const isComplete = (f: ParticipantForm) => Object.keys(formProblems(f, true)).length === 0
@@ -301,16 +309,22 @@ function Checkout({ departure, user }: { departure: DepartureDetail; user: User 
       : null
   const serverErrors = { ...fieldErrors(book.error), ...fieldErrors(save.error) }
 
+  const formIsPrimary = form !== null && (form.index === 0 || (form.index === null && participants.length === 0))
+  /** The participants with the open form applied: a new one appended, an edited one replaced. */
+  const withForm = (f: ParticipantForm): Participant[] => {
+    const next = toParticipant(f, offered, f.index === null ? undefined : participants[f.index])
+    return f.index === null ? [...participants, next] : participants.map((p, i) => (i === f.index ? next : p))
+  }
+  // The price follows the open form as soon as everything in it is valid, before "Add participant" is pressed.
+  const formReady = form !== null && Object.keys(formProblems(form, formIsPrimary)).length === 0
+  const priced = form && formReady ? withForm(form) : participants
+
   const addParticipant = () => {
     if (!form) return
-    const primary = form.index === 0 || (form.index === null && participants.length === 0)
-    const found = formProblems(form, primary)
+    const found = formProblems(form, formIsPrimary)
     setFormErrors(found)
     if (Object.keys(found).length > 0) return
-    const next = toParticipant(form, offered, form.index === null ? undefined : participants[form.index])
-    setParticipants((current) =>
-      form.index === null ? [...current, next] : current.map((p, i) => (i === form.index ? next : p)),
-    )
+    setParticipants(withForm(form))
     setForm(null)
     setPayErrors([])
   }
@@ -328,14 +342,35 @@ function Checkout({ departure, user }: { departure: DepartureDetail; user: User 
     setForm(emptyForm(EMPTY, null))
   }
 
+  /**
+   * Pay now: an open form that's filled in counts as added (an untouched companion form is just closed); one that
+   * isn't stops here with its errors showing.
+   */
+  const onPay = () => {
+    if (!form) return void payNow(participants)
+    if (form.index === null && !formIsPrimary && isBlank(form)) {
+      setForm(null)
+      return void payNow(participants)
+    }
+    const found = formProblems(form, formIsPrimary)
+    setFormErrors(found)
+    if (Object.keys(found).length > 0) {
+      setPayErrors([form.index === null ? 'Finish adding the participant, or cancel it.' : 'Finish editing the participant, or cancel it.'])
+      return
+    }
+    const list = withForm(form)
+    setParticipants(list)
+    setForm(null)
+    void payNow(list)
+  }
+
   /** Holds a seat for every participant (or updates a live hold), then opens Razorpay. */
   const payNow = async (list: Participant[]) => {
     const problems: string[] = []
     if (list.length === 0) problems.push('Add at least one participant.')
-    if (form) problems.push('Finish adding the participant, or cancel it.')
     if (!acceptedTerms) problems.push('Accept the terms and conditions.')
     const addonErrors = travellerErrors(list.map(toTraveller), offered)
-    if (Object.keys(addonErrors).length > 0) problems.push('Enter the insurance policy ID, or tick our insurance, for everyone.')
+    if (Object.keys(addonErrors).length > 0) problems.push('Trek insurance is required for everyone.')
     setPayErrors(problems)
     if (problems.length > 0) return
     setOutcome(null)
@@ -369,29 +404,33 @@ function Checkout({ departure, user }: { departure: DepartureDetail; user: User 
   }
 
   const count = participants.length
-  const fee = departure.price_paise * count
-  const lines = addonLines(participants.map(toTraveller), offered)
+  /** What the summary charges for: everyone added, plus the open form once it's complete. */
+  const pricedCount = priced.length
+  const fee = departure.price_paise * pricedCount
+  const lines = addonLines(priced.map(toTraveller), offered)
   const total = fee + lines.reduce((sum, a) => sum + a.count * a.price, 0)
   const busy = book.isPending || save.isPending || pay.isPending
   const stage = book.isPending || save.isPending ? 'holding' : pay.isPending ? 'paying' : null
   const payError = pay.error ?? (save.error && Object.keys(fieldErrors(save.error)).length === 0 ? save.error : null)
-  const formIsPrimary = form !== null && (form.index === 0 || (form.index === null && count === 0))
   const carry: CarryState = { details: participants[0] ? toDetails(participants[0]) : undefined, seats: Math.max(1, count) }
 
-  const formPanel = form && (
-    <div className="mt-5 rounded-xl border border-stone-200 p-4 sm:p-5">
-      <ul className="list-decimal space-y-1 pl-5 text-sm text-stone-600">
-        {formIsPrimary ? (
-          <>
-            <li>Start with yourself: you're the primary participant.</li>
-            <li>We send every trek update to this WhatsApp number and email.</li>
-          </>
-        ) : (
-          <li>Add each person who's coming with you, exactly as on their ID.</li>
-        )}
-        <li>Medical and dietary details come after payment.</li>
-      </ul>
-      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+  // The participant form: for a new participant it opens below the list, for an edit it takes that card's place.
+  const formFields = form && (
+    <>
+      {form.index === null && (
+        <ul className="mb-4 list-decimal space-y-1 pl-5 text-sm text-stone-600">
+          {formIsPrimary ? (
+            <>
+              <li>Start with yourself: you're the primary participant.</li>
+              <li>We send every trek update to this WhatsApp number and email.</li>
+            </>
+          ) : (
+            <li>Add each person who's coming with you, exactly as on their ID.</li>
+          )}
+          <li>Medical and dietary details come after payment.</li>
+        </ul>
+      )}
+      <div className="grid gap-4 sm:grid-cols-2">
         <TextField label="First name *" name="p-first" autoComplete={formIsPrimary ? 'given-name' : 'off'} maxLength={50}
           value={form.first} onChange={(e) => editForm({ first: e.target.value })} error={formErrors.first} />
         <TextField label="Last name *" name="p-last" autoComplete={formIsPrimary ? 'family-name' : 'off'} maxLength={50}
@@ -426,7 +465,10 @@ function Checkout({ departure, user }: { departure: DepartureDetail; user: User 
           </button>
         )}
       </div>
-    </div>
+    </>
+  )
+  const newForm = form && form.index === null && (
+    <div className="mt-5 rounded-xl border border-stone-200 p-4 sm:p-5">{formFields}</div>
   )
 
   return (
@@ -472,7 +514,7 @@ function Checkout({ departure, user }: { departure: DepartureDetail; user: User 
               </div>
             )}
 
-            {count === 0 && formPanel}
+            {count === 0 && newForm}
 
             {count > 0 && (
               <>
@@ -480,6 +522,9 @@ function Checkout({ departure, user }: { departure: DepartureDetail; user: User 
                 <ol className="mt-3 space-y-3">
                   {participants.map((p, i) => (
                     <li key={i} className="overflow-hidden rounded-xl border border-stone-200 border-l-4 border-l-laterite-500">
+                      {form?.index === i ? (
+                        <div className="p-4 sm:p-5">{formFields}</div>
+                      ) : (
                       <div className="flex items-start justify-between gap-3 p-4">
                         <div className="flex min-w-0 items-start gap-3">
                           <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-laterite-100 text-laterite-600">
@@ -490,12 +535,15 @@ function Checkout({ departure, user }: { departure: DepartureDetail; user: User 
                               {fullName(p)}
                               {i === 0 && <span className="ml-2 text-xs font-medium text-stone-500">Primary</span>}
                             </p>
-                            <p className="truncate text-sm text-stone-600">
-                              {[i === 0 ? p.email : null, p.digits ? `+91 ${p.digits}` : null].filter(Boolean).join(' · ')}
-                            </p>
+                            <dl className="mt-1.5 grid gap-x-5 gap-y-1 text-sm sm:grid-cols-2">
+                              <ParticipantFact label={i === 0 ? 'WhatsApp' : 'Phone'} value={p.digits ? `+91 ${p.digits}` : 'Not given'} />
+                              {i === 0 && <ParticipantFact label="Email" value={p.email} />}
+                              <ParticipantFact label="Born" value={birthDate(p.date_of_birth)} />
+                              <ParticipantFact label="Gender" value={genderLabel(p.gender)} />
+                            </dl>
                           </div>
                         </div>
-                        {!holdLive && (
+                        {!holdLive && !form && (
                           <div className="flex shrink-0 gap-3 text-sm font-medium">
                             <button type="button" onClick={() => editParticipant(i)} className="text-brand-800 hover:text-brand-900">
                               Edit
@@ -508,6 +556,7 @@ function Checkout({ departure, user }: { departure: DepartureDetail; user: User 
                           </div>
                         )}
                       </div>
+                      )}
                       {offered.length > 0 && (
                         <div className="border-t border-stone-100 bg-paper-100/60 p-4">
                           <p className="mb-3 text-xs font-semibold tracking-[0.12em] text-laterite-600 uppercase">Add-ons</p>
@@ -518,7 +567,7 @@ function Checkout({ departure, user }: { departure: DepartureDetail; user: User 
                     </li>
                   ))}
                 </ol>
-                {formPanel}
+                {newForm}
                 {!form && !holdLive && count < maxParticipants && (
                   <button type="button" onClick={openNewForm}
                     className="mt-4 w-full rounded-full border border-dashed border-brand-700 px-5 py-3 font-medium text-brand-800 hover:bg-brand-50">
@@ -550,7 +599,7 @@ function Checkout({ departure, user }: { departure: DepartureDetail; user: User 
           <dl className="mt-3 space-y-2 text-sm">
             <div className="flex justify-between gap-3">
               <dt className="text-stone-600">No. of participants</dt>
-              <dd className="font-medium">{count === 1 ? '1 person' : `${count} people`}</dd>
+              <dd className="font-medium">{pricedCount === 1 ? '1 person' : `${pricedCount} people`}</dd>
             </div>
             <div className="flex justify-between gap-3">
               <dt className="text-stone-600">Price × {rupees(departure.price_paise)}</dt>
@@ -569,7 +618,7 @@ function Checkout({ departure, user }: { departure: DepartureDetail; user: User 
               <dd className="text-2xl font-semibold">{rupees(total)}</dd>
             </div>
           </dl>
-          {count > 0 && <CharityShare slug={departure.track.slug} fee={fee} />}
+          {pricedCount > 0 && <CharityShare slug={departure.track.slug} fee={fee} />}
           <label className="mt-4 flex cursor-pointer items-start gap-2 text-sm text-stone-700">
             <input type="checkbox" checked={acceptedTerms} onChange={(e) => setAcceptedTerms(e.target.checked)}
               className="mt-0.5 size-4 accent-brand-800" />
@@ -597,11 +646,11 @@ function Checkout({ departure, user }: { departure: DepartureDetail; user: User 
           </div>
           <button
             type="button"
-            onClick={() => void payNow(participants)}
+            onClick={onPay}
             disabled={stage !== null || knownLeft === 0}
             className="mt-5 w-full rounded-full bg-laterite-500 px-6 py-3 font-medium text-white shadow-lg shadow-laterite-600/20 hover:bg-laterite-600 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {stage === 'holding' ? 'Holding your seats…' : stage === 'paying' ? 'Waiting for payment…' : count > 0 ? `Pay ${rupees(total)} now` : 'Pay now'}
+            {stage === 'holding' ? 'Holding your seats…' : stage === 'paying' ? 'Waiting for payment…' : pricedCount > 0 ? `Pay ${rupees(total)} now` : 'Pay now'}
           </button>
         </aside>
       </div>
@@ -655,6 +704,15 @@ function Alerts({
         </p>
       )}
     </>
+  )
+}
+
+function ParticipantFact({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex min-w-0 gap-1.5">
+      <dt className="shrink-0 text-stone-500">{label}</dt>
+      <dd className="truncate text-stone-800">{value}</dd>
+    </div>
   )
 }
 

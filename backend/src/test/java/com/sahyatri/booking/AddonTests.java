@@ -46,12 +46,10 @@ class AddonTests extends AuthTestSupport {
                 .andExpect(jsonPath("$.travellers[0].offloading").value(true))
                 .andExpect(jsonPath("$.travellers[1].transport").value(false));
 
-        // B has their own policy instead: the price comes down.
-        travellers(token, booking, traveller("A", "\"insurance\":true"),
-                traveller("B", "\"insurance_id\":\"POL-778\""))
-                .andExpect(jsonPath("$.amount_paise").value(439_800 + 50_000))
-                .andExpect(jsonPath("$.travellers[1].insurance").value(false))
-                .andExpect(jsonPath("$.travellers[1].insurance_id").value("POL-778"));
+        // A drops offloading and transport: the price comes down; insurance stays for both.
+        travellers(token, booking, traveller("A", "\"insurance\":true"), traveller("B", "\"insurance\":true"))
+                .andExpect(jsonPath("$.amount_paise").value(439_800 + 2 * 50_000))
+                .andExpect(jsonPath("$.addons.offloading_seats").value(0));
     }
 
     @Test
@@ -61,19 +59,24 @@ class AddonTests extends AuthTestSupport {
         String token = bookingTrekker();
         UUID booking = holdWithoutTravellers(token, departure, 1);
 
-        // No travellers yet, then one with no insurance at all: can't pay.
+        // No travellers yet: can't pay.
         orderRequest(token, booking).andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("TRAVELLERS_NEEDED"));
-        travellers(token, booking, traveller("A", "\"offloading\":true")).andExpect(status().isOk());
-        orderRequest(token, booking).andExpect(jsonPath("$.code").value("TRAVELLERS_NEEDED"));
 
-        // Ours and theirs together is refused; their own policy alone is enough.
+        // Without our insurance, or with their own policy instead, is refused; so is both together.
+        travellers(token, booking, traveller("A", "\"offloading\":true"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.details.fields['travellers[0].insurance']").exists());
+        travellers(token, booking, traveller("A", "\"insurance_id\":\"POL-1\""))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.details.fields['travellers[0].insurance']").exists());
         travellers(token, booking, traveller("A", "\"insurance\":true,\"insurance_id\":\"POL-1\""))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.details.fields['travellers[0].insurance_id']").exists());
-        travellers(token, booking, traveller("A", "\"insurance_id\":\"POL-1\"")).andExpect(status().isOk());
+
+        travellers(token, booking, traveller("A", "\"insurance\":true")).andExpect(status().isOk());
         orderRequest(token, booking).andExpect(status().isCreated())
-                .andExpect(jsonPath("$.amount_paise").value(219_900));
+                .andExpect(jsonPath("$.amount_paise").value(219_900 + 50_000));
     }
 
     @Test

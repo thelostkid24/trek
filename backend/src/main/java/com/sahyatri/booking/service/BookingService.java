@@ -171,8 +171,9 @@ public class BookingService {
         }
         checkAges(req.travellers(), locked.departure.getStartDate());
         Track track = locked.departure.getTrack();
-        List<TravellerAddons> wanted = travellerAddons(req.travellers(), track);
-        if (booking.getStatus() == BookingStatus.HELD) {
+        boolean held = booking.getStatus() == BookingStatus.HELD;
+        List<TravellerAddons> wanted = travellerAddons(req.travellers(), track, held);
+        if (held) {
             AddonChoice addons = addonChoice(wanted, track);
             if (addons.totalPaise() != booking.getAddonsPaise()) {
                 payments.findByBookingIdForUpdate(bookingId).forEach(paymentService::expire);
@@ -208,7 +209,7 @@ public class BookingService {
                     Map.of("seats_left", departure.seatsLeft()));
         }
 
-        List<TravellerAddons> wanted = travellerAddons(travellers, departure.getTrack());
+        List<TravellerAddons> wanted = travellerAddons(travellers, departure.getTrack(), true);
         Booking booking = Booking.hold(userId, departure, seats, contact.fullName(), contact.phone(), contact.email(),
                 addonChoice(wanted, departure.getTrack()), Instant.now().plus(props.holdTtl()));
         booking.setLastTouch(lastTouch);
@@ -221,9 +222,10 @@ public class BookingService {
 
     /**
      * Each traveller's add-ons, checked against the trek: an add-on it doesn't offer (no price, or offloading not
-     * available) can't be taken, and our insurance and their own policy ID are one or the other.
+     * available) can't be taken, and our insurance and their own policy ID are one or the other. Before payment
+     * ({@code unpaid}), our insurance is compulsory wherever the trek offers it; a paid booking keeps what it paid for.
      */
-    private static List<TravellerAddons> travellerAddons(List<TravellerRequest> travellers, Track track) {
+    private static List<TravellerAddons> travellerAddons(List<TravellerRequest> travellers, Track track, boolean unpaid) {
         List<TravellerAddons> out = new ArrayList<>();
         for (int i = 0; i < travellers.size(); i++) {
             TravellerRequest t = travellers.get(i);
@@ -234,6 +236,9 @@ public class BookingService {
             String ownId = blankToNull(t.insuranceId());
             if (insurance && track.getInsurancePricePaise() == null) {
                 throw ApiException.validation(prefix + "insurance", "isn't offered on this trek");
+            }
+            if (unpaid && !insurance && track.getInsurancePricePaise() != null) {
+                throw ApiException.validation(prefix + "insurance", "is required on this trek");
             }
             if (insurance && ownId != null) {
                 throw ApiException.validation(prefix + "insurance_id", "leave blank when taking our insurance");

@@ -22,7 +22,7 @@ export type TravellerDraft = {
   transport: boolean
 }
 
-/** A blank traveller. Our insurance starts ticked where it's offered. */
+/** A blank traveller. Our insurance is ticked where it's offered (it's compulsory there). */
 export function blankTraveller(offered: OfferedAddon[]): TravellerDraft {
   return {
     full_name: '',
@@ -45,7 +45,7 @@ export function travellerErrors(drafts: TravellerDraft[], offered: OfferedAddon[
     if (!t.full_name.trim()) found[`${key}full_name`] = 'Enter their full name'
     if (!t.date_of_birth) found[`${key}date_of_birth`] = 'Enter their date of birth'
     if (!t.gender) found[`${key}gender`] = 'Choose one'
-    if (insuranceOffered && !t.insurance && !t.insurance_id.trim()) found[`${key}insurance_id`] = 'Enter your policy ID, or tick our insurance'
+    if (insuranceOffered && !t.insurance) found[`${key}insurance`] = 'Insurance is required for everyone on this trek'
   })
   return found
 }
