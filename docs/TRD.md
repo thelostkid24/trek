@@ -1140,7 +1140,7 @@ Admins write posts (trek write-ups, snow updates, anything) filed under a catego
 - `/blog` (`pages/BlogPages.tsx`, public, lazy): "From the trail", category chips (top-level categories with posts; choosing one shows its sub-categories), `?category=<slug>` filter, cards with cover, "Category · Sub-category", title, excerpt and date. `/blog/:slug`: breadcrumb (Blog / category / sub-category), title, author and date, cover, excerpt as the lead, body; `BlogPosting` JSON-LD; description = excerpt, else the body's first paragraph. "Blog" is in the header and footer nav.
 - `/admin/blog` (`pages/admin/BlogAdminPage.tsx`): Posts (status pill, New post) and Categories (add, edit name/slug/parent, delete). The editor: title (slug follows it until edited), category ("Parent › Child"), excerpt, body with Write/Preview, Save draft / Save changes, Publish (saves first) / Unpublish, Delete post. Once saved: photos (upload several with a caption, edit captions, Make cover, "Insert in post" at the cursor, delete).
 - SEO: `/blog` and every published post are in the sitemap and prerendered (`scripts/prerender.mjs`, §7.16).
-- Prod WAF: the `xss-body-except-uploads` exemption must include `/api/admin/blog/posts/*/photos` (like trek photos), and a long post body must not trip the managed rule set's body-size rule.
+- Prod WAF: the `xss-body-except-uploads` exemption must include `/api/admin/blog/posts/[^/]+/photos` (like trek photos). Long post bodies are fine: `SizeRestrictions_BODY` is already set to Count.
 - Tests: `BlogTests`.
 
 ### Charity share
