@@ -85,7 +85,9 @@ export async function openCheckout(order: PaymentOrder): Promise<CheckoutResult>
     })
     // Checkout stays open so the trekker can retry; remember why the attempt failed.
     rzp.on('payment.failed', (response) => {
-      lastError = response.error?.description ?? 'The payment did not go through.'
+      const description = response.error?.description?.trim()
+      // Shown ahead of our own sentence, and Razorpay's descriptions don't always end in a full stop.
+      lastError = description ? (/[.!?]$/.test(description) ? description : `${description}.`) : 'The payment did not go through.'
     })
     rzp.open()
   })

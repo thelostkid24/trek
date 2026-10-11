@@ -383,7 +383,7 @@ function Checkout({ departure, user }: { departure: DepartureDetail; user: User 
     pay.mutate(booking, {
       onSuccess: (result) => {
         if (result.kind === 'closed') setOutcome(result)
-        else navigate(`/account/bookings/${booking.id}`)
+        else navigate(`/account/bookings/${booking.id}`, { state: { paymentProcessing: result.kind === 'processing' } })
       },
     })
   }

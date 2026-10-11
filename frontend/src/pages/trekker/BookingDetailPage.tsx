@@ -155,6 +155,11 @@ function Detail({ booking: b }: { booking: Booking }) {
           {d.cancel_reason_note} You get a full refund.
         </Banner>
       )}
+      {b.status === 'HELD' && (location.state as { paymentProcessing?: boolean } | null)?.paymentProcessing && (
+        <Banner tone="good" title="Payment received">
+          We're waiting for the bank to confirm it. This page updates on its own, so there's no need to pay again.
+        </Banner>
+      )}
       {b.status === 'HELD' && !checkout && <PayPanel booking={b} />}
       {(b.status === 'EXPIRED' || b.status === 'RELEASED') && (
         <Banner tone="muted" title={b.status === 'EXPIRED' ? 'The seat hold ended' : 'You released these seats'}>
