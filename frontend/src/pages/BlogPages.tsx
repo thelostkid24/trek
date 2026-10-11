@@ -1,12 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
-import { useEffect, type ReactNode } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useEffect, useMemo, type ReactNode } from 'react'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   getBlogCategory,
   getBlogPost,
   listBlogCategories,
   listBlogPosts,
-  type BlogCategoryNode,
   type BlogCategoryPage,
   type BlogCategoryRef,
   type BlogPost,
@@ -15,6 +14,7 @@ import {
 import { ApiError } from '../api/client.ts'
 import { messageFor } from '../auth/errorMessages.ts'
 import { BlogBody } from '../components/blog/BlogBody.tsx'
+import { Ridgeline } from '../components/Ridgeline.tsx'
 import { Seo } from '../components/Seo.tsx'
 import { plainOpening } from '../lib/blogBody.ts'
 import { parseDate } from '../lib/format.ts'
@@ -38,69 +38,99 @@ const categoryHref = (c: BlogCategoryRef) => (c.parent ? `/blog/${c.parent.slug}
 const notFound = (error: unknown) => error instanceof ApiError && error.status === 404
 const noRetryOn404 = (count: number, error: unknown) => !notFound(error) && count < 2
 
-/** /blog — the latest post up top, the topics with posts, then everything else newest first. */
+/** /blog — every article, filtered by category and sub-category, laid out like /treks. */
 export function BlogPage() {
+  const [params, setParams] = useSearchParams()
   const categories = useQuery({ queryKey: ['blog-categories'], queryFn: listBlogCategories })
   const posts = useQuery({ queryKey: ['blog-posts'], queryFn: () => listBlogPosts() })
-  const topics = (categories.data?.items ?? []).filter((c) => c.published_posts > 0)
-  const [featured, ...rest] = posts.data?.items ?? []
+  const all = useMemo(() => posts.data?.items ?? [], [posts.data])
+
+  const tops = categories.data?.items ?? []
+  const picked = tops.find((c) => c.slug === params.get('category')) ?? null
+  const subs = (picked?.subcategories ?? []).filter((s) => s.published_posts > 0)
+  const sub = subs.find((s) => s.slug === params.get('topic')) ?? null
+
+  /** Picking a category clears its topic; picking the same one again clears both. */
+  const pickCategory = (slug: string | null) => {
+    const next = new URLSearchParams()
+    if (slug && slug !== picked?.slug) next.set('category', slug)
+    setParams(next, { replace: true })
+  }
+  const pickTopic = (slug: string | null) => {
+    const next = new URLSearchParams(params)
+    if (slug) next.set('topic', slug)
+    else next.delete('topic')
+    setParams(next, { replace: true })
+  }
+
+  const matching = all.filter((p) =>
+    sub ? p.category.slug === sub.slug : !picked || (p.category.parent ?? p.category).slug === picked.slug,
+  )
 
   return (
-    <>
+    <div className="mx-auto max-w-6xl px-4 py-8 sm:py-10">
       <Seo title="Blog" description={BLOG_DESCRIPTION} path="/blog" />
-      <section className="border-b border-stone-200">
-        <div className="mx-auto max-w-6xl px-4 py-10 sm:py-14">
-          <p className="text-xs font-semibold tracking-[0.18em] text-laterite-600 uppercase">The Empty Valley Journal</p>
-          <h1 className="mt-3 font-display text-4xl font-light tracking-[-0.02em] sm:text-5xl">From the trail</h1>
-          <p className="mt-3 max-w-2xl text-stone-600">
-            Trek guides, planning and gear, altitude and safety, snow updates, and stories from the batches we've walked
-            with.
-          </p>
-        </div>
-      </section>
+      <header>
+        <h1 className="font-display text-3xl font-light tracking-[-0.02em] sm:text-4xl">From the trail</h1>
+        <p className="mt-2 max-w-2xl text-sm text-stone-600 sm:text-base">
+          Trek guides, planning and gear, altitude and safety, snow updates, and stories from the batches we've walked
+          with.
+        </p>
+      </header>
 
-      <div className="mx-auto max-w-6xl space-y-14 px-4 py-10 sm:py-14">
-        {posts.isPending ? (
-          <div className="grid gap-6 lg:grid-cols-5" aria-busy="true" aria-label="Loading articles">
-            <div className="aspect-[16/10] animate-pulse rounded-2xl bg-stone-100 lg:col-span-3" />
-            <div className="h-48 animate-pulse rounded-2xl bg-stone-100 lg:col-span-2" />
-          </div>
-        ) : posts.isError ? (
-          <Note>
-            <p className="text-stone-700">{messageFor(posts.error)}</p>
-            <button type="button" onClick={() => void posts.refetch()}
-              className="mt-3 rounded-full bg-brand-900 px-5 py-2 text-sm font-medium text-white hover:bg-brand-800">
-              Try again
-            </button>
-          </Note>
-        ) : !featured ? (
-          <Note>
-            <p className="font-display text-xl text-stone-900">Stories are on their way</p>
-            <p className="mt-1 text-sm text-stone-600">We're writing up the trail. Check back soon.</p>
-          </Note>
-        ) : (
-          <FeaturedPost post={featured} />
-        )}
-
-        {topics.length > 0 && (
-          <section aria-labelledby="topics">
-            <h2 id="topics" className="font-display text-2xl font-light tracking-[-0.01em]">Browse by topic</h2>
-            <ul className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {topics.map((c) => (
-                <TopicCard key={c.id} category={c} />
+      {tops.length > 0 && (
+        <div className="mt-6 flex flex-wrap items-center gap-2" role="group" aria-label="Categories">
+          <FilterChip on={!picked} onClick={() => pickCategory(null)}>
+            All
+          </FilterChip>
+          {tops.map((c) => (
+            <FilterChip key={c.id} on={c.id === picked?.id} onClick={() => pickCategory(c.slug)}>
+              {c.name}
+              {c.published_posts > 0 && <span className="ml-1.5 text-xs opacity-60">{c.published_posts}</span>}
+            </FilterChip>
+          ))}
+          {subs.length > 0 && (
+            <FilterSelect label="Topic" value={sub?.slug ?? null} onChange={pickTopic}>
+              {subs.map((s) => (
+                <option key={s.id} value={s.slug}>
+                  {s.name}
+                </option>
               ))}
-            </ul>
-          </section>
-        )}
+            </FilterSelect>
+          )}
+        </div>
+      )}
 
-        {rest.length > 0 && (
-          <section aria-labelledby="latest">
-            <h2 id="latest" className="font-display text-2xl font-light tracking-[-0.01em]">Latest articles</h2>
-            <PostGrid posts={rest} />
-          </section>
-        )}
-      </div>
-    </>
+      {picked?.description && !sub && <p className="mt-4 max-w-2xl text-sm text-stone-600">{picked.description}</p>}
+      {sub?.description && <p className="mt-4 max-w-2xl text-sm text-stone-600">{sub.description}</p>}
+
+      {posts.isPending ? (
+        <ul className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true" aria-label="Loading articles">
+          {[0, 1, 2].map((i) => (
+            <li key={i} className="h-80 animate-pulse rounded-2xl bg-stone-100" />
+          ))}
+        </ul>
+      ) : posts.isError ? (
+        <Note>
+          <p className="text-stone-700">{messageFor(posts.error)}</p>
+          <button type="button" onClick={() => void posts.refetch()}
+            className="mt-3 rounded-full bg-brand-900 px-5 py-2 text-sm font-medium text-white hover:bg-brand-800">
+            Try again
+          </button>
+        </Note>
+      ) : matching.length === 0 ? (
+        <Note>
+          <p className="font-display text-xl text-stone-900">
+            {all.length === 0 ? 'Stories are on their way' : `Nothing in ${(sub ?? picked)?.name ?? 'here'} yet`}
+          </p>
+          <p className="mt-1 text-sm text-stone-600">
+            {all.length === 0 ? "We're writing up the trail. Check back soon." : 'Try another category.'}
+          </p>
+        </Note>
+      ) : (
+        <PostGrid posts={matching} />
+      )}
+    </div>
   )
 }
 
@@ -141,25 +171,21 @@ function Category({ page }: { page: BlogCategoryPage }) {
         path={categoryHref(here)}
         noindex={!page.indexable}
       />
-      <section className="border-b border-stone-200">
-        <div className="mx-auto max-w-6xl px-4 py-8 sm:py-12">
-          <Breadcrumb trail={parent ? [parent] : []} />
-          <h1 className="mt-3 font-display text-3xl font-light tracking-[-0.02em] sm:text-5xl">{c.name}</h1>
-          {c.description && <p className="mt-3 max-w-2xl text-stone-600">{c.description}</p>}
-          <p className="mt-2 text-sm text-stone-500">{c.published_posts === 1 ? '1 article' : `${c.published_posts} articles`}</p>
-          {top && chips.length > 0 && (
-            <nav aria-label={`${top.name} topics`} className="mt-6 flex flex-wrap gap-2">
-              <Chip to={`/blog/${top.slug}`} active={!parent}>All</Chip>
-              {chips.map((s) => (
-                <Chip key={s.id} to={`/blog/${top.slug}/${s.slug}`} active={s.id === c.id}>
-                  {s.name}
-                </Chip>
-              ))}
-            </nav>
-          )}
-        </div>
-      </section>
-      <div className="mx-auto max-w-6xl px-4 py-10 sm:py-12">
+      <div className="mx-auto max-w-6xl px-4 py-8 sm:py-10">
+        <Breadcrumb trail={parent ? [parent] : []} />
+        <h1 className="mt-3 font-display text-3xl font-light tracking-[-0.02em] sm:text-4xl">{c.name}</h1>
+        {c.description && <p className="mt-2 max-w-2xl text-sm text-stone-600 sm:text-base">{c.description}</p>}
+        <p className="mt-1 text-sm text-stone-500">{c.published_posts === 1 ? '1 article' : `${c.published_posts} articles`}</p>
+        {top && chips.length > 0 && (
+          <nav aria-label={`${top.name} topics`} className="mt-6 flex flex-wrap gap-2">
+            <Chip to={`/blog/${top.slug}`} active={!parent}>All</Chip>
+            {chips.map((s) => (
+              <Chip key={s.id} to={`/blog/${top.slug}/${s.slug}`} active={s.id === c.id}>
+                {s.name}
+              </Chip>
+            ))}
+          </nav>
+        )}
         <PostGrid posts={page.posts} />
       </div>
     </>
@@ -276,69 +302,44 @@ function Article({ post: p }: { post: BlogPost }) {
 
 // --- Pieces
 
-function FeaturedPost({ post: p }: { post: BlogPostSummary }) {
-  return (
-    <article className="group relative grid overflow-hidden rounded-2xl bg-white ring-1 ring-stone-200 lg:grid-cols-5">
-      <div className="lg:col-span-3">
-        <Cover url={p.cover_url} className="aspect-[16/10] h-full w-full" />
-      </div>
-      <div className="flex flex-col justify-center p-6 sm:p-8 lg:col-span-2">
-        <p className="text-xs font-semibold tracking-[0.12em] text-laterite-600 uppercase">Latest · {p.category.name}</p>
-        <h2 className="mt-3 font-serif text-2xl leading-snug text-stone-900 sm:text-3xl">
-          <Link to={`/blog/${p.slug}`} viewTransition className="after:absolute after:inset-0">{p.title}</Link>
-        </h2>
-        {p.excerpt && <p className="mt-3 text-stone-600">{p.excerpt}</p>}
-        {p.published_at && <p className="mt-5 text-xs text-stone-500">{instantDate(p.published_at)}</p>}
-        <span className="mt-5 text-sm font-medium text-brand-800 group-hover:text-brand-900">Read the story →</span>
-      </div>
-    </article>
-  )
-}
-
-function TopicCard({ category: c }: { category: BlogCategoryNode }) {
-  const subs = c.subcategories.filter((s) => s.published_posts > 0)
-  return (
-    <li className="relative flex flex-col rounded-2xl bg-white p-5 ring-1 ring-stone-200 transition hover:-translate-y-0.5 hover:shadow-lg hover:shadow-stone-900/5">
-      <div className="flex items-baseline justify-between gap-3">
-        <h3 className="font-serif text-xl text-stone-900">
-          <Link to={`/blog/${c.slug}`} className="after:absolute after:inset-0">{c.name}</Link>
-        </h3>
-        <span className="shrink-0 text-xs text-stone-500">{c.published_posts}</span>
-      </div>
-      {c.description && <p className="mt-1 text-sm text-stone-600">{c.description}</p>}
-      {subs.length > 0 && (
-        <p className="mt-3 text-sm text-stone-500">{subs.map((s) => s.name).join(' · ')}</p>
-      )}
-    </li>
-  )
-}
-
 function PostGrid({ posts }: { posts: BlogPostSummary[] }) {
   return (
-    <ul className="mt-5 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    <ul className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
       {posts.map((p) => (
-        <li key={p.id} className="relative flex flex-col overflow-hidden rounded-2xl bg-white ring-1 ring-stone-200 transition hover:-translate-y-1 hover:shadow-lg hover:shadow-stone-900/5">
-          <Cover url={p.cover_url} className="aspect-[16/10] w-full" />
-          <div className="flex flex-1 flex-col p-5">
-            <p className="text-xs font-semibold tracking-[0.12em] text-laterite-600 uppercase">{p.category.name}</p>
-            <h3 className="mt-2 font-serif text-xl leading-snug text-stone-900">
-              {/* The card is clickable through this link's overlay. */}
-              <Link to={`/blog/${p.slug}`} viewTransition className="after:absolute after:inset-0">{p.title}</Link>
-            </h3>
-            {p.excerpt && <p className="mt-2 line-clamp-3 text-sm text-stone-600">{p.excerpt}</p>}
-            {p.published_at && <p className="mt-auto pt-4 text-xs text-stone-500">{instantDate(p.published_at)}</p>}
-          </div>
-        </li>
+        <PostCard key={p.id} post={p} />
       ))}
     </ul>
   )
 }
 
-function Cover({ url, className }: { url: string | null; className: string }) {
-  return url ? (
-    <img src={url} alt="" loading="lazy" className={`object-cover ${className}`} />
-  ) : (
-    <div className={`bg-gradient-to-br from-brand-100 to-paper-100 ${className}`} aria-hidden="true" />
+/** An article as a card, built like the trek cards on /treks. */
+function PostCard({ post: p }: { post: BlogPostSummary }) {
+  const top = p.category.parent ?? p.category
+  return (
+    <li className="group relative flex flex-col overflow-hidden rounded-2xl bg-white ring-1 ring-stone-200 transition hover:-translate-y-1 hover:shadow-lg hover:shadow-stone-900/5">
+      <div className="relative aspect-[4/3] overflow-hidden bg-brand-950">
+        {p.cover_url ? (
+          <img src={p.cover_url} alt="" loading="lazy" className="size-full object-cover transition-transform duration-700 group-hover:scale-105" />
+        ) : (
+          <Ridgeline className="absolute inset-0 size-full transition-transform duration-700 group-hover:scale-105" />
+        )}
+      </div>
+
+      <div className="flex flex-1 flex-col p-4">
+        <div className="flex items-center justify-between gap-2">
+          <span className="truncate text-xs text-stone-500">{top.name}</span>
+          {p.category.parent && (
+            <span className="shrink-0 rounded-full bg-brand-100 px-2.5 py-0.5 text-xs font-medium text-brand-800">{p.category.name}</span>
+          )}
+        </div>
+        <h2 className="mt-2 font-display text-xl font-semibold leading-snug text-brand-950">
+          {/* The card is clickable through this link's overlay. */}
+          <Link to={`/blog/${p.slug}`} viewTransition className="after:absolute after:inset-0">{p.title}</Link>
+        </h2>
+        {p.excerpt && <p className="mt-1 line-clamp-2 text-sm text-stone-600">{p.excerpt}</p>}
+        {p.published_at && <p className="mt-auto pt-3 text-xs text-stone-500">{instantDate(p.published_at)}</p>}
+      </div>
+    </li>
   )
 }
 
@@ -370,8 +371,46 @@ function Chip({ to, active, children }: { to: string; active: boolean; children:
   )
 }
 
+function FilterChip({ on, onClick, children }: { on: boolean; onClick: () => void; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      onClick={onClick}
+      className={`rounded-full px-3 py-1.5 text-sm transition ${
+        on ? 'bg-brand-900 text-white' : 'bg-white text-stone-700 ring-1 ring-stone-300 hover:ring-brand-400'
+      }`}
+    >
+      {children}
+    </button>
+  )
+}
+
+/** The sub-category dropdown, styled like the chips (as on /treks). Empty value = the whole category. */
+function FilterSelect({ label, value, onChange, children }: { label: string; value: string | null; onChange: (value: string | null) => void; children: ReactNode }) {
+  const on = value !== null
+  return (
+    <span className="relative inline-flex">
+      <select
+        aria-label={label}
+        value={value ?? ''}
+        onChange={(e) => onChange(e.target.value || null)}
+        className={`cursor-pointer appearance-none rounded-full py-1.5 pr-8 pl-3 text-sm transition ${
+          on ? 'bg-brand-900 text-white' : 'bg-white text-stone-700 ring-1 ring-stone-300 hover:ring-brand-400'
+        }`}
+      >
+        <option value="">{label}</option>
+        {children}
+      </select>
+      <svg viewBox="0 0 12 12" className={`pointer-events-none absolute top-1/2 right-3 size-3 -translate-y-1/2 ${on ? 'text-white' : 'text-stone-500'}`} fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+        <path d="M3 4.5 6 7.5 9 4.5" />
+      </svg>
+    </span>
+  )
+}
+
 function Note({ children }: { children: ReactNode }) {
-  return <div className="rounded-2xl bg-white p-8 text-center ring-1 ring-stone-200">{children}</div>
+  return <div className="mt-8 rounded-2xl bg-white p-8 text-center ring-1 ring-stone-200">{children}</div>
 }
 
 function PageSkeleton() {
