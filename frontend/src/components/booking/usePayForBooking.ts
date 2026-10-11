@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { Booking } from '../../api/bookings.ts'
+import { ApiError } from '../../api/client.ts'
 import { createPaymentOrder, getPayment, verifyPayment, type Payment } from '../../api/payments.ts'
 import { useAuth } from '../../auth/useAuth.ts'
 import { openCheckout } from '../../lib/razorpay.ts'
@@ -28,8 +29,15 @@ export function usePayForBooking(booking?: Booking) {
       const order = await withAuth((token) => createPaymentOrder(token, b.id))
       const result = await openCheckout(order)
       if (result.kind === 'success') {
-        const payment = await withAuth((token) => verifyPayment(token, order.payment_id, result.response))
-        return payment.status === 'PAID' ? { kind: 'paid', payment } : { kind: 'processing' }
+        try {
+          const payment = await withAuth((token) => verifyPayment(token, order.payment_id, result.response))
+          return payment.status === 'PAID' ? { kind: 'paid', payment } : { kind: 'processing' }
+        } catch (error) {
+          // Razorpay has taken the money; only our confirmation call failed. The webhook and reconciler finish
+          // it, so the trekker must never be told to pay again. A forged signature still surfaces as an error.
+          if (error instanceof ApiError && error.code === 'PAYMENT_SIGNATURE_INVALID') throw error
+          return { kind: 'processing' }
+        }
       }
       for (let attempt = 0; attempt < 3; attempt++) {
         const payment = await withAuth((token) => getPayment(token, order.payment_id))
