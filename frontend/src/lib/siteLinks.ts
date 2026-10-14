@@ -12,5 +12,4 @@ export const SITE_LINKS = {
   terms: '/terms',
   privacy: '/privacy',
   cookies: '/cookies',
-  credits: '/credits',
 }

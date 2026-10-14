@@ -63,7 +63,6 @@ const STATIC_PAGES = [
     description: 'How The Empty Valley collects and uses your personal data, under India’s Digital Personal Data Protection Act, 2023.',
   },
   { path: '/cookies', title: 'Cookie policy', description: 'What The Empty Valley stores in your browser, why, and for how long.' },
-  { path: '/credits', title: 'Credits', description: 'The work of other people this site is built with.' },
 ]
 
 const api = process.env.VITE_API_BASE_URL?.replace(/\/$/, '')

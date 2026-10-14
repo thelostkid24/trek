@@ -20,7 +20,7 @@ public class SitemapService {
 
     /** Mirrors the public routes in frontend/src/router.tsx and SITE_LINKS. */
     static final List<String> STATIC_PATHS =
-            List.of("/", "/treks", "/guides", "/blog", "/vision", "/faqs", "/cancellations", "/contact", "/terms", "/privacy", "/cookies", "/credits");
+            List.of("/", "/treks", "/guides", "/blog", "/vision", "/faqs", "/cancellations", "/contact", "/terms", "/privacy", "/cookies");
 
     private final CatalogService catalog;
     private final BlogPublicService blog;
