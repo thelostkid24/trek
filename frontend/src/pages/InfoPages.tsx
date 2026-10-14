@@ -360,9 +360,10 @@ export function PrivacyPage() {
       <Section title="Cookies and browser storage">
         <p>
           We set one cookie, which keeps you signed in. It is only sent to our own servers and can’t be read by page
-          scripts. Your browser also remembers your light or dark theme and, only if you accept our cookie banner, the
-          link you first arrived by. We don’t use advertising or third-party tracking cookies, and our fonts and images
-          come from our own servers. The{' '}
+          scripts. Your browser also remembers your light or dark theme. Only if you accept our cookie banner, it also
+          remembers the link you first arrived by, and Google Analytics counts which pages you visit and what you click,
+          without your name or contact details. We don’t use advertising cookies, and our fonts and images come from our
+          own servers. The{' '}
           <Link to={SITE_LINKS.cookies} className={linkClass}>
             cookie policy
           </Link>{' '}
@@ -470,6 +471,14 @@ const STORAGE_ITEMS: { name: string; kind: string; purpose: string; kept: string
     kept: 'Until you clear your browser data or say no below',
     needed: false,
   },
+  {
+    name: '_ga, _ga_TXKW03B3E2',
+    kind: 'Cookie (Google Analytics)',
+    purpose:
+      'Lets Google Analytics tell a returning browser from a new one, so we see, in totals, how many people visit, which pages they read and what they click. Not used for ads.',
+    kept: '2 years, or until you say no below',
+    needed: false,
+  },
 ]
 
 export function CookiesPage() {
@@ -484,9 +493,9 @@ export function CookiesPage() {
     >
       <Section title="The short version">
         <p>
-          One cookie keeps you signed in. A few small notes in your browser make the site work. One thing, remembering
-          the link you arrived by, waits for your OK. No advertising cookies, no third-party trackers, and our fonts and
-          images are served by us.
+          One cookie keeps you signed in. A few small notes in your browser make the site work. Two things wait for
+          your OK: remembering the link you arrived by, and Google Analytics counting visits and clicks. No advertising
+          cookies, and our fonts and images are served by us.
         </p>
       </Section>
       <Section title="What we store">
@@ -527,10 +536,10 @@ export function CookiesPage() {
       <Section title="Your choice">
         <p>
           {consent === 'granted'
-            ? 'You’ve allowed us to remember the link you arrived by.'
+            ? 'You’ve allowed us to remember the link you arrived by and to use Google Analytics.'
             : consent === 'denied'
-              ? 'You’ve said no to remembering the link you arrived by.'
-              : 'You haven’t chosen yet. Until you do, we don’t remember the link you arrived by.'}{' '}
+              ? 'You’ve said no to remembering the link you arrived by and to Google Analytics.'
+              : 'You haven’t chosen yet. Until you do, we don’t remember the link you arrived by or use Google Analytics.'}{' '}
           Saying no also deletes what we’d already stored in this browser. It doesn’t change anything already sent with
           a sign-up or booking; for that, write to our grievance officer ({BUSINESS.grievanceEmail}).
         </p>

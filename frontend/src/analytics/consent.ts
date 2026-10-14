@@ -1,12 +1,12 @@
 import { useSyncExternalStore } from 'react'
 
-// The visitor's answer to the cookie banner (docs/TRD.md §7.18). Only one thing waits on it: remembering the link a
-// visitor arrived by (attribution.ts). The sign-in cookie, the theme and the release-reload marker are needed for
+// The visitor's answer to the cookie banner (docs/TRD.md §7.18). Two things wait on it: remembering the link a
+// visitor arrived by (attribution.ts) and Google Analytics (googleAnalytics.ts). The sign-in cookie, the theme and the release-reload marker are needed for
 // the site to work and never ask. If storage is blocked, the answer lasts for this page only.
 
 const KEY = 'tev.consent'
 /** Bump when the banner starts asking about something new, so everyone is asked again. */
-const VERSION = 1
+const VERSION = 2
 
 export type Consent = 'granted' | 'denied'
 
