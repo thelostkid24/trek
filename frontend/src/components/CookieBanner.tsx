@@ -3,7 +3,8 @@ import { setConsent, useConsent } from '../analytics/consent.ts'
 import { SITE_LINKS } from '../lib/siteLinks.ts'
 
 /**
- * Asks once whether we may remember the link a visitor arrived by (docs/TRD.md §7.18). Both answers are equally easy,
+ * Asks once whether we may remember the link a visitor arrived by and count visits with Google Analytics
+ * (docs/TRD.md §7.18). Both answers are equally easy,
  * nothing is remembered until "Accept", and the page stays usable while it's open: it's a bar, not a dialog.
  * The answer can be changed on /cookies.
  */
@@ -18,8 +19,8 @@ export function CookieBanner() {
       className="fixed inset-x-3 bottom-3 z-40 rounded-2xl border border-paper-300 bg-paper-50 p-4 text-sm text-stone-700 shadow-lg sm:inset-x-auto sm:right-5 sm:bottom-5 sm:max-w-md sm:p-5"
     >
       <p className="leading-relaxed">
-        We use one cookie to keep you signed in. With your OK, we’ll also remember the link you came in by, so we know
-        which channels bring trekkers. No ads, no third-party trackers.{' '}
+        We use one cookie to keep you signed in. With your OK, we’ll also remember the link you came in by and use
+        Google Analytics to count visits and clicks, so we know what’s working. No ads.{' '}
         <Link to={SITE_LINKS.cookies} className="font-medium text-pine-700 underline hover:text-pine-600">
           Cookie policy
         </Link>

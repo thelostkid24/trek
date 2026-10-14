@@ -3,6 +3,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { RouterProvider } from 'react-router-dom'
 import { captureVisit } from './analytics/attribution.ts'
+import { startGoogleAnalytics } from './analytics/googleAnalytics.ts'
 import { AuthProvider } from './auth/AuthProvider.tsx'
 // The typeface ships with the site rather than coming from Google Fonts, so visitors' browsers only talk to us.
 import '@fontsource-variable/plus-jakarta-sans/wght.css'
@@ -24,6 +25,7 @@ for (const el of document.querySelectorAll('head [data-static-head]')) el.remove
 
 // Before the router can rewrite the URL and drop the campaign tags.
 captureVisit()
+startGoogleAnalytics()
 // A tab left open picks up a new release on its next page change.
 watchForNewRelease(router)
 
