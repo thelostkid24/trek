@@ -13,7 +13,6 @@ import {
   CancellationsPage,
   ContactPage,
   CookiesPage,
-  CreditsPage,
   FaqsPage,
   PrivacyPage,
   TermsPage,
@@ -84,7 +83,6 @@ export const router = createBrowserRouter([
       { path: SITE_LINKS.terms, element: <TermsPage /> },
       { path: SITE_LINKS.privacy, element: <PrivacyPage /> },
       { path: SITE_LINKS.cookies, element: <CookiesPage /> },
-      { path: SITE_LINKS.credits, element: <CreditsPage /> },
       // Public: guest checkout needs no account (docs/TRD.md §7.6).
       { path: '/book/:departureId', lazy: page(() => import('./pages/trekker/BookPage.tsx'), 'BookPage', 'Book') },
       {

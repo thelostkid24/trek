@@ -25,7 +25,6 @@ const FOOTER_LINKS = [
   { label: 'Terms', href: SITE_LINKS.terms },
   { label: 'Privacy', href: SITE_LINKS.privacy },
   { label: 'Cookies', href: SITE_LINKS.cookies },
-  { label: 'Credits', href: SITE_LINKS.credits },
 ]
 
 /** Hash links stay plain anchors so the browser scrolls; routes go through the router. */
