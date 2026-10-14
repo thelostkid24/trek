@@ -43,9 +43,9 @@ class BlogTests extends AuthTestSupport {
     void theTenCategoriesAreSeededAndPostsGoUnderASubCategory() throws Exception {
         mockMvc.perform(get(PUBLIC + "/categories"))
                 .andExpect(jsonPath("$.items", hasSize(10)))
-                .andExpect(jsonPath("$.items[0].slug").value("himalayan-treks"))
-                .andExpect(jsonPath("$.items[0].subcategories[0].slug").value("trek-guides"))
-                .andExpect(jsonPath("$.items[9].slug").value("trek-experiences"));
+                .andExpect(jsonPath("$.items[0].slug").value("your-treks"))
+                .andExpect(jsonPath("$.items[0].subcategories[0].slug").value("uttarakhand-treks"))
+                .andExpect(jsonPath("$.items[9].slug").value("updates"));
 
         String admin = adminToken();
         String top = categoryId(admin, "plan-your-trek");
@@ -56,7 +56,7 @@ class BlogTests extends AuthTestSupport {
         authed(post(ADMIN + "/categories"), admin, categoryJson("Loose", slug(), null)).andExpect(status().isBadRequest());
         String sub = subCategory(admin, top);
         authed(post(ADMIN + "/categories"), admin, categoryJson("Deeper", slug(), sub)).andExpect(status().isBadRequest());
-        authed(post(ADMIN + "/categories"), admin, categoryJson("Copy", "trek-guides", top))
+        authed(post(ADMIN + "/categories"), admin, categoryJson("Copy", "uttarakhand-treks", top))
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("SLUG_TAKEN"));
 
         // The ten stay; a sub-category goes once it's empty.
@@ -74,7 +74,7 @@ class BlogTests extends AuthTestSupport {
     @Test
     void publishingNeedsTheHeroImageExcerptAndTheMoneyRule() throws Exception {
         String admin = adminToken();
-        String sub = subCategory(admin, categoryId(admin, "gear-fitness-packing"));
+        String sub = subCategory(admin, categoryId(admin, "gear-and-packing"));
         String postSlug = slug();
         String post = id(authed(post(ADMIN + "/posts"), admin, """
                 {"title":"Packing for Kedarkantha","slug":"%s","category_id":"%s","body":"Layers."}""".formatted(postSlug, sub))
@@ -112,7 +112,7 @@ class BlogTests extends AuthTestSupport {
     @Test
     void aCategoryPageOpensAtOnePostAndJoinsTheMenuAtThree() throws Exception {
         String admin = adminToken();
-        String sub = subCategory(admin, categoryId(admin, "responsible-trekking"));
+        String sub = subCategory(admin, categoryId(admin, "health-and-safety"));
         String subSlug = slugOf(admin, sub);
 
         mockMvc.perform(get(PUBLIC + "/categories/" + subSlug)).andExpect(status().isNotFound());
@@ -120,7 +120,7 @@ class BlogTests extends AuthTestSupport {
         mockMvc.perform(get(PUBLIC + "/categories/" + subSlug))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.indexable").value(false))
-                .andExpect(jsonPath("$.parent.slug").value("responsible-trekking"))
+                .andExpect(jsonPath("$.parent.slug").value("health-and-safety"))
                 .andExpect(jsonPath("$.posts[*].slug", contains(first)));
         mockMvc.perform(get("/api/public/sitemap.xml"))
                 .andExpect(content().string(containsString("/blog/" + first + "</loc>")))
@@ -133,23 +133,23 @@ class BlogTests extends AuthTestSupport {
                 .andExpect(jsonPath("$.posts", hasSize(3)))
                 .andExpect(jsonPath("$.posts[0].slug").value(third));
         mockMvc.perform(get(PUBLIC + "/categories"))
-                .andExpect(jsonPath("$.items[?(@.slug == 'responsible-trekking')].in_menu", contains(true)))
-                .andExpect(jsonPath("$.items[?(@.slug == 'responsible-trekking')].subcategories[?(@.slug == '" + subSlug + "')].published_posts",
+                .andExpect(jsonPath("$.items[?(@.slug == 'health-and-safety')].in_menu", contains(true)))
+                .andExpect(jsonPath("$.items[?(@.slug == 'health-and-safety')].subcategories[?(@.slug == '" + subSlug + "')].published_posts",
                         contains(3)));
-        mockMvc.perform(get(PUBLIC + "/categories/responsible-trekking")).andExpect(jsonPath("$.indexable").value(true));
+        mockMvc.perform(get(PUBLIC + "/categories/health-and-safety")).andExpect(jsonPath("$.indexable").value(true));
         mockMvc.perform(get("/api/public/sitemap.xml"))
-                .andExpect(content().string(containsString("/blog/responsible-trekking/" + subSlug + "</loc>")));
+                .andExpect(content().string(containsString("/blog/health-and-safety/" + subSlug + "</loc>")));
     }
 
     @Test
     void postsAndCategoriesShareOneSlugSpaceAndOldUrlsRedirect() throws Exception {
         String admin = adminToken();
-        String sub = subCategory(admin, categoryId(admin, "trek-experiences"));
+        String sub = subCategory(admin, categoryId(admin, "updates"));
 
-        createPost(admin, sub, "trek-experiences", "").andExpect(status().isConflict());
+        createPost(admin, sub, "updates", "").andExpect(status().isConflict());
         String postSlug = slug();
         String post = newPost(admin, sub, postSlug);
-        authed(post(ADMIN + "/categories"), admin, categoryJson("Clash", postSlug, categoryId(admin, "trek-experiences")))
+        authed(post(ADMIN + "/categories"), admin, categoryJson("Clash", postSlug, categoryId(admin, "updates")))
                 .andExpect(status().isConflict());
 
         // A draft's slug change leaves nothing behind; a published post's old slug redirects.
@@ -175,7 +175,7 @@ class BlogTests extends AuthTestSupport {
     void postsLinkToTheirTreks() throws Exception {
         String admin = adminToken();
         UUID track = createTrack(admin, 2);
-        String sub = subCategory(admin, categoryId(admin, "himalayan-treks"));
+        String sub = subCategory(admin, categoryId(admin, "your-treks"));
         String postSlug = slug();
         String post = newPost(admin, sub, postSlug);
         authed(put(ADMIN + "/posts/" + post), admin, postJson(sub, postSlug, "\"track_ids\":[\"" + track + "\"]"))
@@ -189,7 +189,7 @@ class BlogTests extends AuthTestSupport {
     @Test
     void photosBelongToTheirPostAndOneIsTheHero() throws Exception {
         String admin = adminToken();
-        String sub = subCategory(admin, categoryId(admin, "villages-and-culture"));
+        String sub = subCategory(admin, categoryId(admin, "mountain-culture"));
         String post = newPost(admin, sub, slug());
         String other = newPost(admin, sub, slug());
 

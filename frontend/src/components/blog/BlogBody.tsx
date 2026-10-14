@@ -33,6 +33,11 @@ function inline(text: string): ReactNode[] {
   return out
 }
 
+/** One line of text with the body's **bold** and [text](link), e.g. a trek FAQ answer. */
+export function RichText({ text }: { text: string }) {
+  return <>{inline(text)}</>
+}
+
 export function BlogBody({ body, photos }: { body: string; photos: BlogPhoto[] }) {
   const known = new Map(photos.map((p) => [p.url, p]))
   return (

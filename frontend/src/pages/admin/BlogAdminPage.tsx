@@ -145,8 +145,8 @@ function Categories() {
   return (
     <Panel title="Categories">
       <p className="text-sm text-stone-600">
-        The ten categories are fixed. Every post is filed under one sub-category. A category shows in the Blog menu
-        once it has 3 published posts; with 1–2 its page works but stays out of Google.
+        The ten categories are fixed. Every post is filed under one sub-category. A category's page goes into Google
+        once it has 3 published posts; with 1–2 it works but stays out of Google.
       </p>
       {categories.isPending ? (
         <div className="mt-4"><Loading /></div>

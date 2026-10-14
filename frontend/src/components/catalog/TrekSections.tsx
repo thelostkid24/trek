@@ -1,8 +1,9 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { DIFFICULTY_LABEL, type ContentItem, type TrackDetail } from '../../api/catalog.ts'
 import { feet, rupees } from '../../lib/format.ts'
 import { IconFacts, type FactIcon } from './IconFacts.tsx'
 import { FAQ_PREVIEW, ShowMoreButton } from '../ShowMoreButton.tsx'
+import { RichText } from '../blog/BlogBody.tsx'
 
 // The trek page's sections (docs/TRD.md §7.7, §7.11): small, mostly static pieces the page stacks.
 
@@ -135,46 +136,73 @@ export function Overview({ text }: { text: string }) {
   )
 }
 
-/** One box that opens to both lists side by side: what's included, and what's not. */
+/**
+ * Both lists side by side in one box: what's included (✓) and what's not (✕). A long box shows its top half under
+ * a fade with "View more"; the button only appears when something is actually cut off.
+ */
 export function Inclusions({ included, excluded, open: startOpen = false }: { included: ContentItem[]; excluded: ContentItem[]; open?: boolean }) {
   const [open, setOpen] = useState(startOpen)
-  const counts = [
-    included.length > 0 && `${included.length} included`,
-    excluded.length > 0 && `${excluded.length} not included`,
-  ].filter(Boolean)
+  const lists = useRef<HTMLDivElement>(null)
+  const [clipped, setClipped] = useState(false)
+  useEffect(() => {
+    const el = lists.current
+    if (!el) return
+    const check = () => setClipped(el.scrollHeight > INCLUSIONS_PREVIEW_PX + 8)
+    check()
+    const observer = new ResizeObserver(check)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+  const folded = clipped && !open
   return (
     <div className="rounded-xl bg-white/80 ring-1 ring-paper-300">
-      <button
-        type="button"
-        aria-expanded={open}
-        aria-controls="inclusions-lists"
-        onClick={() => setOpen(!open)}
-        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
-      >
-        <span className="text-sm font-medium text-stone-800">{counts.join(' · ')}</span>
-        <svg viewBox="0 0 20 20" className={`size-4 text-stone-500 transition ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-          <path d="m5 8 5 5 5-5" />
-        </svg>
-      </button>
-      <div id="inclusions-lists" hidden={!open} className="grid gap-x-8 border-t border-paper-200 px-4 pt-3 pb-2 sm:grid-cols-2">
-        {included.length > 0 && <InclusionList title="What's included" items={included} mark="✓" />}
-        {excluded.length > 0 && <InclusionList title="What's not included" items={excluded} mark="–" />}
+      <div className="relative overflow-hidden" style={folded ? { maxHeight: INCLUSIONS_PREVIEW_PX } : undefined}>
+        <div ref={lists} id="inclusions-lists" className="grid gap-x-8 gap-y-2 px-4 pt-4 pb-2 sm:grid-cols-2 sm:px-6">
+          {included.length > 0 && <InclusionList title="Inclusions" items={included} included />}
+          {excluded.length > 0 && <InclusionList title="Exclusions" items={excluded} included={false} />}
+        </div>
+        {folded && <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white to-white/0" />}
       </div>
+      {clipped && (
+        <div className="border-t border-paper-200 py-2 text-center">
+          <button
+            type="button"
+            aria-expanded={open}
+            aria-controls="inclusions-lists"
+            onClick={() => setOpen(!open)}
+            className="rounded-full px-4 py-1.5 text-sm font-medium text-brand-700 hover:text-brand-900"
+          >
+            {open ? 'View less' : 'View more'}
+          </button>
+        </div>
+      )}
     </div>
   )
 }
 
-function InclusionList({ title, items, mark }: { title: string; items: ContentItem[]; mark: string }) {
+/** How tall the inclusions box is before "View more" (px). */
+const INCLUSIONS_PREVIEW_PX = 300
+
+function InclusionList({ title, items, included }: { title: string; items: ContentItem[]; included: boolean }) {
   return (
     <div>
-      <p className="text-xs font-semibold tracking-[0.14em] text-laterite-600 uppercase">{title}</p>
-      <ul className="mt-1 divide-y divide-paper-200">
+      <p className="border-b border-paper-200 pb-2 font-medium text-stone-900">{title}</p>
+      <ul className="mt-1">
         {items.map((item, i) => (
-          <li key={i} className="flex gap-3 py-2.5 text-sm text-stone-700">
-            <span className="shrink-0 font-semibold text-stone-900" aria-hidden="true">
-              {mark}
+          <li key={i} className="flex gap-3 py-2 text-sm leading-relaxed text-stone-700">
+            <span
+              className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white ${
+                included ? 'bg-brand-600' : 'bg-sunset-500'
+              }`}
+              aria-hidden="true"
+            >
+              {included ? '✓' : '✕'}
             </span>
-            {item.body}
+            <span>
+              <span className="sr-only">{included ? 'Included: ' : 'Not included: '}</span>
+              {item.title && <strong className="font-semibold text-stone-900">{item.title}: </strong>}
+              {item.body}
+            </span>
           </li>
         ))}
       </ul>
@@ -243,7 +271,7 @@ export function TrekFaqs({ items }: { items: ContentItem[] }) {
                 </button>
               </h3>
               <p id={`trek-faq-${i}`} hidden={!isOpen} className="max-w-2xl pb-5 whitespace-pre-line text-stone-700">
-                {item.body}
+                <RichText text={item.body} />
               </p>
             </div>
           )
