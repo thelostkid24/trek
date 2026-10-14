@@ -33,7 +33,7 @@ INSERT INTO seed VALUES
  (10, 'updates', 'Updates', ARRAY[
    ['trip-reports', 'Trip Reports'], ['trail-conditions', 'Trail Conditions'], ['news', 'News']]);
 
--- V20 slug → new slug, for every V20 category (top-level ones map to a top-level one).
+-- Old slug → new slug, for every V20 category (top-level ones map to a top-level one).
 CREATE TEMPORARY TABLE moves (old_slug TEXT PRIMARY KEY, new_slug TEXT NOT NULL);
 INSERT INTO moves VALUES
  ('himalayan-treks', 'your-treks'), ('plan-your-trek', 'plan-your-trek'), ('gear-fitness-packing', 'gear-and-packing'),
@@ -67,7 +67,17 @@ INSERT INTO moves VALUES
  ('rules-and-regulation', 'responsible-trekking'), ('conservation', 'responsible-trekking'),
  ('local-economy', 'responsible-trekking'),
  ('trek-reports', 'trip-reports'), ('trekker-stories', 'trip-reports'),
- ('comeback-stories', 'trip-reports'), ('news-and-new-treks', 'news');
+ ('comeback-stories', 'trip-reports'), ('news-and-new-treks', 'news'),
+-- Categories an admin had already added for the new layout before this ran (seen in production).
+ ('your-trek', 'your-treks'), ('best-trek-and-comparisons', 'best-treks'), ('by-level', 'by-difficulty'),
+ ('trek-vs-trek', 'comparisons'), ('trekking-gears-and-packing', 'gear-and-packing'),
+ ('fitness-and-trek-prepration', 'fitness');
+
+-- Any other existing category that already holds one of the new slugs (e.g. an admin-added "by-season") folds into it.
+INSERT INTO moves
+SELECT c.slug, c.slug FROM blog_categories c
+WHERE c.slug IN (SELECT slug FROM seed UNION SELECT s.subs[i][1] FROM seed s, generate_subscripts(s.subs, 1) AS i)
+ON CONFLICT (old_slug) DO NOTHING;
 
 -- Free the V20 slugs (some come back, e.g. plan-your-trek). An admin may have renamed one; those keep their slug.
 UPDATE blog_categories c SET slug = 'v20-' || c.slug FROM moves m WHERE c.slug = m.old_slug;
@@ -99,6 +109,12 @@ WHERE c.parent_id = o.id AND c.slug NOT LIKE 'v20-%';
 UPDATE blog_categories c SET parent_id = (SELECT id FROM blog_categories WHERE slug = 'updates'), position = c.position + 100
 WHERE c.slug NOT LIKE 'v20-%'
   AND c.parent_id IN (SELECT id FROM blog_categories WHERE parent_id IS NULL AND slug NOT IN (SELECT slug FROM seed));
+
+-- Posts on a category about to go that nothing above moved (e.g. an admin-renamed one) land in "News", not lost.
+UPDATE blog_posts p SET category_id = (SELECT id FROM blog_categories WHERE slug = 'news')
+FROM blog_categories c
+WHERE p.category_id = c.id
+  AND ((c.slug LIKE 'v20-%' AND c.parent_id IS NOT NULL) OR (c.parent_id IS NULL AND c.slug NOT IN (SELECT slug FROM seed)));
 
 -- Now empty: the V20 sub-categories, then every top-level category that isn't one of the new ten.
 DELETE FROM blog_categories WHERE slug LIKE 'v20-%' AND parent_id IS NOT NULL;
