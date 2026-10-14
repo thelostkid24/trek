@@ -8,13 +8,14 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Public trek page: the route, its upcoming departures (soonest first), the page's lists (shared first), the newest
- * snow report (null until one is filed), recent tent counts (oldest first), the current refund tiers and the
- * charity share (null when none is set).
+ * Public trek page: the route, its upcoming departures (soonest first), dates planned before a guide is confirmed
+ * (soonest first; never bookable), the page's lists (shared first), the newest snow report (null until one is
+ * filed), recent tent counts (oldest first), the current refund tiers and the charity share (null when none is set).
  */
 public record TrekPage(
         TrackDetail track,
         List<TrekDeparture> departures,
+        List<PlannedDate> plannedDates,
         Map<ContentKind, List<ContentItem>> content,
         SnowReportResponse snowReport,
         List<CrowdCount> crowd,

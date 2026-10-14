@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import type { GuideCard, TrekDeparture, TrekPage } from '../../api/catalog.ts'
+import type { GuideCard, PlannedDate, TrekDeparture, TrekPage } from '../../api/catalog.ts'
 import { monthKey, parseDate, rupees, shortRange } from '../../lib/format.ts'
 import { isCertified } from '../../lib/trek.ts'
 import { Avatar } from '../Avatar.tsx'
@@ -10,19 +10,28 @@ const COUNT_WORDS = ['No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven'
 
 const firstName = (g: GuideCard) => g.full_name?.split(' ')[0] ?? 'your guide'
 
+/** A bookable departure, or a planned date whose guide isn't confirmed yet (docs/TRD.md §7.20). */
+type DateRow = { departure: TrekDeparture; planned?: never } | { planned: PlannedDate; departure?: never }
+
+const startOf = (r: DateRow) => (r.departure ?? r.planned).start_date
+
 /**
  * The departures column: the trek's price once (it doesn't depend on the guide), then one row per month that opens to
- * its dates, one card per date introducing its guide and leading on to the departure page, where they book.
+ * its dates, one card per date introducing its guide and leading on to the departure page, where they book. Planned
+ * dates sit among them as "Guide: to be updated" cards that can't be booked.
  */
 export function TrekDepartures({ trek }: { trek: TrekPage }) {
-  const { track, departures } = trek
+  const { track, departures, planned_dates: planned } = trek
   const [month, setMonth] = useState<string | null>(null)
 
+  const rows: DateRow[] = [...departures.map((d) => ({ departure: d })), ...planned.map((p) => ({ planned: p }))].sort(
+    (a, b) => startOf(a).localeCompare(startOf(b)),
+  )
   const guides = [...new Map(departures.map((d) => [d.guide.id, d.guide])).values()]
-  const months = [...new Set(departures.map((d) => monthKey(d.start_date)))]
+  const months = [...new Set(rows.map((r) => monthKey(startOf(r))))]
   // The first month starts open; '' means the trekker closed them all.
   const activeMonth = month !== null && (month === '' || months.includes(month)) ? month : (months[0] ?? null)
-  const shown = departures.filter((d) => monthKey(d.start_date) === activeMonth)
+  const shown = rows.filter((r) => monthKey(startOf(r)) === activeMonth)
   const prices = departures.map((d) => d.price_paise)
   const lowest = Math.min(...prices)
   const highest = Math.max(...prices)
@@ -36,28 +45,37 @@ export function TrekDepartures({ trek }: { trek: TrekPage }) {
   return (
     <section aria-labelledby="departures-heading">
       <SectionLabel id="departures-heading">Departures</SectionLabel>
-      {departures.length === 0 ? (
+      {rows.length === 0 ? (
         <p className="mt-3 rounded-xl bg-white/80 p-4 text-sm text-stone-600 ring-1 ring-paper-300">
           Upcoming: dates for this trek open soon.
         </p>
       ) : (
         <>
-          <p className="mt-2 text-stone-700">
-            {intro} Know your guide's eligibility and experience before the departure — you should know who you're
-            going with.
-          </p>
-          <p className="mt-3 rounded-xl bg-white/80 px-4 py-3 text-sm text-stone-700 ring-1 ring-paper-300">
-            <span className="font-semibold text-stone-900">
-              {lowest === highest ? rupees(lowest) : `From ${rupees(lowest)}`}
-            </span>{' '}
-            per person {lowest === highest ? 'is what this trek costs' : 'for this trek'}, whichever guide you choose. The
-            guide is your choice.
-          </p>
+          {departures.length > 0 ? (
+            <>
+              <p className="mt-2 text-stone-700">
+                {intro} Know your guide's eligibility and experience before the departure — you should know who you're
+                going with.
+              </p>
+              <p className="mt-3 rounded-xl bg-white/80 px-4 py-3 text-sm text-stone-700 ring-1 ring-paper-300">
+                <span className="font-semibold text-stone-900">
+                  {lowest === highest ? rupees(lowest) : `From ${rupees(lowest)}`}
+                </span>{' '}
+                per person {lowest === highest ? 'is what this trek costs' : 'for this trek'}, whichever guide you choose.
+                The guide is your choice.
+              </p>
+            </>
+          ) : (
+            <p className="mt-2 text-stone-700">
+              These are the dates {track.name} runs this season. We're confirming the guide for each; booking opens
+              on a date as soon as its guide is named.
+            </p>
+          )}
 
           <div className="mt-4 space-y-2">
             {months.map((m) => {
               const on = m === activeMonth
-              const inMonth = departures.filter((d) => monthKey(d.start_date) === m)
+              const inMonth = rows.filter((r) => monthKey(startOf(r)) === m)
               return (
                 <div key={m} className={`rounded-xl bg-white/80 ring-1 transition ${on ? 'ring-brand-900' : 'ring-paper-300'}`}>
                   <button
@@ -78,9 +96,13 @@ export function TrekDepartures({ trek }: { trek: TrekPage }) {
                   </button>
                   {on && (
                     <ul className="space-y-3 px-3 pb-3">
-                      {shown.map((d) => (
-                        <DepartureCard key={d.id} departure={d} />
-                      ))}
+                      {shown.map((r) =>
+                        r.departure ? (
+                          <DepartureCard key={r.departure.id} departure={r.departure} />
+                        ) : (
+                          <PlannedCard key={r.planned.start_date} date={r.planned} />
+                        ),
+                      )}
                     </ul>
                   )}
                 </div>
@@ -119,6 +141,25 @@ function DepartureCard({ departure: d }: { departure: TrekDeparture }) {
           View {firstName(g)} and book →
         </Link>
       )}
+    </li>
+  )
+}
+
+/** A date that's set but whose guide isn't: no photo, no booking until a guide is named and the date published. */
+function PlannedCard({ date: p }: { date: PlannedDate }) {
+  return (
+    <li className="rounded-xl bg-white p-4 ring-1 ring-paper-300">
+      <div className="flex items-center gap-4">
+        <span className="flex size-16 shrink-0 items-center justify-center rounded-full bg-paper-200 text-2xl text-stone-400" aria-hidden="true">
+          ?
+        </span>
+        <div className="min-w-0">
+          <p className="text-lg font-semibold text-stone-900">{shortRange(p.start_date, p.end_date)}</p>
+          <p className="text-sm font-medium text-stone-800">Guide: to be updated</p>
+          {p.note && <p className="text-sm text-stone-600">{p.note}</p>}
+        </div>
+      </div>
+      <p className="mt-4 text-sm font-medium text-stone-500">Booking opens once the guide is confirmed</p>
     </li>
   )
 }

@@ -73,6 +73,8 @@ ADMIN=<access_token of an admin>
 | POST | `/api/admin/tracks` | ADMIN | Create a trek |
 | PUT | `/api/admin/tracks/{id}` | ADMIN | Edit a trek |
 | POST | `/api/admin/tracks/{id}/photos` | ADMIN | Upload a trek photo |
+| GET | `/api/admin/tracks/{id}/planned-dates` | ADMIN | Dates planned before a guide is confirmed |
+| PUT | `/api/admin/tracks/{id}/planned-dates` | ADMIN | Replace those dates |
 | DELETE | `/api/admin/tracks/{id}/photos/{photoId}` | ADMIN | Delete a trek photo |
 | GET | `/api/admin/departures` | ADMIN | All departures |
 | POST | `/api/admin/departures` | ADMIN | Create a draft departure |
@@ -519,7 +521,8 @@ curl $API/api/public/departures/<departure-id>
 Errors: `404 DEPARTURE_NOT_FOUND`.
 
 ### GET `/api/public/tracks/{slug}`
-The trek page: trek details plus every upcoming published departure, soonest first.
+The trek page: trek details plus every upcoming published departure, soonest first, and the dates planned before a
+guide is confirmed (shown as "Guide: to be updated"; never bookable).
 ```bash
 curl $API/api/public/tracks/rajmachi
 ```
@@ -530,6 +533,9 @@ curl $API/api/public/tracks/rajmachi
   "departures": [
     { "id": "…-uuid", "start_date": "2026-10-24", "end_date": "2026-10-25", "price_paise": 219900,
       "max_group_size": 10, "seats_left": 4, "bookable": true, "guide": { "…": "GuideCard" } }
+  ],
+  "planned_dates": [
+    { "start_date": "2026-12-24", "end_date": "2026-12-25", "note": "Christmas batch" }
   ]
 }
 ```

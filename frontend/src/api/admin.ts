@@ -7,6 +7,7 @@ import type {
   ItineraryDay,
   Items,
   PhotoLicence,
+  PlannedDate,
   SnowReport,
   Snowfall,
   TrackPhoto,
@@ -163,6 +164,16 @@ export const listGuides = (token: string) => apiFetch<Items<Guide>>('/api/admin/
 
 export const promoteGuide = (token: string, email: string) =>
   apiFetch<Guide>('/api/admin/guides', { method: 'POST', token, body: { email } })
+
+// Planned dates: when a trek runs before its guide is confirmed (docs/TRD.md §7.20). Replaced whole.
+
+export type PlannedDateInput = { start_date: string; note: string | null }
+
+export const listPlannedDates = (token: string, trackId: string) =>
+  apiFetch<Items<PlannedDate>>(`/api/admin/tracks/${trackId}/planned-dates`, { token })
+
+export const replacePlannedDates = (token: string, trackId: string, items: PlannedDateInput[]) =>
+  apiFetch<Items<PlannedDate>>(`/api/admin/tracks/${trackId}/planned-dates`, { method: 'PUT', token, body: { items } })
 
 // Trek-page lists (docs/TRD.md §7.11). No track id = the shared lists shown on every trek.
 

@@ -75,12 +75,13 @@ public class CatalogService {
     private final SnowReportService snowReports;
     private final BookingProperties bookingProps;
     private final CharityProperties charity;
+    private final PlannedDateService plannedDates;
 
     public CatalogService(DepartureRepository departures, TrackRepository tracks, TrackPhotoRepository photos,
                           UserRepository users, TrekkerProfileRepository profiles, CatalogProperties props,
                           AvatarFiles avatars, TrackPhotoFiles photoFiles, GuideDetailsService guideDetails,
                           ReviewService reviews, TrekContentService content, SnowReportService snowReports,
-                          BookingProperties bookingProps, CharityProperties charity) {
+                          BookingProperties bookingProps, CharityProperties charity, PlannedDateService plannedDates) {
         this.departures = departures;
         this.tracks = tracks;
         this.photos = photos;
@@ -95,6 +96,7 @@ public class CatalogService {
         this.snowReports = snowReports;
         this.bookingProps = bookingProps;
         this.charity = charity;
+        this.plannedDates = plannedDates;
     }
 
     public LocalDate today() {
@@ -169,8 +171,9 @@ public class CatalogService {
     }
 
     /**
-     * The trek page: route facts, itinerary, every upcoming published departure (whoever guides it), the page's
-     * lists, the newest snow report, recent crowd counts, refund tiers and the charity share.
+     * The trek page: route facts, itinerary, every upcoming published departure (whoever guides it), the planned
+     * dates no departure has taken over yet, the page's lists, the newest snow report, recent crowd counts, refund
+     * tiers and the charity share.
      */
     @Transactional(readOnly = true)
     public TrekPage trek(String slug) {
@@ -181,7 +184,9 @@ public class CatalogService {
                 .map(d -> new TrekDeparture(d.getId(), d.getStartDate(), d.getEndDate(), d.getPricePaise(),
                         d.getMaxGroupSize(), d.seatsLeft(), isBookable(d), guides.get(d.getGuide().getId())))
                 .toList();
-        return new TrekPage(TrackDetail.of(track, photoFiles), rows, content.forTrack(track.getId()),
+        Set<LocalDate> starts = listed.stream().map(Departure::getStartDate).collect(Collectors.toSet());
+        return new TrekPage(TrackDetail.of(track, photoFiles), rows,
+                plannedDates.upcoming(track, today(), starts), content.forTrack(track.getId()),
                 snowReports.latest(track.getId()).orElse(null), snowReports.crowd(track.getId()),
                 bookingProps.refundTiers().stream()
                         .map(t -> new TrekPage.RefundTier(t.minDaysBefore(), t.refundBps())).toList(),

@@ -187,6 +187,9 @@ NULL everywhere = not captured (rows made before V11, or nothing sent). Tracking
 - **`blog_post_treks`** — `(post_id, track_id)` PK, both cascading: the post's related treks.
 - **`blog_slug_redirects`** — `old_slug` PK, `post_id → blog_posts ON DELETE CASCADE`, `created_at`: slugs a published post gave up.
 
+### 6.17 Planned dates — `V22__planned_dates.sql`
+- **`track_planned_dates`** — `id UUID PK`, `track_id → tracks ON DELETE CASCADE`, `start_date DATE NOT NULL`, `note TEXT NULL 1..60`, `created_at`. `UNIQUE (track_id, start_date)`. No end date: it's `start_date + duration_days − 1` at read time. Not a departure: no guide, price or seats, and nothing can book it (§7.20).
+
 ## 7. Feature log
 Each feature appends: scope, endpoints, tables, screens, tests.
 
@@ -760,7 +763,7 @@ Payments: §7.4 endpoints, with the changes listed there. Checkout `prefill` com
 #### Endpoints (public)
 | Method & path | Success | Errors |
 |---|---|---|
-| `GET /api/public/tracks/{slug}` | `200 { track: TrackDetail, departures: [{ id, start_date, end_date, price_paise, max_group_size, seats_left, bookable, guide: GuideCard }] }`, soonest first | `404 TRACK_NOT_FOUND` |
+| `GET /api/public/tracks/{slug}` | `200 { track: TrackDetail, departures: [{ id, start_date, end_date, price_paise, max_group_size, seats_left, bookable, guide: GuideCard }], planned_dates: [{ start_date, end_date, note }] (§7.20) }`, soonest first | `404 TRACK_NOT_FOUND` |
 | `GET /api/public/guides/{id}` | `200 { id, full_name, avatar_url, home_city, bio, treks_led, treks: [{ track: TrackBrief, times }], upcoming: DepartureSummary[] }` | `404 GUIDE_NOT_FOUND` (not a guide, disabled or unknown) |
 
 - `TrackDetail` (also on `GET /api/public/departures/{id}`) adds `distance_km`, `base_altitude_m`, `highest_camp_m`, `stay`, `season_label`, `pickup_drop`, `cloakroom`, `offloading`, `offloading_price_paise`, `insurance_price_paise`, `transport_price_paise` (per-seat add-on prices, §7.6), `itinerary: ItineraryDay[]`, and `photos` (§7.8).
@@ -1148,13 +1151,28 @@ Stage 1 of the blog & "How to Reach" spec (Notion "10 oct changes"). Admins writ
 
 - `BlogPostSummary` = `{ id, slug, title, excerpt, category: { id, name, slug, parent? }, cover_url, published_at, updated_at }`. `BlogPost` adds `body`, `cover_photo_id`, `cover_caption`, `cover_taken_on`, `photos`, `author_name` (override, else the author's account name), `faqs`, `schema_type`, `related_treks: [{ id, slug, name }]`, `research_notes`.
 - Body format (`frontend/src/lib/blogBody.ts`, rendered by `components/blog/BlogBody.tsx`): blank line = paragraph, `## `/`### ` headings, `- ` lists, `**bold**`, `[text](https://… or /path)`, `![caption](url)` for the post's own photos only. Nothing is rendered as HTML.
-- Frontend (`pages/BlogPages.tsx`, lazy): `/blog` — laid out like `/treks`: "From the trail" header, a filter row (All + the ten categories as chips with post counts, then a "Topic" dropdown of the picked category's sub-categories with posts; `?category=&topic=`, client-side over the latest 100 posts), and one grid of trek-style post cards (cover or ridgeline, category · sub-category pill, title, excerpt, date). `/blog/:slug` is a category page when the slug is one of the ten, else a post; `/blog/:category/:sub` a sub-category page. Category pages (same layout and cards): breadcrumb, name, description, count, sub-category chips, post grid; `noindex` below 3 posts. Post page: breadcrumb (Blog / category / sub-category), title, excerpt, byline, published date, "Last updated", hero image with "caption · date", body, "Questions people ask" (FAQs, `<details>`), "Treks in this story", "More in <sub-category>". JSON-LD `@graph`: `BlogPosting` (or `HowTo`), plus `FAQPage` when it has answered FAQs.
+- Frontend (`pages/BlogPages.tsx`, lazy): `/blog` — laid out like `/treks`: "From the trail" header, a filter row (All + the ten categories as chips, then a "Topic" dropdown of the picked category's sub-categories with posts; `?category=&topic=`, client-side over the latest 100 posts), and one grid of trek-style post cards (cover or ridgeline, category · sub-category pill, title, excerpt, date). `/blog/:slug` is a category page when the slug is one of the ten, else a post; `/blog/:category/:sub` a sub-category page. Category pages (same layout and cards): breadcrumb, name, description, count, sub-category chips, post grid; `noindex` below 3 posts. Post page: breadcrumb (Blog / category / sub-category), title, excerpt, byline, published date, "Last updated", hero image with "caption · date", body, "Questions people ask" (FAQs, `<details>`), "Treks in this story", "More in <sub-category>". JSON-LD `@graph`: `BlogPosting` (or `HowTo`), plus `FAQPage` when it has answered FAQs.
 - Header: no Blog link (removed 2026-10-14, Notion "14 oct changes"); the blog is linked from the footer's Explore column and the profile menu. The header's link row shows from `lg` (1024 px) with the menu button below that, so it never wraps.
 - `/blog` shows "All" and the ten categories as chips on one line (13 px; fits the 1,120 px column from `xl`, scrolls sideways below that); a picked category's sub-categories are a "Topic" dropdown on the line under it.
 - `/admin/blog` (`pages/admin/BlogAdminPage.tsx`): Posts (status, sub-category path) and Categories (the ten with "Add sub-category", edit, delete, published counts and "in menu"). Editor: title (slug follows until edited), slug (redirect note once published), sub-category ("Category › Sub-category"), excerpt (160), hero caption + taken on, body with Write/Preview, FAQs (add/remove), related treks (chips), author, schema type, research notes, the money-rule warning and confirm box, Save draft/Save changes, Publish (saves first; needs the box) / Unpublish, Delete. Photos once saved: upload, captions, "Make hero", "Insert in post", delete.
 - SEO: the sitemap and `scripts/prerender.mjs` include `/blog`, every published post and the categories in the menu (§7.16).
 - Prod WAF: the `xss-body-except-uploads` exemption must include `/api/admin/blog/posts/[^/]+/photos` (like trek photos). Long post bodies are fine: `SizeRestrictions_BODY` is already set to Count.
 - Tests: `BlogTests`.
+
+### 7.20 Planned dates ("Guide: to be updated")
+From Notion "14 oct changes": the season's Kedarkantha dates are fixed, but most have no guide yet, and each should still show with "Guide: to be updated". A departure always has a guide and publishing needs the guide's protocol ack (law 3), so these are a separate list on the track, never departures.
+
+- An admin keeps a track's planned dates under Tracks → *trek* → **Planned dates** (`components/admin/PlannedDatesEditor.tsx`): start date and an optional note ("Christmas batch", "Summit on 1 Jan"), replaced as a whole list. A date can't be in the past or repeat (`400 VALIDATION_FAILED`, `items[i].start_date`).
+- Trek page (`components/catalog/TrekDepartures.tsx`): planned dates from today on sit among the departures in the month rows, soonest first, as a card with the dates, "Guide: to be updated", the note and "Booking opens once the guide is confirmed". No link, no price. With no departures at all, the price line and guide intro give way to "We're confirming the guide for each; booking opens on a date as soon as its guide is named."
+- A published departure on the same track and start date takes a planned date's place on the page (the row stays in the table until an admin removes it). Past planned dates drop off by themselves.
+- Only the trek page shows them; the catalog, `/treks` date view, home cards and sitemap are departures only.
+
+| Method & path | Auth | Request | Success | Errors |
+|---|---|---|---|---|
+| `GET /api/admin/tracks/{id}/planned-dates` | ADMIN | — | `200 { items: [{ start_date, end_date, note }] }`, soonest first, past ones too | `404 TRACK_NOT_FOUND` |
+| `PUT /api/admin/tracks/{id}/planned-dates` | ADMIN | `{ items: [{ start_date, note? ≤ 60 }] }` (≤ 40; empty clears) | `200` as GET | `400 VALIDATION_FAILED`, `404 TRACK_NOT_FOUND` |
+
+- Tests: `PlannedDateTests`.
 
 ### Charity share
 `app.charity` (`CHARITY_NAME`, `CHARITY_BPS`, default 100 = 1%) is part of the price, never added on top. It only shows as a line on the trek page ("1% goes to …, and the rest runs the company"); no money is split or recorded per booking yet.
