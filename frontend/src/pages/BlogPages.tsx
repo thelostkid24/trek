@@ -79,25 +79,31 @@ export function BlogPage() {
       </header>
 
       {tops.length > 0 && (
-        <div className="mt-6 flex flex-wrap items-center gap-2" role="group" aria-label="Categories">
+        // All ten categories on one line: it fits the page width on a desktop and scrolls sideways on a phone.
+        <div
+          className="-mx-4 mt-6 flex gap-1.5 overflow-x-auto px-4 py-px [scrollbar-width:none] xl:justify-between [&::-webkit-scrollbar]:hidden"
+          role="group"
+          aria-label="Categories"
+        >
           <FilterChip on={!picked} onClick={() => pickCategory(null)}>
             All
           </FilterChip>
           {tops.map((c) => (
             <FilterChip key={c.id} on={c.id === picked?.id} onClick={() => pickCategory(c.slug)}>
               {c.name}
-              {c.published_posts > 0 && <span className="ml-1.5 text-xs opacity-60">{c.published_posts}</span>}
             </FilterChip>
           ))}
-          {subs.length > 0 && (
-            <FilterSelect label="Topic" value={sub?.slug ?? null} onChange={pickTopic}>
-              {subs.map((s) => (
-                <option key={s.id} value={s.slug}>
-                  {s.name}
-                </option>
-              ))}
-            </FilterSelect>
-          )}
+        </div>
+      )}
+      {subs.length > 0 && (
+        <div className="mt-3">
+          <FilterSelect label="Topic" value={sub?.slug ?? null} onChange={pickTopic}>
+            {subs.map((s) => (
+              <option key={s.id} value={s.slug}>
+                {s.name}
+              </option>
+            ))}
+          </FilterSelect>
         </div>
       )}
 
@@ -377,7 +383,7 @@ function FilterChip({ on, onClick, children }: { on: boolean; onClick: () => voi
       type="button"
       aria-pressed={on}
       onClick={onClick}
-      className={`rounded-full px-3 py-1.5 text-sm transition ${
+      className={`shrink-0 rounded-full px-3 py-1.5 text-[13px] whitespace-nowrap transition ${
         on ? 'bg-brand-900 text-white' : 'bg-white text-stone-700 ring-1 ring-stone-300 hover:ring-brand-400'
       }`}
     >

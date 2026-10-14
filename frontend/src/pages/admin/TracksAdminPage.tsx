@@ -19,6 +19,7 @@ import { fieldErrors } from '../../auth/errorMessages.ts'
 import { useAuth } from '../../auth/useAuth.ts'
 import { Button, ErrorNote, Loading, Panel } from '../../components/admin/AdminUi.tsx'
 import { ContentEditor } from '../../components/admin/ContentEditor.tsx'
+import { PlannedDatesEditor } from '../../components/admin/PlannedDatesEditor.tsx'
 import { SnowReports } from '../../components/admin/SnowReports.tsx'
 import { TextField } from '../../components/auth/TextField.tsx'
 import { DifficultyPill } from '../../components/catalog/DeparturePieces.tsx'
@@ -83,6 +84,7 @@ const EMPTY_DAY: DayDraft = {
 const SECTIONS = [
   { id: 'details', label: 'Details' },
   { id: 'photos', label: 'Photos' },
+  { id: 'dates', label: 'Planned dates' },
   { id: 'content', label: 'Page lists' },
   { id: 'snow', label: 'Snow reports' },
 ] as const
@@ -123,6 +125,7 @@ export function TracksAdminPage() {
         </nav>
         {section === 'details' && <TrackForm key={editing.id} track={editing} onDone={() => setEditing(null)} />}
         {section === 'photos' && <TrackPhotos track={editing} />}
+        {section === 'dates' && <PlannedDatesEditor trackId={editing.id} />}
         {section === 'content' && <ContentEditor trackId={editing.id} />}
         {section === 'snow' && <SnowReports area="admin" trackId={editing.id} place={editing.meeting_point} />}
       </>

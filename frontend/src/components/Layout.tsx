@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
-import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { Link, Outlet, ScrollRestoration, useLocation } from 'react-router-dom'
-import { listBlogCategories } from '../api/blog.ts'
 import { getHealth } from '../api/client.ts'
 import { PROFILE_PATH } from '../auth/useCompleteSignIn.ts'
 import { useAuth } from '../auth/useAuth.ts'
@@ -17,7 +16,6 @@ const NAV = [
   { label: 'Our Guides', href: '/guides' },
   { label: 'How to book', href: '/#how-it-works' },
   { label: 'Our Vision', href: SITE_LINKS.vision },
-  { label: 'Blog', href: '/blog' },
   { label: 'FAQs', href: '/#faqs' },
 ]
 
@@ -103,14 +101,7 @@ export function Layout() {
               The Empty Valley
             </Link>
             <nav className="hidden items-center gap-5 text-sm whitespace-nowrap lg:flex xl:gap-7">
-              {NAV.map((item) => item.href === BLOG_PATH ? (
-                <BlogMenu
-                  key={item.label}
-                  className={`relative flex items-center gap-1 py-1 transition-opacity hover:opacity-100 ${
-                    location.pathname.startsWith(BLOG_PATH) ? 'opacity-100' : 'opacity-75'
-                  }`}
-                />
-              ) : (
+              {NAV.map((item) => (
                 <NavItem
                   key={item.label}
                   href={item.href}
@@ -143,14 +134,11 @@ export function Layout() {
         {menuOpen && (
           <nav id="site-menu" className="border-t border-white/10 px-5 pb-4 text-base sm:px-10 lg:hidden">
             {NAV.map((item, i) => (
-              <Fragment key={item.label}>
-                <NavItem href={item.href} onClick={() => setMenuOpen(false)} className="block py-3 hover:text-white">
-                  <span className="fade-rise inline-block" style={{ '--d': `${i * 50}ms` } as CSSProperties}>
-                    {item.label}
-                  </span>
-                </NavItem>
-                {item.href === BLOG_PATH && <BlogMenuLinks onClick={() => setMenuOpen(false)} />}
-              </Fragment>
+              <NavItem key={item.label} href={item.href} onClick={() => setMenuOpen(false)} className="block py-3 hover:text-white">
+                <span className="fade-rise inline-block" style={{ '--d': `${i * 50}ms` } as CSSProperties}>
+                  {item.label}
+                </span>
+              </NavItem>
             ))}
           </nav>
         )}
@@ -209,7 +197,7 @@ function Footer() {
       <div className="mx-auto max-w-[90rem] px-5 pt-14 sm:px-10 sm:pt-20">
         <div className="flex flex-col gap-10 border-b border-white/10 pb-12 md:flex-row md:items-start md:justify-between">
           <div className="grid grid-cols-2 gap-10 sm:gap-20">
-            <FooterColumn title="Explore" links={[{ label: 'All treks', href: '/treks' }, ...NAV.slice(1)]} />
+            <FooterColumn title="Explore" links={[{ label: 'All treks', href: '/treks' }, ...NAV.slice(1), { label: 'Blog', href: BLOG_PATH }]} />
             <FooterColumn title="The fine print" hideTitle links={FOOTER_LINKS} />
           </div>
           <a
@@ -307,101 +295,6 @@ function AccountLink({ tone }: { tone: HeaderTone }) {
 }
 
 const BLOG_PATH = '/blog'
-
-/** The categories in the Blog menu: those with 3+ published posts (docs/TRD.md §7.19). */
-function useBlogMenu() {
-  const tree = useQuery({ queryKey: ['blog-categories'], queryFn: listBlogCategories, staleTime: 5 * 60_000 })
-  return (tree.data?.items ?? []).filter((c) => c.in_menu)
-}
-
-/** Header "Blog ▾": every article, then each category in the menu. Closes on outside click, Escape or navigation. */
-function BlogMenu({ className }: { className: string }) {
-  const location = useLocation()
-  const categories = useBlogMenu()
-  const ref = useRef<HTMLDivElement>(null)
-  const [openOn, setOpenOn] = useState<string | null>(null)
-  const open = openOn === location.key
-
-  useEffect(() => {
-    if (!open) return
-    const onClick = (e: PointerEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setOpenOn(null)
-    }
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpenOn(null)
-    }
-    document.addEventListener('pointerdown', onClick)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('pointerdown', onClick)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [open])
-
-  // With nothing in the menu yet, it's a plain link.
-  if (categories.length === 0) {
-    return (
-      <Link to={BLOG_PATH} viewTransition className={className}>
-        Blog
-      </Link>
-    )
-  }
-  return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-controls="blog-menu"
-        onClick={() => setOpenOn(open ? null : location.key)}
-        className={className}
-      >
-        Blog
-        <svg viewBox="0 0 20 20" className="size-4 opacity-60" fill="currentColor" aria-hidden="true">
-          <path d="M5.5 7.5 10 12l4.5-4.5z" />
-        </svg>
-      </button>
-      {open && (
-        <div
-          id="blog-menu"
-          role="menu"
-          className="absolute left-1/2 z-30 mt-3 w-64 -translate-x-1/2 overflow-hidden rounded-xl border border-paper-300 bg-paper-50 py-1 text-sm text-ink-900 shadow-lg"
-        >
-          <Link to={BLOG_PATH} role="menuitem" className="block px-4 py-2.5 font-medium hover:bg-paper-100">
-            All articles
-          </Link>
-          <div className="border-t border-paper-300 py-1">
-            {categories.map((c) => (
-              <Link
-                key={c.id}
-                to={`${BLOG_PATH}/${c.slug}`}
-                role="menuitem"
-                className={`block px-4 py-2 hover:bg-paper-100 ${location.pathname === `${BLOG_PATH}/${c.slug}` ? 'font-medium text-pine-700' : ''}`}
-              >
-                {c.name}
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-/** The phone menu's blog categories, indented under "Blog". */
-function BlogMenuLinks({ onClick }: { onClick: () => void }) {
-  const categories = useBlogMenu()
-  if (categories.length === 0) return null
-  return (
-    <div className="mb-1 border-l border-white/15 pl-4">
-      {categories.map((c) => (
-        <Link key={c.id} to={`${BLOG_PATH}/${c.slug}`} onClick={onClick} className="block py-2 text-sm opacity-80 hover:opacity-100">
-          {c.name}
-        </Link>
-      ))}
-    </div>
-  )
-}
 
 /** Avatar button that opens My profile and Sign out. Closes on outside click, Escape or navigation. */
 function ProfileMenu({

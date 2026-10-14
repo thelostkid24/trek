@@ -172,9 +172,14 @@ export type CrowdCount = { reported_on: string; place: string; tents: number }
 export type RefundTier = { min_days_before: number; refund_bps: number }
 
 /** Contract: docs/TRD.md §7.7. */
+/** A date the trek runs before its guide is confirmed (docs/TRD.md §7.20). Never bookable. */
+export type PlannedDate = { start_date: string; end_date: string; note: string | null }
+
 export type TrekPage = {
   track: TrackDetail
   departures: TrekDeparture[]
+  /** Soonest first; a published departure on the same start date replaces one. */
+  planned_dates: PlannedDate[]
   content: TrekContent
   /** Newest report; null until one is filed. */
   snow_report: SnowReport | null

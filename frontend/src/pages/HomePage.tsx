@@ -231,6 +231,7 @@ const PLANNED_TREKS = [
   { slug: 'har-ki-dun', name: 'Har Ki Dun', facts: '7 days · 11,700 ft', where: 'Sankri, Uttarkashi' },
   { slug: 'tungnath-chandrashila', name: 'Tungnath Chandrashila', facts: '3 days · 13,000 ft', where: 'Chopta, Rudraprayag' },
   { slug: 'dayara-bugyal', name: 'Dayara Bugyal', facts: '6 days · 12,000 ft', where: 'Raithal, Uttarkashi' },
+  { slug: 'kuari-pass', name: 'Kuari Pass', facts: '6 days · 12,516 ft', where: 'Joshimath, Chamoli' },
 ]
 
 /**
@@ -293,8 +294,8 @@ function Destinations() {
 
         {catalog.isPending ? (
           <ul className={ROW} aria-busy="true" aria-label="Loading treks">
-            {[0, 1, 2, 3].map((i) => (
-              <li key={i} className={`${CARD_WIDTH} aspect-[3/4] animate-pulse rounded-[1.5rem] bg-paper-200`} />
+            {[0, 1, 2, 3, 4].map((i) => (
+              <li key={i} className={`${CARD_WIDTH} aspect-[4/5] animate-pulse rounded-[1.5rem] bg-paper-200`} />
             ))}
           </ul>
         ) : catalog.isError ? (
@@ -339,7 +340,7 @@ function Destinations() {
 
 const ROW =
   '-mx-5 mt-10 flex snap-x snap-mandatory scroll-px-5 gap-4 overflow-x-auto px-5 pb-2 [scrollbar-width:none] sm:-mx-10 sm:scroll-px-10 sm:px-10 [&::-webkit-scrollbar]:hidden'
-const CARD_WIDTH = 'w-64 shrink-0 snap-start sm:w-72 lg:w-[calc((100%-3rem)/4)]'
+const CARD_WIDTH = 'w-56 shrink-0 snap-start sm:w-60 lg:w-[calc((100%-4rem)/5)]'
 
 function DestinationCard({
   trek,
@@ -375,7 +376,7 @@ function DestinationCard({
         onFocus={prefetch}
         onTouchStart={prefetch}
         onClick={(e) => void open(e)}
-        className={`group relative isolate flex aspect-[3/4] flex-col justify-between overflow-hidden rounded-[1.5rem] bg-brand-950 p-5 text-white transition-opacity ${
+        className={`group relative isolate flex aspect-[4/5] flex-col justify-between overflow-hidden rounded-[1.5rem] bg-brand-950 p-5 text-white transition-opacity ${
           next ? '' : 'opacity-70 hover:opacity-100'
         }`}
       >
@@ -400,7 +401,7 @@ function DestinationCard({
         </span>
 
         <div className="transition-transform duration-500 group-hover:-translate-y-1">
-          <h3 className="text-2xl leading-tight font-normal tracking-[-0.01em]">{trek.name}</h3>
+          <h3 className="text-xl leading-tight font-normal tracking-[-0.01em]">{trek.name}</h3>
           <p className="mt-2 text-sm text-white/75">{facts}</p>
           <p className="mt-0.5 text-sm text-white/75">
             {next
@@ -425,14 +426,14 @@ function PlannedCard({
 }) {
   return (
     <li style={staggerStyle(reveal, delay)} className={`${CARD_WIDTH} ${revealClass(reveal.inView)}`}>
-      <div className="relative isolate flex aspect-[3/4] flex-col justify-between overflow-hidden rounded-[1.5rem] bg-brand-950 p-5 text-white opacity-70">
+      <div className="relative isolate flex aspect-[4/5] flex-col justify-between overflow-hidden rounded-[1.5rem] bg-brand-950 p-5 text-white opacity-70">
         <Ridgeline className="absolute inset-0 -z-10 size-full" />
         <div className="absolute inset-0 -z-10 bg-gradient-to-t from-ink-950/90 via-ink-950/20 to-ink-950/30" aria-hidden="true" />
         <span className="self-start rounded-full border border-white/25 bg-ink-950/40 px-3 py-1 text-[0.65rem] font-medium tracking-[0.18em] text-white/80 uppercase backdrop-blur-sm">
           Upcoming
         </span>
         <div>
-          <h3 className="text-2xl leading-tight font-normal tracking-[-0.01em]">{trek.name}</h3>
+          <h3 className="text-xl leading-tight font-normal tracking-[-0.01em]">{trek.name}</h3>
           <p className="mt-2 text-sm text-white/75">{trek.facts}</p>
           <p className="mt-0.5 text-sm text-white/75">{trek.where}</p>
         </div>

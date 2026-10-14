@@ -9,12 +9,12 @@ import { TextAreaField } from '../profile/fields.tsx'
 import { Button, ErrorNote, Loading, Panel } from './AdminUi.tsx'
 
 const KINDS: { kind: ContentKind; label: string; hint: string; title?: string; badge?: boolean }[] = [
-  { kind: 'INCLUDED', label: "What's included", hint: 'One line per item.' },
+  { kind: 'INCLUDED', label: "What's included", hint: 'One line per item; the label (Stay, Meals…) shows in bold before it.', title: 'Label (optional)' },
   { kind: 'NOT_INCLUDED', label: "What's not included", hint: 'One line per item.' },
   { kind: 'SAFETY_CALLOUT', label: 'Safety: dark box', hint: 'Only the first one shows.', title: 'Heading' },
   { kind: 'SAFETY', label: 'Safety checklist', hint: 'One line per item.' },
   { kind: 'SAFETY_NOTE', label: 'Safety notes', hint: 'Shown under the safety section, e.g. about insurance.' },
-  { kind: 'FAQ', label: 'FAQ', hint: 'Question and answer.', title: 'Question' },
+  { kind: 'FAQ', label: 'FAQ', hint: 'Question and answer. In the answer, [here](/blog/…) makes a link and **text** is bold.', title: 'Question' },
   { kind: 'WHY_US', label: 'Why choose us', hint: 'Cards: a short badge (1, NIM, 1%), a heading and a line or two.', title: 'Heading', badge: true },
 ]
 
