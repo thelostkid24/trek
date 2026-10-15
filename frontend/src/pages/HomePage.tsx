@@ -5,7 +5,7 @@ import { listCatalog, trekQueryOptions, type CatalogTrek } from '../api/catalog.
 import { messageFor } from '../auth/errorMessages.ts'
 import { FaqList } from '../components/FaqList.tsx'
 import { FAQS } from '../lib/faqs.ts'
-import { feet, rupees, shortRange } from '../lib/format.ts'
+import { feet } from '../lib/format.ts'
 import { revealClass, staggerStyle, useInView } from '../lib/reveal.ts'
 import { Logo } from '../components/Logo.tsx'
 import { Ridgeline } from '../components/Ridgeline.tsx'
@@ -227,11 +227,14 @@ const HOME_TREKS = 5
  * Treks we're preparing that aren't in the catalog yet: shown as "Upcoming" cards that don't open anything. One
  * drops out on its own once a trek with the same slug is added in Admin.
  */
+/** Every trek we run is in Uttarakhand; the cards name the state, not the trailhead. */
+const TREK_STATE = 'Uttarakhand'
+
 const PLANNED_TREKS = [
-  { slug: 'har-ki-dun', name: 'Har Ki Dun', facts: '7 days · 11,700 ft', where: 'Sankri, Uttarkashi' },
-  { slug: 'tungnath-chandrashila', name: 'Tungnath Chandrashila', facts: '3 days · 13,000 ft', where: 'Chopta, Rudraprayag' },
-  { slug: 'dayara-bugyal', name: 'Dayara Bugyal', facts: '6 days · 12,000 ft', where: 'Raithal, Uttarkashi' },
-  { slug: 'kuari-pass', name: 'Kuari Pass', facts: '6 days · 12,516 ft', where: 'Joshimath, Chamoli' },
+  { slug: 'har-ki-dun', name: 'Har Ki Dun', facts: '7 days · 11,700 ft' },
+  { slug: 'tungnath-chandrashila', name: 'Tungnath Chandrashila', facts: '3 days · 13,000 ft' },
+  { slug: 'dayara-bugyal', name: 'Dayara Bugyal', facts: '6 days · 12,000 ft' },
+  { slug: 'kuari-pass', name: 'Kuari Pass', facts: '6 days · 12,516 ft' },
 ]
 
 /**
@@ -361,7 +364,6 @@ function DestinationCard({
     await queryClient.ensureQueryData(trekQueryOptions(trek.slug)).catch(() => undefined)
     void navigate(to, { viewTransition: true })
   }
-  const from = trek.departures.length > 0 ? Math.min(...trek.departures.map((d) => d.price_paise)) : null
   const next = trek.departures[0]
   const facts = [`${trek.duration_days} ${trek.duration_days === 1 ? 'day' : 'days'}`, trek.max_altitude_m ? feet(trek.max_altitude_m) : null]
     .filter(Boolean)
@@ -403,11 +405,7 @@ function DestinationCard({
         <div className="transition-transform duration-500 group-hover:-translate-y-1">
           <h3 className="text-xl leading-tight font-normal tracking-[-0.01em]">{trek.name}</h3>
           <p className="mt-2 text-sm text-white/75">{facts}</p>
-          <p className="mt-0.5 text-sm text-white/75">
-            {next
-              ? `${shortRange(next.start_date, next.end_date)}${from !== null ? ` · from ${rupees(from)}` : ''}`
-              : (trek.season_label ?? trek.region)}
-          </p>
+          <p className="mt-0.5 text-sm text-white/75">{TREK_STATE}</p>
         </div>
       </Link>
     </li>
@@ -435,7 +433,7 @@ function PlannedCard({
         <div>
           <h3 className="text-xl leading-tight font-normal tracking-[-0.01em]">{trek.name}</h3>
           <p className="mt-2 text-sm text-white/75">{trek.facts}</p>
-          <p className="mt-0.5 text-sm text-white/75">{trek.where}</p>
+          <p className="mt-0.5 text-sm text-white/75">{TREK_STATE}</p>
         </div>
       </div>
     </li>

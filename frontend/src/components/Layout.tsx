@@ -212,14 +212,14 @@ function Footer() {
           </a>
         </div>
         <div className="flex flex-col gap-2 py-6 text-xs sm:flex-row sm:items-center sm:justify-between">
-          <p>Fair-trade, micro-batch trekking. Based in Bengaluru, Karnataka.</p>
+          <p>Fair-trade, micro-batch trekking. Based in Uttarakhand.</p>
           {import.meta.env.DEV && <ApiStatus />}
         </div>
       </div>
-      {/* The wordmark set huge and cut off by the page edge, like a ridge running out of frame. */}
+      {/* The wordmark set huge, edge to edge: 12.5vw keeps all of it (~7.3em wide) inside the page. */}
       <p
         aria-hidden="true"
-        className="-mb-[0.22em] text-center text-[15.5vw] leading-none font-semibold tracking-[-0.05em] whitespace-nowrap text-transparent select-none [background:linear-gradient(to_bottom,rgb(255_255_255/0.14),rgb(255_255_255/0.02))_text]"
+        className="pb-[0.12em] text-center text-[12.5vw] leading-[1.15] font-semibold tracking-[-0.05em] whitespace-nowrap text-transparent select-none [background:linear-gradient(to_bottom,rgb(255_255_255/0.14),rgb(255_255_255/0.02))_text]"
       >
         The Empty Valley
       </p>

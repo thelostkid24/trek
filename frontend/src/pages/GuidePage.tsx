@@ -10,6 +10,7 @@ import { IconFacts, type Fact } from '../components/catalog/IconFacts.tsx'
 import { SectionLabel } from '../components/catalog/TrekSections.tsx'
 import { rupees, shortRange, weekdaysAndYear } from '../lib/format.ts'
 import { Seo } from '../components/Seo.tsx'
+import { SITE_ORIGIN } from '../lib/siteLinks.ts'
 
 /**
  * /guides/:id — public. "Know your guide": who they are, their credentials and record, what trekkers say, then the
@@ -83,6 +84,7 @@ function Profile({ guide: g, departureId }: { guide: GuideProfile; departureId: 
             <p className="mt-2">
               <RatingLine rating={g.rating} count={g.review_count} />
             </p>
+            <ShareProfile name={name} url={`${SITE_ORIGIN}/guides/${g.id}`} />
           </div>
         </header>
 
@@ -124,6 +126,43 @@ function Profile({ guide: g, departureId }: { guide: GuideProfile; departureId: 
         </div>
       </div>
     </div>
+  )
+}
+
+/**
+ * The profile's public link, for the guide to share anywhere as their trekking CV. Phones get the native share sheet;
+ * elsewhere (or if sharing isn't allowed) it copies the link.
+ */
+function ShareProfile({ name, url }: { name: string; url: string }) {
+  const [copied, setCopied] = useState(false)
+  const share = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: `${name}, trek guide`, url })
+        return
+      } catch (e) {
+        if (e instanceof DOMException && e.name === 'AbortError') return
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 2000)
+    } catch {
+      window.prompt('Copy this link', url)
+    }
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => void share()}
+      className="mt-4 inline-flex items-center gap-2 rounded-full border border-paper-300 bg-white px-4 py-2 text-sm font-medium text-ink-900 transition hover:border-ink-900"
+    >
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" className="size-4" aria-hidden="true">
+        <path d="M10 13V3m0 0L6.5 6.5M10 3l3.5 3.5M4 11v4.5A1.5 1.5 0 0 0 5.5 17h9a1.5 1.5 0 0 0 1.5-1.5V11" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+      <span aria-live="polite">{copied ? 'Link copied' : 'Share profile'}</span>
+    </button>
   )
 }
 
