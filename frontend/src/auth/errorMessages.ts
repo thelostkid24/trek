@@ -52,6 +52,11 @@ const MESSAGES: Record<string, string> = {
   DEPARTURE_NOT_BOOKABLE: "This departure isn't taking bookings any more.",
   NOT_ENOUGH_SEATS: 'Not enough seats left on this departure.',
   ALREADY_BOOKED: 'You already have a booking on this departure.',
+  EMAIL_NOT_VERIFIED: 'Confirm your email with the code we send to it.',
+  EMAIL_CODE_INVALID: 'That code is incorrect.',
+  EMAIL_CODE_EXPIRED: 'That code expired. Send a new one.',
+  EMAIL_CODE_TOO_MANY_ATTEMPTS: 'Too many wrong codes. Send a new one.',
+  EMAIL_CODE_RATE_LIMITED: 'Please wait a moment before sending another code.',
   BOOKING_NOT_FOUND: "We couldn't find that booking.",
   BOOKING_NOT_HELD: 'This booking is no longer waiting for payment.',
   BOOKING_NOT_PAYABLE: 'The seat hold has ended. Start a new booking to pay.',
@@ -70,11 +75,11 @@ export function messageFor(error: unknown): string {
       return left === 0 ? 'This batch just filled up.' : `Only ${left} ${left === 1 ? 'seat is' : 'seats are'} left.`
     }
   }
-  if (error.code === 'OTP_INVALID') {
+  if (error.code === 'OTP_INVALID' || error.code === 'EMAIL_CODE_INVALID') {
     const left = error.details.attempts_left
     return typeof left === 'number' && left > 0
       ? `That code is incorrect. ${left} ${left === 1 ? 'attempt' : 'attempts'} left.`
-      : MESSAGES.OTP_INVALID
+      : MESSAGES[error.code]
   }
   return MESSAGES[error.code] ?? error.message
 }

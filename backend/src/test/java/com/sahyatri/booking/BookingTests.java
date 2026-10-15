@@ -56,6 +56,7 @@ class BookingTests extends AuthTestSupport {
         UUID departure = publishedDeparture();
         String email = uniqueEmail();
         String token = emailTrekker(email);
+        jdbc.update("UPDATE users SET email_verified_at = now() WHERE email = ?", email);
 
         // No phone on the account and none given: the WhatsApp number is the one thing missing.
         authed(post(BOOKINGS), token, """
@@ -64,7 +65,7 @@ class BookingTests extends AuthTestSupport {
                 .andExpect(jsonPath("$.details.fields.phone").exists());
         assertThat(seatsTaken(departure)).isZero();
 
-        // No emergency contact or verified phone needed, and no travellers yet.
+        // No emergency contact or verified phone needed, and no travellers yet. The verified account email needs no code.
         authed(post(BOOKINGS), token, """
                 {"departure_id":"%s","seats":2,"phone":"+919876501234"}""".formatted(departure))
                 .andExpect(status().isCreated())

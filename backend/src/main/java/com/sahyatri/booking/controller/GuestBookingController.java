@@ -1,7 +1,10 @@
 package com.sahyatri.booking.controller;
 
+import com.sahyatri.booking.dto.EmailCodeRequest;
+import com.sahyatri.booking.dto.EmailCodeResponse;
 import com.sahyatri.booking.dto.GuestBookingRequest;
 import com.sahyatri.booking.dto.GuestBookingResponse;
+import com.sahyatri.booking.service.BookingEmailCodeService;
 import com.sahyatri.booking.service.BookingService;
 import com.sahyatri.common.security.RefreshCookie;
 import jakarta.validation.Valid;
@@ -11,22 +14,32 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Contract: docs/TRD.md §7.6. Public: guest checkout signs the guest in. Signed-in trekkers use
- * {@code POST /api/trekker/bookings} instead, or this would replace their session.
+ * {@code POST /api/trekker/bookings} instead, or this would replace their session. Both prove the contact email with
+ * a code from {@code /email-code}.
  */
 @RestController
 @RequestMapping("/api/public/bookings")
 public class GuestBookingController {
 
     private final BookingService bookings;
+    private final BookingEmailCodeService emailCodes;
     private final RefreshCookie cookie;
 
-    public GuestBookingController(BookingService bookings, RefreshCookie cookie) {
+    public GuestBookingController(BookingService bookings, BookingEmailCodeService emailCodes, RefreshCookie cookie) {
         this.bookings = bookings;
+        this.emailCodes = emailCodes;
         this.cookie = cookie;
+    }
+
+    @PostMapping("/email-code")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public EmailCodeResponse emailCode(@Valid @RequestBody EmailCodeRequest req) {
+        return emailCodes.send(req.email());
     }
 
     @PostMapping
