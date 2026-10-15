@@ -1,0 +1,75 @@
+name: Bug report
+description: Something on the site or app isn't working
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. **Don't paste card numbers, passwords, OTPs or anyone's personal details** — a booking or payment ID is enough for us to trace it.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What went wrong, and what did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to ...
+        2. Tap ...
+        3. See ...
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where did it happen?
+      options:
+        - Public pages (home, treks, guide profiles)
+        - Sign up / sign in / account
+        - Trekker (booking, my trips)
+        - Guide (departures, payouts)
+        - Admin
+        - Payments / refunds
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Environment
+      options:
+        - Production (theemptyvalley.com)
+        - Local development
+    validations:
+      required: true
+  - type: dropdown
+    id: money
+    attributes:
+      label: Did money move?
+      description: e.g. charged but no booking, refund missing, wrong amount
+      options:
+        - "No"
+        - "Yes"
+        - Not sure
+    validations:
+      required: true
+  - type: input
+    id: reference
+    attributes:
+      label: Booking / payment / departure ID
+      description: Optional, but it makes payment issues much faster to trace.
+  - type: input
+    id: device
+    attributes:
+      label: Device and browser
+      placeholder: e.g. Android 14, Chrome
+  - type: textarea
+    id: extra
+    attributes:
+      label: Screenshots or anything else
+      description: Drag images here.
