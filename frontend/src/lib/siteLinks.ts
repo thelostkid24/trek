@@ -9,6 +9,8 @@ export const SITE_LINKS = {
   contact: '/contact',
   /** External guide sign-up form; opens in a new tab. */
   leadATrek: 'https://tally.so/r/KYXzKV',
+  /** Our Instagram; opens in a new tab. */
+  instagram: 'https://www.instagram.com/the.emptyvalley/',
   terms: '/terms',
   privacy: '/privacy',
   cookies: '/cookies',
