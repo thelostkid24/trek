@@ -238,7 +238,7 @@ const PLANNED_TREKS = [
 ]
 
 /**
- * A short row of treks, bookable ones first, then upcoming ones dimmed; arrows (or a swipe) move along it and
+ * A short row of treks, bookable ones first, then listed ones without dates, then planned ones dimmed; arrows (or a swipe) move along it and
  * "See all treks" leads to the catalog. Each card shares a view-transition name with the trek page hero, so opening
  * a card grows it into the hero. The trek is fetched before navigating (usually already warm from hover) so the
  * hero exists when the new page is snapshotted.
@@ -378,9 +378,7 @@ function DestinationCard({
         onFocus={prefetch}
         onTouchStart={prefetch}
         onClick={(e) => void open(e)}
-        className={`group relative isolate flex aspect-[4/5] flex-col justify-between overflow-hidden rounded-[1.5rem] bg-brand-950 p-5 text-white transition-opacity ${
-          next ? '' : 'opacity-70 hover:opacity-100'
-        }`}
+        className="group relative isolate flex aspect-[4/5] flex-col justify-between overflow-hidden rounded-[1.5rem] bg-brand-950 p-5 text-white"
       >
         <div
           className="absolute inset-0 -z-10"
@@ -394,13 +392,14 @@ function DestinationCard({
         </div>
         <div className="absolute inset-0 -z-10 bg-gradient-to-t from-ink-950/90 via-ink-950/20 to-ink-950/30" aria-hidden="true" />
 
-        <span
-          className={`self-start rounded-full border px-3 py-1 text-[0.65rem] font-medium tracking-[0.18em] uppercase backdrop-blur-sm ${
-            next ? 'border-brand-300/50 bg-brand-950/40 text-brand-200' : 'border-white/25 bg-ink-950/40 text-white/80'
-          }`}
-        >
-          {next ? 'Booking open' : 'Upcoming'}
-        </span>
+        {/* A listed trek without dates yet carries no badge; the empty span keeps the words at the bottom. */}
+        {next ? (
+          <span className="self-start rounded-full border border-brand-300/50 bg-brand-950/40 px-3 py-1 text-[0.65rem] font-medium tracking-[0.18em] text-brand-200 uppercase backdrop-blur-sm">
+            Booking open
+          </span>
+        ) : (
+          <span />
+        )}
 
         <div className="transition-transform duration-500 group-hover:-translate-y-1">
           <h3 className="text-xl leading-tight font-normal tracking-[-0.01em]">{trek.name}</h3>

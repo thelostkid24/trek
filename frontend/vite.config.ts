@@ -1,5 +1,7 @@
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
+import { readFile, writeFile } from 'node:fs/promises'
+import { join } from 'node:path'
 import { defineConfig, type Plugin } from 'vite'
 
 const FIRST_HERO = 'src/assets/hero/hero-1.jpg'
@@ -35,9 +37,27 @@ function preloadFirstHero(): Plugin {
   }
 }
 
+/**
+ * Writes dist/app.html, the page Firebase serves for every route without a file of its own (firebase.json rewrite):
+ * index.html minus the home page's canonical link. Otherwise every unknown or not-yet-prerendered URL would tell
+ * Google it's the home page, and Google could pick any of them (e.g. /vision) to show for the brand search.
+ */
+function spaFallback(): Plugin {
+  return {
+    name: 'spa-fallback',
+    apply: 'build',
+    async writeBundle({ dir = 'dist' }) {
+      const html = await readFile(join(dir, 'index.html'), 'utf8')
+      const fallback = html.replace(/^\s*<link data-static-head rel="canonical"[^>]*>\n/m, '')
+      if (fallback === html) throw new Error('spa-fallback: no canonical link in index.html')
+      await writeFile(join(dir, 'app.html'), fallback)
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), tailwindcss(), preloadFirstHero()],
+  plugins: [react(), tailwindcss(), preloadFirstHero(), spaFallback()],
   // VITE_* vars live in the repo-root .env alongside the backend's.
   envDir: '..',
 })

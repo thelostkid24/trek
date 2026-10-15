@@ -18,8 +18,8 @@ const END = '<!-- static-head:end -->'
 // The fixed public pages, mirroring the <Seo> props in TreksPage.tsx, GuidesPage.tsx, BlogPages.tsx and
 // InfoPages.tsx; keep them in step. "Last updated" dates are left out of the legal pages' descriptions so this file
 // needn't change with them.
-// The home page is dist/index.html itself, which is also the fallback for every other route, so it keeps the
-// site-wide head and gets no canonical until <Seo> renders.
+// The home page is dist/index.html itself, with the site-wide head and its own canonical. Routes without a file fall
+// back to dist/app.html, the same head without the canonical (spaFallback in vite.config.ts).
 const STATIC_PAGES = [
   {
     path: '/treks',
