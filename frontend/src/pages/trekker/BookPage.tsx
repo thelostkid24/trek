@@ -445,7 +445,7 @@ function Checkout({ departure, user }: { departure: DepartureDetail; user: User 
   const busy = book.isPending || save.isPending || pay.isPending
   const stage = sendCode.isPending ? 'sending' : book.isPending || save.isPending ? 'holding' : pay.isPending ? 'paying' : null
   /** The code box shows once a code went to the primary participant's current email, until seats are held. */
-  const primaryEmail = participants[0]?.email.trim().toLowerCase() ?? ''
+  const primaryEmail = (participants[0]?.email ?? (formIsPrimary ? form.email : '')).trim().toLowerCase()
   const codeOpen = emailCheck !== null && emailCheck.email === primaryEmail && !holdLive
   const payError = pay.error ?? (save.error && Object.keys(fieldErrors(save.error)).length === 0 ? save.error : null)
   const carry: CarryState = { details: participants[0] ? toDetails(participants[0]) : undefined, seats: Math.max(1, count) }
