@@ -94,3 +94,45 @@ jobs:
       # Firebase swaps the whole site at once and purges its CDN; caching rules are in frontend/firebase.json.
       - run: npx -y firebase-tools@15 deploy --only hosting --project "${{ vars.FIREBASE_PROJECT }}" --non-interactive
         working-directory: frontend
+
+  # Tags what just went live as vX.Y.Z and opens a GitHub Release listing the PRs since the last one (docs/DEPLOY.md §13).
+  release:
+    needs: frontend
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+    steps:
+      - run: |
+          tags=$(gh api "repos/$REPO/tags" --paginate --jq '.[] | "\(.name) \(.commit.sha)"' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+ ' || true)
+          if grep -q " $SHA$" <<<"$tags"; then echo "$SHA is already released"; exit 0; fi
+
+          # The PR's release:* label wins; otherwise feature/ branches are minor and the rest are patch.
+          pr=$(gh api "repos/$REPO/commits/$SHA/pulls" --jq '.[0] // {}')
+          labels=$(jq -r '[.labels[]?.name] | join(" ")' <<<"$pr")
+          branch=$(jq -r '.head.ref // ""' <<<"$pr")
+          case " $labels " in
+            *" release:major "*) bump=major ;;
+            *" release:minor "*) bump=minor ;;
+            *" release:patch "*) bump=patch ;;
+            *) [[ $branch == feature/* ]] && bump=minor || bump=patch ;;
+          esac
+
+          last=$(cut -d' ' -f1 <<<"$tags" | sort -V | tail -1)
+          if [ -z "$last" ]; then
+            next=v1.0.0
+          else
+            IFS=. read -r major minor patch <<<"${last#v}"
+            case $bump in
+              major) next=v$((major + 1)).0.0 ;;
+              minor) next=v$major.$((minor + 1)).0 ;;
+              patch) next=v$major.$minor.$((patch + 1)) ;;
+            esac
+          fi
+
+          echo "Releasing $SHA as $next ($bump, branch '${branch:-none}')"
+          gh release create "$next" --repo "$REPO" --target "$SHA" --title "$next" --generate-notes ${last:+--notes-start-tag "$last"}

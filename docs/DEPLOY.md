@@ -306,6 +306,19 @@ refused. One-time setup:
 
 To redeploy without a new commit: Actions → Deploy → **Run workflow**.
 
+**Releases.** Once both halves are live, the `release` job in `deploy.yml` tags the deployed commit `vX.Y.Z`
+and creates a GitHub Release whose notes list the PRs merged since the previous tag. The first one is `v1.0.0`.
+The PR decides the bump:
+
+| PR | Bump |
+|---|---|
+| label `release:major` (breaking change: URLs, API contract, a relaunch) | `v2.0.0` |
+| label `release:minor`, or no label on a `feature/…` branch | `v1.1.0` |
+| label `release:patch`, or no label on any other branch (`fix/`, `chore/`, `security/`, …) | `v1.0.1` |
+
+A manual redeploy of a commit that's already tagged doesn't release again; one with no PR gets a patch.
+To see what's live and what shipped when: `gh release list`, or the repo's Releases page.
+
 ## 14. Third parties
 - **Razorpay** → Webhooks → `https://api.theemptyvalley.com/api/webhooks/razorpay`, with:
   - events `payment.captured`, `order.paid`, `payment.failed`, `refund.processed`, `refund.failed`;
