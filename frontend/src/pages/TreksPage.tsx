@@ -159,10 +159,7 @@ function TrekCard({ trek }: { trek: CatalogTrek }) {
 
         <div className="relative z-10 mt-4">
           {dates.length === 0 ? (
-            <p className="text-sm text-stone-500">
-              <span className="mr-1.5 rounded-full bg-laterite-100 px-2.5 py-0.5 text-xs font-semibold text-laterite-600">Upcoming</span>
-              {trek.season_label}
-            </p>
+            <p className="text-sm text-stone-500">{trek.season_label ?? 'Dates open soon'}</p>
           ) : (
             <ul className="flex flex-wrap gap-2">
               {dates.map((d) => (
