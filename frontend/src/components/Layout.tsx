@@ -199,17 +199,32 @@ function Footer() {
             <FooterColumn title="Explore" links={[{ label: 'All treks', href: '/treks' }, ...NAV.slice(1), { label: 'Blog', href: BLOG_PATH }]} />
             <FooterColumn title="The fine print" hideTitle links={FOOTER_LINKS} />
           </div>
-          <a
-            href={SITE_LINKS.leadATrek}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group inline-flex shrink-0 items-center gap-3 self-start rounded-full border border-white/20 py-1.5 pr-1.5 pl-5 text-sm text-white/90 transition hover:border-white/50"
-          >
-            Lead a trek with us
-            <span className="flex size-8 items-center justify-center rounded-full bg-white text-ink-950 transition-transform duration-300 group-hover:rotate-45">
-              ↗
-            </span>
-          </a>
+          <div className="flex shrink-0 flex-col items-start gap-5 md:items-end">
+            <a
+              href={SITE_LINKS.leadATrek}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group inline-flex items-center gap-3 rounded-full border border-white/20 py-1.5 pr-1.5 pl-5 text-sm text-white/90 transition hover:border-white/50"
+            >
+              Lead a trek with us
+              <span className="flex size-8 items-center justify-center rounded-full bg-white text-ink-950 transition-transform duration-300 group-hover:rotate-45">
+                ↗
+              </span>
+            </a>
+            <a
+              href={SITE_LINKS.instagram}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-sm text-white/70 transition hover:text-white"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="size-5" aria-hidden="true">
+                <rect x="3" y="3" width="18" height="18" rx="5" />
+                <circle cx="12" cy="12" r="4" />
+                <circle cx="17.5" cy="6.5" r="0.8" fill="currentColor" stroke="none" />
+              </svg>
+              Follow us on Instagram
+            </a>
+          </div>
         </div>
         <div className="flex flex-col gap-2 py-6 text-xs sm:flex-row sm:items-center sm:justify-between">
           <p>Fair-trade, micro-batch trekking. Based in Uttarakhand.</p>
