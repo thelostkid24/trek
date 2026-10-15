@@ -1,0 +1,37 @@
+name: Feature request
+description: Suggest an improvement or a new feature
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      placeholder: I'm always frustrated when ...
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: What would you like to happen?
+    validations:
+      required: true
+  - type: dropdown
+    id: who
+    attributes:
+      label: Who is it for?
+      multiple: true
+      options:
+        - Trekkers
+        - Guides
+        - Admins
+        - Visitors (not signed in)
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you've considered
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Screenshots, mockups, or the TRD section this touches.
