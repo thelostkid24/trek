@@ -98,25 +98,37 @@ export type Booking = {
 
 export type TravellerInput = { full_name: string; phone: string | null; date_of_birth: string; gender: Gender } & TravellerAddons
 
-/** Signed in: contact fields left out come from the account. Checkout sends every traveller; the API also allows none. */
+/**
+ * Signed in: contact fields left out come from the account. Checkout sends every traveller; the API also allows none.
+ * `email_code` (from `requestBookingEmailCode`) is needed unless the email is the account's verified one.
+ */
 export type NewBooking = {
   departure_id: string
   seats: number
   full_name?: string
   phone?: string
   email?: string
+  email_code?: string
   travellers?: TravellerInput[]
 }
 
-/** Guest checkout: three fields, no password, no OTP. `phone` is the WhatsApp number (+91…). */
+/** Guest checkout: three fields and the code emailed to `email`, no password. `phone` is the WhatsApp number (+91…). */
 export type NewGuestBooking = {
   departure_id: string
   seats: number
   full_name: string
   phone: string
   email: string
+  email_code?: string
   travellers?: TravellerInput[]
 }
+
+/** Emails a 6-digit code that proves the booking's contact email (docs/TRD.md §7.6). */
+export const requestBookingEmailCode = (email: string) =>
+  apiFetch<{ expires_in: number; resend_after: number }>('/api/public/bookings/email-code', {
+    method: 'POST',
+    body: { email },
+  })
 
 export type GuestBookingResult = { booking: Booking; auth: AuthResponse }
 

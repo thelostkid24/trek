@@ -2,8 +2,15 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import type { SignupChoices } from '../../analytics/attribution.ts'
-import { googleSignIn, type User } from '../../api/auth.ts'
-import { createBooking, createGuestBooking, listBookings, updateTravellers, type Booking } from '../../api/bookings.ts'
+import { getMe, googleSignIn, type User } from '../../api/auth.ts'
+import {
+  createBooking,
+  createGuestBooking,
+  listBookings,
+  requestBookingEmailCode,
+  updateTravellers,
+  type Booking,
+} from '../../api/bookings.ts'
 import { getDeparture, trekQueryOptions, type DepartureDetail } from '../../api/catalog.ts'
 import { getProfile, type Gender } from '../../api/profile.ts'
 import { ApiError } from '../../api/client.ts'
@@ -147,7 +154,9 @@ const toDetails = (p: Participant): Details => ({ full_name: fullName(p), digits
 /**
  * /book/:departureId — public. Participants are added one by one, the booker first (already added when the account
  * and profile know everything), each with their add-ons; then Pay now holds a seat per participant and opens Razorpay
- * in one go. There's no seat count to choose. Guests need no account. Medical and dietary details come after payment.
+ * in one go. There's no seat count to choose. Guests need no account, but the primary participant's email is confirmed
+ * with an emailed code first (skipped when it's the signed-in account's verified email). Medical and dietary details
+ * come after payment.
  */
 export function BookPage() {
   const { departureId = '' } = useParams()
@@ -220,6 +229,8 @@ function Checkout({ departure, user }: { departure: DepartureDetail; user: User 
   /** The hold made by the last Pay now; a retry pays for it (with any add-on changes) instead of holding again. */
   const [held, setHeld] = useState<Booking | null>(null)
   const [outcome, setOutcome] = useState<PayOutcome | null>(null)
+  /** The email a checkout code was sent to, and the code typed so far. */
+  const [emailCheck, setEmailCheck] = useState<{ email: string; code: string } | null>(null)
   const heldSeconds = useSecondsUntil(held?.hold_expires_at ?? null)
   const holdLive = held !== null && heldSeconds > 0
   const pay = usePayForBooking()
@@ -260,19 +271,31 @@ function Checkout({ departure, user }: { departure: DepartureDetail; user: User 
     }
   }
 
+  /** The account's verified email needs no code; any other contact email does. */
+  const needsCode = (email: string) => !(user?.email_verified && user.email === email)
+  const sendCode = useMutation({
+    mutationFn: requestBookingEmailCode,
+    onSuccess: (_, email) => setEmailCheck({ email, code: '' }),
+  })
+
   const book = useMutation({
     mutationFn: async (list: Participant[]): Promise<Booking> => {
       const primary = list[0]
+      const email = primary.email.trim().toLowerCase()
       const order = {
         departure_id: departure.id,
         seats: list.length,
         full_name: fullName(primary),
         phone: `+91${primary.digits}`,
-        email: primary.email.trim(),
+        email,
+        email_code: needsCode(email) ? emailCheck?.code : undefined,
         travellers: list.map(toTraveller).map(toInput),
       }
       if (user) {
-        return auth.withAuth((token) => createBooking(token, order))
+        const booking = await auth.withAuth((token) => createBooking(token, order))
+        // A code can verify the account's email, so pick up the account as it is now.
+        if (order.email_code) void auth.withAuth(getMe).then(auth.updateUser, () => {})
+        return booking
       }
       const result = await createGuestBooking(order, choices)
       auth.setSession(result.auth)
@@ -371,6 +394,16 @@ function Checkout({ departure, user }: { departure: DepartureDetail; user: User 
     if (!acceptedTerms) problems.push('Accept the terms and conditions.')
     const addonErrors = travellerErrors(list.map(toTraveller), offered)
     if (Object.keys(addonErrors).length > 0) problems.push('Trek insurance is required for everyone.')
+    // A new hold needs the primary participant's email confirmed: send a code, then Pay now again with it typed in.
+    const email = list[0]?.email.trim().toLowerCase() ?? ''
+    if (problems.length === 0 && !holdLive && needsCode(email)) {
+      if (emailCheck?.email !== email) {
+        setPayErrors([])
+        sendCode.mutate(email)
+        return
+      }
+      if (!/^\d{6}$/.test(emailCheck.code)) problems.push('Enter the 6-digit code we emailed you.')
+    }
     setPayErrors(problems)
     if (problems.length > 0) return
     setOutcome(null)
@@ -410,7 +443,10 @@ function Checkout({ departure, user }: { departure: DepartureDetail; user: User 
   const lines = addonLines(priced.map(toTraveller), offered)
   const total = fee + lines.reduce((sum, a) => sum + a.count * a.price, 0)
   const busy = book.isPending || save.isPending || pay.isPending
-  const stage = book.isPending || save.isPending ? 'holding' : pay.isPending ? 'paying' : null
+  const stage = sendCode.isPending ? 'sending' : book.isPending || save.isPending ? 'holding' : pay.isPending ? 'paying' : null
+  /** The code box shows once a code went to the primary participant's current email, until seats are held. */
+  const primaryEmail = participants[0]?.email.trim().toLowerCase() ?? ''
+  const codeOpen = emailCheck !== null && emailCheck.email === primaryEmail && !holdLive
   const payError = pay.error ?? (save.error && Object.keys(fieldErrors(save.error)).length === 0 ? save.error : null)
   const carry: CarryState = { details: participants[0] ? toDetails(participants[0]) : undefined, seats: Math.max(1, count) }
 
@@ -630,15 +666,40 @@ function Checkout({ departure, user }: { departure: DepartureDetail; user: User 
             </span>
           </label>
           <ul className="mt-4 space-y-1.5 text-xs text-stone-600">
+            {needsCode(primaryEmail) && <li>✓ We email you a code to confirm your address first.</li>}
             <li>✓ Your seats are held for 10 minutes while you pay.</li>
             <li>✓ Pay by UPI, card or netbanking.</li>
           </ul>
+          {codeOpen && (
+            <div className="mt-5 rounded-xl bg-paper-100 p-4">
+              <p className="text-sm text-stone-700">
+                We emailed a 6-digit code to <span className="font-medium break-all text-stone-900">{emailCheck.email}</span>.
+                Enter it to confirm your email; we send your booking and trek updates there.
+              </p>
+              <div className="mt-3">
+                <TextField label="Code" name="email-code" inputMode="numeric" autoComplete="one-time-code" maxLength={6}
+                  placeholder="123456" value={emailCheck.code}
+                  onChange={(e) => setEmailCheck({ ...emailCheck, code: e.target.value.replace(/\D/g, '').slice(0, 6) })} />
+              </div>
+              <p className="mt-2 text-xs text-stone-600">
+                Nothing in your inbox? Check spam, or{' '}
+                <button type="button" onClick={() => {
+                  book.reset()
+                  sendCode.mutate(emailCheck.email)
+                }} disabled={sendCode.isPending}
+                  className="font-medium text-brand-800 underline disabled:opacity-50">
+                  send a new code
+                </button>
+                . Wrong address? Edit the primary participant.
+              </p>
+            </div>
+          )}
           <div className="mt-5 space-y-2 empty:hidden">
             <Alerts
               problems={payErrors}
               outcome={outcome}
               payError={payError}
-              bookError={book.error && !seatsWent ? book.error : null}
+              bookError={sendCode.error ?? (book.error && !seatsWent ? book.error : null)}
               existingBooking={existingBooking}
             />
           </div>
@@ -648,7 +709,15 @@ function Checkout({ departure, user }: { departure: DepartureDetail; user: User 
             disabled={stage !== null || knownLeft === 0}
             className="mt-5 w-full rounded-full bg-laterite-500 px-6 py-3 font-medium text-white shadow-lg shadow-laterite-600/20 hover:bg-laterite-600 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {stage === 'holding' ? 'Holding your seats…' : stage === 'paying' ? 'Waiting for payment…' : pricedCount > 0 ? `Pay ${rupees(total)} now` : 'Pay now'}
+            {stage === 'sending'
+              ? 'Emailing your code…'
+              : stage === 'holding'
+                ? 'Holding your seats…'
+                : stage === 'paying'
+                  ? 'Waiting for payment…'
+                  : pricedCount > 0
+                    ? `${codeOpen ? 'Confirm and pay' : 'Pay'} ${rupees(total)}${codeOpen ? '' : ' now'}`
+                    : 'Pay now'}
           </button>
         </aside>
       </div>

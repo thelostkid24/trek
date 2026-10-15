@@ -84,13 +84,14 @@ public class BookingService {
     private final BookingProperties props;
     private final AuditLog audit;
     private final ApplicationEventPublisher events;
+    private final BookingEmailCodeService emailCodes;
 
     public BookingService(BookingRepository bookings, DepartureRepository departures, PaymentRepository payments,
                           PaymentRefundRepository refundRows, PaymentService paymentService, RefundService refunds,
                           CatalogService catalog, UserRepository users, AuthService auth,
                           AccountAcquisition acquisition, CurrentUser currentUser,
                           RefundPolicy refundPolicy, BookingProperties props, AuditLog audit,
-                          ApplicationEventPublisher events) {
+                          ApplicationEventPublisher events, BookingEmailCodeService emailCodes) {
         this.bookings = bookings;
         this.departures = departures;
         this.payments = payments;
@@ -106,11 +107,13 @@ public class BookingService {
         this.props = props;
         this.audit = audit;
         this.events = events;
+        this.emailCodes = emailCodes;
     }
 
     /**
      * Holds seats for {@code app.bookings.hold-ttl} while a signed-in trekker pays. Contact fields left out come
-     * from the account; travellers may come now or after payment.
+     * from the account; travellers may come now or after payment. The contact email must be the account's verified
+     * email or come with a checkout code.
      */
     @Transactional
     public BookingResponse create(UUID userId, BookingRequest req) {
@@ -120,8 +123,24 @@ public class BookingService {
                 required("phone", req.phone(), user.getPhone()),
                 required("email", req.email(), user.getEmail()).toLowerCase(Locale.ROOT));
         List<TravellerRequest> travellers = travellersFor(req.seats(), req.travellers());
+        if (user.getEmailVerifiedAt() == null || !contact.email().equals(user.getEmail())) {
+            emailCodes.check(contact.email(), req.emailCode());
+            adoptVerifiedEmail(user, contact.email());
+        }
         return toResponse(hold(userId, req.departureId(), req.seats(), contact, travellers,
                 lastTouch(req.acquisition())));
+    }
+
+    /**
+     * A code just proved this email: it becomes the account's verified email when it already is the account's email,
+     * or the account has none and nobody else uses it (§7.3 — a guest becomes a normal account).
+     */
+    private void adoptVerifiedEmail(User user, String email) {
+        if (email.equals(user.getEmail()) || (user.getEmail() == null && !users.existsByEmail(email))) {
+            user.setEmail(email);
+            user.setEmailVerifiedAt(Instant.now());
+            users.save(user);
+        }
     }
 
     /** None yet, or exactly one per seat. */
@@ -134,11 +153,13 @@ public class BookingService {
     }
 
     /**
-     * Guest checkout: no password, no OTP. Creates a guest account and signs it in, so payment and the booking
-     * pages work exactly as for any trekker. The guest never gets access to an existing account.
+     * Guest checkout: no password; the email is proven with a checkout code. Creates a guest account and signs it
+     * in, so payment and the booking pages work exactly as for any trekker. The guest never gets access to an
+     * existing account.
      */
     @Transactional
     public GuestBooking createForGuest(GuestBookingRequest req) {
+        emailCodes.check(req.email(), req.emailCode());
         List<TravellerRequest> travellers = travellersFor(req.seats(), req.travellers());
         User guest = User.newGuest(req.fullName().trim());
         acquisition.apply(guest, SignupMethod.GUEST_CHECKOUT, req.acquisition());

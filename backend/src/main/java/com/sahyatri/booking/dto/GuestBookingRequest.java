@@ -16,8 +16,9 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Guest checkout: the three fields, no password or OTP. {@code phone} is the WhatsApp number. Travellers are optional,
- * as for a signed-in hold; when given, the count must equal {@code seats}.
+ * Guest checkout: the three fields, no password. {@code phone} is the WhatsApp number. {@code emailCode} is the code
+ * sent to {@code email} (checked in the service). Travellers are optional, as for a signed-in hold; when given, the
+ * count must equal {@code seats}.
  */
 public record GuestBookingRequest(
         @NotNull UUID departureId,
@@ -26,6 +27,7 @@ public record GuestBookingRequest(
         @NotBlank @Pattern(regexp = ValidationPatterns.INDIAN_MOBILE, message = ValidationPatterns.INDIAN_MOBILE_MESSAGE)
         String phone,
         @NotBlank @Email @Size(max = 254) String email,
+        @Pattern(regexp = "\\d{6}", message = "must be the 6-digit code") String emailCode,
         @Size(max = Departure.MAX_GROUP_SIZE) List<@Valid @NotNull TravellerRequest> travellers,
         @Valid AcquisitionRequest acquisition) {
 }

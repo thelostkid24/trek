@@ -25,8 +25,8 @@ class GuestCheckoutTests extends AuthTestSupport {
 
     private ResultActions guestHold(UUID departure, int seats, String phone, String email) throws Exception {
         return postJson(GUEST_BOOKINGS, """
-                {"departure_id":"%s","seats":%d,"full_name":"Neha Kulkarni","phone":"%s","email":"%s"}"""
-                .formatted(departure, seats, phone, email));
+                {"departure_id":"%s","seats":%d,"full_name":"Neha Kulkarni","phone":"%s","email":"%s","email_code":"%s"}"""
+                .formatted(departure, seats, phone, email, bookingEmailCode(email)));
     }
 
     @Test
@@ -85,11 +85,12 @@ class GuestCheckoutTests extends AuthTestSupport {
                 UPDATE tracks SET insurance_price_paise = 50000, offloading = true, offloading_price_paise = 30000
                 WHERE id = (SELECT track_id FROM departures WHERE id = ?)""", departure);
 
+        String email = uniqueEmail();
         postJson(GUEST_BOOKINGS, """
-                {"departure_id":"%s","seats":2,"full_name":"Neha Kulkarni","phone":"%s","email":"%s","travellers":[
+                {"departure_id":"%s","seats":2,"full_name":"Neha Kulkarni","phone":"%s","email":"%s","email_code":"%s","travellers":[
                   {"full_name":"Neha Kulkarni","date_of_birth":"1995-04-12","gender":"FEMALE","insurance":true,"offloading":true},
                   {"full_name":"Rohan Kulkarni","date_of_birth":"1993-01-30","gender":"MALE","insurance":true}]}"""
-                .formatted(departure, uniquePhone(), uniqueEmail()))
+                .formatted(departure, uniquePhone(), email, bookingEmailCode(email)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.booking.status").value("HELD"))
                 .andExpect(jsonPath("$.booking.travellers_complete").value(true))
@@ -100,10 +101,11 @@ class GuestCheckoutTests extends AuthTestSupport {
 
         // One traveller for two seats: refused, and no guest account is left behind.
         int users = jdbc.queryForObject("SELECT count(*) FROM users", Integer.class);
+        String other = uniqueEmail();
         postJson(GUEST_BOOKINGS, """
-                {"departure_id":"%s","seats":2,"full_name":"Neha Kulkarni","phone":"%s","email":"%s","travellers":[
+                {"departure_id":"%s","seats":2,"full_name":"Neha Kulkarni","phone":"%s","email":"%s","email_code":"%s","travellers":[
                   {"full_name":"Neha Kulkarni","date_of_birth":"1995-04-12","gender":"FEMALE","insurance":true}]}"""
-                .formatted(departure, uniquePhone(), uniqueEmail()))
+                .formatted(departure, uniquePhone(), other, bookingEmailCode(other)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.details.fields.travellers").exists());
         assertThat(jdbc.queryForObject("SELECT count(*) FROM users", Integer.class)).isEqualTo(users);

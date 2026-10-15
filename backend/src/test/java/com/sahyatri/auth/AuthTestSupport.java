@@ -34,6 +34,7 @@ import java.nio.file.Path;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -147,6 +148,16 @@ public abstract class AuthTestSupport {
                 .andReturn();
     }
 
+    /** Sends a checkout code to this email, as the book page does before holding, and returns it. */
+    protected String bookingEmailCode(String email) throws Exception {
+        postJson("/api/public/bookings/email-code", """
+                {"email":"%s"}""".formatted(email)).andExpect(status().isAccepted());
+        ArgumentCaptor<String> subject = ArgumentCaptor.forClass(String.class);
+        Mockito.verify(mailTransport, Mockito.atLeastOnce())
+                .send(eq(email.trim().toLowerCase(Locale.ROOT)), subject.capture(), Mockito.anyString());
+        return subject.getValue().substring(0, 6);
+    }
+
     /** The most recent code "sent" to this phone. */
     protected String lastOtp(String phone) {
         ArgumentCaptor<String> code = ArgumentCaptor.forClass(String.class);
@@ -230,12 +241,13 @@ public abstract class AuthTestSupport {
         return id;
     }
 
-    /** A trekker who may book: verified phone and an emergency contact. Returns the access token. */
+    /** A trekker who may book: verified email and phone, and an emergency contact. Returns the access token. */
     protected String bookingTrekker() throws Exception {
         String email = uniqueEmail();
         String token = emailTrekker(email);
         UUID id = userIdByEmail(email);
-        jdbc.update("UPDATE users SET phone = ?, phone_verified_at = now() WHERE id = ?", uniquePhone(), id);
+        jdbc.update("UPDATE users SET phone = ?, phone_verified_at = now(), email_verified_at = now() WHERE id = ?",
+                uniquePhone(), id);
         jdbc.update("""
                 INSERT INTO trekker_profiles (user_id, emergency_name, emergency_relation, emergency_phone, created_at, updated_at)
                 VALUES (?, 'Meera Rao', 'Sister', '+919812345678', now(), now())""", id);

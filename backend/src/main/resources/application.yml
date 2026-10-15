@@ -99,7 +99,7 @@ app:
       # Credential endpoints only; refresh, logout and /me fall to the default.
       - patterns: [/api/auth/signup, /api/auth/login, /api/auth/google, /api/auth/otp/**, /api/auth/password/**]
         per-minute: 10
-      - patterns: [/api/public/bookings]
+      - patterns: [/api/public/bookings, /api/public/bookings/email-code]
         methods: [POST]
         per-minute: 5
       - patterns: [/api/account/**]

@@ -16,6 +16,7 @@ import java.util.UUID;
 
 /**
  * A signed-in trekker's hold. Contact fields left out fall back to the account (checked in the service).
+ * {@code emailCode} proves the contact email unless it is the account's verified email.
  * Travellers are optional here and can be added after payment; when given, the count must equal {@code seats}.
  */
 public record BookingRequest(
@@ -25,6 +26,7 @@ public record BookingRequest(
         @Pattern(regexp = ValidationPatterns.INDIAN_MOBILE, message = ValidationPatterns.INDIAN_MOBILE_MESSAGE)
         String phone,
         @Email @Size(max = 254) String email,
+        @Pattern(regexp = "\\d{6}", message = "must be the 6-digit code") String emailCode,
         @Size(max = Departure.MAX_GROUP_SIZE) List<@Valid @NotNull TravellerRequest> travellers,
         @Valid AcquisitionRequest acquisition) {
 }

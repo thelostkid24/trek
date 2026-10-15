@@ -201,9 +201,10 @@ class AcquisitionTests extends AuthTestSupport {
     @Test
     void guestCheckoutRecordsTheAccountAndTheBooking() throws Exception {
         UUID departure = publishedDeparture();
+        String email = uniqueEmail();
         MvcResult result = postJson("/api/public/bookings", """
-                {"departure_id":"%s","seats":1,"full_name":"Neha Kulkarni","phone":"%s","email":"%s",
-                 "acquisition":%s}""".formatted(departure, uniquePhone(), uniqueEmail(),
+                {"departure_id":"%s","seats":1,"full_name":"Neha Kulkarni","phone":"%s","email":"%s","email_code":"%s",
+                 "acquisition":%s}""".formatted(departure, uniquePhone(), email, bookingEmailCode(email),
                         acquisition(",\"heard_from\":\"FRIEND_FAMILY\",\"marketing_whatsapp\":true")))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.auth.user.marketing_whatsapp").value(true))
