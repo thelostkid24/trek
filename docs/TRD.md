@@ -259,7 +259,7 @@ Each feature appends: scope, endpoints, tables, screens, tests.
 | `POST /api/auth/login` | — | `{ email, password }` | `200` AuthResponse + cookie | `400 VALIDATION_FAILED`, `401 INVALID_CREDENTIALS`, `403 ACCOUNT_DISABLED`, `429 TOO_MANY_ATTEMPTS` |
 | `POST /api/auth/otp/request` | — | `{ phone }` | `202 { expires_in: 300, resend_after: 30 }` | `400 VALIDATION_FAILED`, `429 OTP_RATE_LIMITED` (`details.retry_after` seconds) |
 | `POST /api/auth/otp/verify` | — | `{ phone, code, full_name? }` | `200` AuthResponse + cookie | `400 VALIDATION_FAILED`, `400 OTP_INVALID` (`details.attempts_left`), `410 OTP_EXPIRED`, `429 OTP_TOO_MANY_ATTEMPTS`, `403 ACCOUNT_DISABLED` |
-| `POST /api/auth/google` | — | `{ id_token }` (Google Identity Services credential) | `200` AuthResponse + cookie | `400 VALIDATION_FAILED`, `401 GOOGLE_TOKEN_INVALID`, `403 ACCOUNT_DISABLED` |
+| `POST /api/auth/google` | — | `{ id_token }` (Google Identity Services credential) | `200` AuthResponse + cookie | `400 VALIDATION_FAILED`, `401 GOOGLE_TOKEN_INVALID`, `403 ACCOUNT_DISABLED`, `409 GOOGLE_ACCOUNT_MISMATCH` |
 | `POST /api/auth/refresh` | refresh cookie | — | `200` AuthResponse + rotated cookie | `401 REFRESH_TOKEN_INVALID` |
 | `POST /api/auth/logout` | refresh cookie (optional) | — | `204`, cookie cleared | — |
 | `GET /api/auth/me` | Bearer | — | `200` User | `401 UNAUTHENTICATED`, `401 TOKEN_EXPIRED` |
@@ -282,7 +282,7 @@ All errors use the global `{ code, message, details }` shape. `VALIDATION_FAILED
 - Login never reveals whether an email exists — wrong email and wrong password both give `INVALID_CREDENTIALS`. 5 failures per email in 15 min → `TOO_MANY_ATTEMPTS`.
 - OTP: 6 digits, valid 5 min, 5 verify attempts per code, resend allowed after 30 s, max 5 requests/hour per phone. Requesting a new code invalidates the previous one.
 - OTP verify for an unknown phone creates a TREKKER (`is_new_user: true`). If `full_name` was not sent, the user has `full_name: null` — the UI sends them to the profile page (§7.3) to fill it in.
-- Google: if the Google email is verified and matches an existing account, Google is linked to that account (`auth_methods` gains `GOOGLE`); otherwise a new TREKKER is created with `email_verified: true`.
+- Google: if the Google email is verified and matches an existing account, Google is linked to that account (`auth_methods` gains `GOOGLE`); otherwise a new TREKKER is created with `email_verified: true`. If that account's email was never verified, Google is the first proof of ownership: its password, phone and every refresh token are dropped (blocks pre-account hijacking by someone who signed up with an email they don't own). An account already linked to a different Google subject is never re-bound: `409 GOOGLE_ACCOUNT_MISMATCH`.
 - Email sign-up does not send a verification email automatically (`email_verified: false`); the trekker verifies from the profile page (§7.3).
 - Dev only: OTP codes are not sent by SMS; the backend logs them.
 - Until SMS delivers (TRAI DLT pending), the frontend hides phone OTP: login and sign-up show email only, and the profile's Mobile row has no Add/Change (shown only if the account already has a phone). `VITE_PHONE_OTP=true` turns it back on (`auth/phoneOtp.ts`). The API is unchanged.

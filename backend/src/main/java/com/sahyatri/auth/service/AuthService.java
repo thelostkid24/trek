@@ -126,6 +126,19 @@ public class AuthService {
         if (user == null && identity.emailVerified() && email != null) {
             // Link Google to an existing account with the same (Google-verified) email.
             user = users.findByEmail(email).orElse(null);
+            if (user != null && user.getGoogleSubject() != null) {
+                // Another Google account already owns it (e.g. a recycled Workspace address): never re-bind.
+                throw ApiException.conflict("GOOGLE_ACCOUNT_MISMATCH",
+                        "This email is linked to a different Google account");
+            }
+            if (user != null && user.getEmailVerifiedAt() == null) {
+                // Nobody proved this email before Google did, so whoever signed up with it may not own it. Drop the
+                // credentials they set and their sessions, or they'd keep a way into the real owner's account.
+                user.setPasswordHash(null);
+                user.setPhone(null);
+                user.setPhoneVerifiedAt(null);
+                tokens.revokeAll(user.getId());
+            }
         }
         if (user == null) {
             isNew = true;
