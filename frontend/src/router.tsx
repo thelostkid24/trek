@@ -6,6 +6,7 @@ import { SITE_LINKS } from './lib/siteLinks.ts'
 import { Layout } from './components/Layout.tsx'
 import { Private } from './components/Seo.tsx'
 import { DepartureDetailPage } from './pages/DepartureDetailPage.tsx'
+import { ErrorPage } from './pages/ErrorPage.tsx'
 import { GuidePage } from './pages/GuidePage.tsx'
 import { GuidesPage } from './pages/GuidesPage.tsx'
 import { HomePage } from './pages/HomePage.tsx'
@@ -37,93 +38,101 @@ function page<K extends string>(load: () => Promise<Record<K, ComponentType>>, n
 export const router = createBrowserRouter([
   {
     element: <Layout />,
+    // A crash in the layout itself has no header or footer to keep.
+    errorElement: <main><ErrorPage /></main>,
     // A direct visit to a lazy page renders nothing for the moment its code takes to arrive.
     HydrateFallback: () => null,
     children: [
-      { path: '/', element: <HomePage /> },
-      { path: '/login', lazy: page(() => import('./pages/LoginPage.tsx'), 'LoginPage', 'Log in') },
-      { path: '/signup', lazy: page(() => import('./pages/SignupPage.tsx'), 'SignupPage', 'Sign up') },
-      { path: '/forgot-password', lazy: page(() => import('./pages/PasswordResetPages.tsx'), 'ForgotPasswordPage', 'Forgot password') },
-      { path: '/reset-password', lazy: page(() => import('./pages/PasswordResetPages.tsx'), 'ResetPasswordPage', 'Reset password') },
-      // Trekker account pages share the account layout (name, then pill tabs).
       {
-        lazy: async () => {
-          const { AccountLayout } = await import('./pages/trekker/AccountLayout.tsx')
-          return {
-            element: (
-              <Private title="My account">
-                <RequireAuth role="TREKKER">
-                  <AccountLayout />
-                </RequireAuth>
-              </Private>
-            ),
-          }
-        },
+        // A page that throws or fails to load shows ErrorPage under the site's header and footer.
+        errorElement: <ErrorPage />,
         children: [
-          { path: '/account', element: <Navigate to="/account/bookings" replace /> },
-          { path: PROFILE_PATH, lazy: page(() => import('./pages/trekker/ProfilePage.tsx'), 'ProfilePage') },
-          { path: '/account/bookings', lazy: page(() => import('./pages/trekker/BookingsPage.tsx'), 'BookingsPage') },
-          { path: '/account/bookings/:id', lazy: page(() => import('./pages/trekker/BookingDetailPage.tsx'), 'BookingDetailPage') },
-          { path: '/account/gear', lazy: page(() => import('./pages/trekker/GearPage.tsx'), 'GearPage') },
+          { path: '/', element: <HomePage /> },
+          { path: '/login', lazy: page(() => import('./pages/LoginPage.tsx'), 'LoginPage', 'Log in') },
+          { path: '/signup', lazy: page(() => import('./pages/SignupPage.tsx'), 'SignupPage', 'Sign up') },
+          { path: '/forgot-password', lazy: page(() => import('./pages/PasswordResetPages.tsx'), 'ForgotPasswordPage', 'Forgot password') },
+          { path: '/reset-password', lazy: page(() => import('./pages/PasswordResetPages.tsx'), 'ResetPasswordPage', 'Reset password') },
+          // Trekker account pages share the account layout (name, then pill tabs).
+          {
+            lazy: async () => {
+              const { AccountLayout } = await import('./pages/trekker/AccountLayout.tsx')
+              return {
+                element: (
+                  <Private title="My account">
+                    <RequireAuth role="TREKKER">
+                      <AccountLayout />
+                    </RequireAuth>
+                  </Private>
+                ),
+              }
+            },
+            children: [
+              { path: '/account', element: <Navigate to="/account/bookings" replace /> },
+              { path: PROFILE_PATH, lazy: page(() => import('./pages/trekker/ProfilePage.tsx'), 'ProfilePage') },
+              { path: '/account/bookings', lazy: page(() => import('./pages/trekker/BookingsPage.tsx'), 'BookingsPage') },
+              { path: '/account/bookings/:id', lazy: page(() => import('./pages/trekker/BookingDetailPage.tsx'), 'BookingDetailPage') },
+              { path: '/account/gear', lazy: page(() => import('./pages/trekker/GearPage.tsx'), 'GearPage') },
+            ],
+          },
+          { path: '/account/verify-email', lazy: page(() => import('./pages/VerifyEmailPage.tsx'), 'VerifyEmailPage', 'Verify email') },
+          { path: '/treks', element: <TreksPage /> },
+          { path: '/treks/:slug', element: <TrekPage /> },
+          { path: '/departures/:id', element: <DepartureDetailPage /> },
+          { path: '/guides', element: <GuidesPage /> },
+          { path: '/guides/:id', element: <GuidePage /> },
+          { path: '/blog', lazy: page(() => import('./pages/BlogPages.tsx'), 'BlogPage') },
+          { path: '/blog/:slug', lazy: page(() => import('./pages/BlogPages.tsx'), 'BlogSlugPage') },
+          { path: '/blog/:category/:sub', lazy: page(() => import('./pages/BlogPages.tsx'), 'BlogSubCategoryPage') },
+          { path: SITE_LINKS.faqs, element: <FaqsPage /> },
+          { path: SITE_LINKS.cancellations, element: <CancellationsPage /> },
+          { path: SITE_LINKS.vision, element: <VisionPage /> },
+          { path: SITE_LINKS.contact, element: <ContactPage /> },
+          { path: SITE_LINKS.terms, element: <TermsPage /> },
+          { path: SITE_LINKS.privacy, element: <PrivacyPage /> },
+          { path: SITE_LINKS.cookies, element: <CookiesPage /> },
+          // Public: guest checkout needs no account (docs/TRD.md §7.6).
+          { path: '/book/:departureId', lazy: page(() => import('./pages/trekker/BookPage.tsx'), 'BookPage', 'Book') },
+          {
+            path: '/admin',
+            lazy: async () => {
+              const { AdminLayout } = await import('./pages/admin/AdminLayout.tsx')
+              return {
+                element: (
+                  <Private title="Admin">
+                    <RequireAuth role="ADMIN">
+                      <AdminLayout />
+                    </RequireAuth>
+                  </Private>
+                ),
+              }
+            },
+            children: [
+              { index: true, lazy: page(() => import('./pages/admin/DeparturesAdminPage.tsx'), 'DeparturesAdminPage') },
+              { path: 'tracks', lazy: page(() => import('./pages/admin/TracksAdminPage.tsx'), 'TracksAdminPage') },
+              { path: 'content', lazy: page(() => import('./pages/admin/ContentAdminPage.tsx'), 'ContentAdminPage') },
+              { path: 'guides', lazy: page(() => import('./pages/admin/GuidesAdminPage.tsx'), 'GuidesAdminPage') },
+              { path: 'blog', lazy: page(() => import('./pages/admin/BlogAdminPage.tsx'), 'BlogAdminPage') },
+              { path: 'insights', lazy: page(() => import('./pages/admin/InsightsPage.tsx'), 'InsightsPage') },
+            ],
+          },
+          {
+            path: '/guide',
+            lazy: async () => {
+              const { GuideReportsPage } = await import('./pages/guide/GuideReportsPage.tsx')
+              return {
+                element: (
+                  <Private title="Guide reports">
+                    <RequireAuth role="GUIDE">
+                      <GuideReportsPage />
+                    </RequireAuth>
+                  </Private>
+                ),
+              }
+            },
+          },
+          { path: '*', element: <NotFoundPage /> },
         ],
       },
-      { path: '/account/verify-email', lazy: page(() => import('./pages/VerifyEmailPage.tsx'), 'VerifyEmailPage', 'Verify email') },
-      { path: '/treks', element: <TreksPage /> },
-      { path: '/treks/:slug', element: <TrekPage /> },
-      { path: '/departures/:id', element: <DepartureDetailPage /> },
-      { path: '/guides', element: <GuidesPage /> },
-      { path: '/guides/:id', element: <GuidePage /> },
-      { path: '/blog', lazy: page(() => import('./pages/BlogPages.tsx'), 'BlogPage') },
-      { path: '/blog/:slug', lazy: page(() => import('./pages/BlogPages.tsx'), 'BlogSlugPage') },
-      { path: '/blog/:category/:sub', lazy: page(() => import('./pages/BlogPages.tsx'), 'BlogSubCategoryPage') },
-      { path: SITE_LINKS.faqs, element: <FaqsPage /> },
-      { path: SITE_LINKS.cancellations, element: <CancellationsPage /> },
-      { path: SITE_LINKS.vision, element: <VisionPage /> },
-      { path: SITE_LINKS.contact, element: <ContactPage /> },
-      { path: SITE_LINKS.terms, element: <TermsPage /> },
-      { path: SITE_LINKS.privacy, element: <PrivacyPage /> },
-      { path: SITE_LINKS.cookies, element: <CookiesPage /> },
-      // Public: guest checkout needs no account (docs/TRD.md §7.6).
-      { path: '/book/:departureId', lazy: page(() => import('./pages/trekker/BookPage.tsx'), 'BookPage', 'Book') },
-      {
-        path: '/admin',
-        lazy: async () => {
-          const { AdminLayout } = await import('./pages/admin/AdminLayout.tsx')
-          return {
-            element: (
-              <Private title="Admin">
-                <RequireAuth role="ADMIN">
-                  <AdminLayout />
-                </RequireAuth>
-              </Private>
-            ),
-          }
-        },
-        children: [
-          { index: true, lazy: page(() => import('./pages/admin/DeparturesAdminPage.tsx'), 'DeparturesAdminPage') },
-          { path: 'tracks', lazy: page(() => import('./pages/admin/TracksAdminPage.tsx'), 'TracksAdminPage') },
-          { path: 'content', lazy: page(() => import('./pages/admin/ContentAdminPage.tsx'), 'ContentAdminPage') },
-          { path: 'guides', lazy: page(() => import('./pages/admin/GuidesAdminPage.tsx'), 'GuidesAdminPage') },
-          { path: 'blog', lazy: page(() => import('./pages/admin/BlogAdminPage.tsx'), 'BlogAdminPage') },
-          { path: 'insights', lazy: page(() => import('./pages/admin/InsightsPage.tsx'), 'InsightsPage') },
-        ],
-      },
-      {
-        path: '/guide',
-        lazy: async () => {
-          const { GuideReportsPage } = await import('./pages/guide/GuideReportsPage.tsx')
-          return {
-            element: (
-              <Private title="Guide reports">
-                <RequireAuth role="GUIDE">
-                  <GuideReportsPage />
-                </RequireAuth>
-              </Private>
-            ),
-          }
-        },
-      },
-      { path: '*', element: <NotFoundPage /> },
     ],
   },
 ])
