@@ -200,6 +200,7 @@ Each feature appends: scope, endpoints, tables, screens, tests.
 - `GET /api/public/health` → `{ status, database, server_time }`
 - Global error shape, CORS for `http://localhost:5173`, permit-all security (temporary).
 - Frontend: layout shell, home page showing backend health, 404 page.
+- Crash page (`pages/ErrorPage.tsx`): a page that throws while rendering, or whose code fails to load, shows "Something went wrong" with **Reload page** and **Back home** under the site's header and footer instead of React Router's default error screen. A crash in `Layout` itself shows the same page on its own. Not indexed; nothing is reported yet.
 - Tests: `HealthControllerTests` (health + 404 error shape against Testcontainers Postgres).
 
 ### 7.1 Landing page

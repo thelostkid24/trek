@@ -58,6 +58,8 @@ Vite bakes these in at build time, so changing them needs a rebuild.
 | `/faqs`, `/cancellations`, `/vision`, `/contact`, `/lead-a-trek`, `/terms`, `/privacy` | Info pages (`InfoPages.tsx`) | anyone |
 | `*` | `NotFoundPage` | anyone |
 
+A page that throws or fails to load shows `ErrorPage` ("Something went wrong", Reload page) in place of the page, keeping the header and footer (`router.tsx`).
+
 `RequireAuth role="TREKKER" | "ADMIN"` guards the account and admin areas and sends visitors to `/login`.
 
 ## Talking to the API
