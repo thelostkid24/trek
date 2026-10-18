@@ -23,8 +23,11 @@ public class SecurityConfig {
 
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        // CSRF is off: the API is Bearer-token based; the only cookie is the SameSite=Lax refresh cookie
-        // scoped to /api/auth, and its responses are unreadable cross-origin thanks to CORS.
+        // CSRF tokens are off on purpose (CodeQL java/spring-disabled-csrf-protection is dismissed as won't fix).
+        // Everything but /api/auth/refresh and /logout authenticates with a Bearer header, which a browser never
+        // attaches on its own. Those two read the httpOnly SameSite=Lax refresh cookie (path /api/auth), so other
+        // sites don't get it on a POST, and the CORS filter 403s any request whose Origin isn't in
+        // CORS_ALLOWED_ORIGINS before it reaches them (AuthControllerTests.cookieEndpointsRejectOtherOrigins).
         return http
                 .csrf(csrf -> csrf.disable())
                 .cors(Customizer.withDefaults())

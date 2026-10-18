@@ -225,6 +225,7 @@ Each feature appends: scope, endpoints, tables, screens, tests.
   `sahyatri_refresh=<token>; HttpOnly; SameSite=Lax; Path=/api/auth; Max-Age=2592000` (`Secure` when `AUTH_COOKIE_SECURE=true`).
   Rotated on every `/refresh`; old one becomes invalid. Grace: a token rotated < 30 s ago still refreshes (two tabs / React StrictMode refreshing at once). Reusing a token rotated longer ago revokes every session of that user. Tokens revoked by logout are rejected outright.
 - Frontend calls every `/api/auth/**` endpoint with `credentials: 'include'`. Backend CORS allows credentials for the frontend origin.
+- No CSRF tokens: refresh and logout are the only cookie-authenticated calls. The cookie is `SameSite=Lax`, and the CORS filter answers `403` to any request whose `Origin` isn't in `CORS_ALLOWED_ORIGINS`, so another site can't spend or revoke it.
 - Keep the access token in memory only. On page load call `POST /api/auth/refresh` to restore the session. On `401 TOKEN_EXPIRED` from any call, refresh once and retry; if refresh fails, treat as logged out.
 
 #### Shapes
