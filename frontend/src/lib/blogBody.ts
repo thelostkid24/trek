@@ -2,6 +2,7 @@
 //   blank line        new paragraph (a single line break stays a line break)
 //   ## Heading        section heading (### for a smaller one)
 //   - item            bullet list
+//   1. item           numbered list
 //   ![caption](url)   one of the post's own photos, on a line of its own; any other image is skipped
 //   **bold**  [text](https://… or /treks/…)
 // Rendered by components/blog/BlogBody.tsx; scripts/prerender.mjs mirrors plainOpening.
@@ -9,7 +10,7 @@
 export type Block =
   | { kind: 'p'; lines: string[] }
   | { kind: 'h2' | 'h3'; text: string }
-  | { kind: 'ul'; items: string[] }
+  | { kind: 'ul' | 'ol'; items: string[] }
   | { kind: 'img'; caption: string; url: string }
 
 const IMAGE = /^!\[([^\]]*)\]\((\S+)\)$/
@@ -18,9 +19,10 @@ export function parseBody(body: string): Block[] {
   const blocks: Block[] = []
   let para: string[] = []
   let list: string[] = []
+  let numbered = false
   const flush = () => {
     if (para.length) blocks.push({ kind: 'p', lines: para })
-    if (list.length) blocks.push({ kind: 'ul', items: list })
+    if (list.length) blocks.push({ kind: numbered ? 'ol' : 'ul', items: list })
     para = []
     list = []
   }
@@ -36,9 +38,11 @@ export function parseBody(body: string): Block[] {
     } else if (image) {
       flush()
       blocks.push({ kind: 'img', caption: image[1].trim(), url: image[2] })
-    } else if (/^[-*] /.test(line)) {
-      if (para.length) flush()
-      list.push(line.slice(2).trim())
+    } else if (/^([-*]|\d+\.) /.test(line)) {
+      const ordered = /^\d/.test(line)
+      if (para.length || (list.length && ordered !== numbered)) flush()
+      numbered = ordered
+      list.push(line.replace(/^([-*]|\d+\.) /, '').trim())
     } else {
       if (list.length) flush()
       para.push(line)

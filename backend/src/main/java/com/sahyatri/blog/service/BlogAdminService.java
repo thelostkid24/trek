@@ -2,6 +2,8 @@ package com.sahyatri.blog.service;
 
 import com.sahyatri.blog.dto.BlogCategoryRequest;
 import com.sahyatri.blog.dto.BlogCategoryResponse;
+import com.sahyatri.blog.dto.BlogImportPost;
+import com.sahyatri.blog.dto.BlogImportResponse;
 import com.sahyatri.blog.dto.BlogPhotoResponse;
 import com.sahyatri.blog.dto.BlogPostRequest;
 import com.sahyatri.blog.dto.BlogPostResponse;
@@ -28,6 +30,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -149,6 +153,41 @@ public class BlogAdminService {
         return views.full(post, true);
     }
 
+    /**
+     * Adds a batch of posts as drafts (an article pack). A post whose slug is already a post's is skipped, so the same
+     * file can be imported again; anything else that's wrong rejects the whole batch, naming {@code posts[i].field}.
+     */
+    @Transactional
+    public BlogImportResponse importPosts(UUID adminId, List<BlogImportPost> batch) {
+        List<String> created = new ArrayList<>();
+        List<String> skipped = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        for (int i = 0; i < batch.size(); i++) {
+            BlogImportPost p = batch.get(i);
+            String at = "posts[" + i + "].";
+            if (!seen.add(p.slug()) || posts.existsBySlug(p.slug())) {
+                skipped.add(p.slug());
+                continue;
+            }
+            UUID categoryId = categories.findBySlug(p.categorySlug())
+                    .filter(c -> !c.isTopLevel())
+                    .map(BlogCategory::getId)
+                    .orElseThrow(() -> ApiException.validation(at + "category_slug", "no such sub-category"));
+            List<UUID> trackIds = new ArrayList<>();
+            for (String trek : p.trackSlugs() == null ? List.<String>of() : p.trackSlugs()) {
+                trackIds.add(jdbc.query("SELECT id FROM tracks WHERE slug = ?", (rs, n) -> rs.getObject("id", UUID.class), trek)
+                        .stream().findFirst()
+                        .orElseThrow(() -> ApiException.validation(at + "track_slugs", "no trek with slug " + trek)));
+            }
+            BlogPostRequest req = new BlogPostRequest(p.title(), p.seoTitle(), p.slug(), categoryId, p.excerpt(), p.body(),
+                    p.coverCaption(), p.coverAlt(), null, p.authorName(), p.faqs(), p.tags(), p.schemaType(),
+                    p.researchNotes(), trackIds);
+            createPost(adminId, req);
+            created.add(p.slug());
+        }
+        return new BlogImportResponse(created, skipped);
+    }
+
     @Transactional
     public BlogPostResponse updatePost(UUID id, BlogPostRequest req) {
         BlogPost post = requirePost(id);
@@ -248,10 +287,11 @@ public class BlogAdminService {
     }
 
     private BlogPost.Content content(BlogPostRequest req) {
-        return new BlogPost.Content(req.categoryId(), req.slug(), req.title().trim(), blankToNull(req.excerpt()),
-                req.body().strip(), blankToNull(req.coverCaption()), req.coverTakenOn(), blankToNull(req.authorName()),
-                views.faqsJson(req.faqs()), req.schemaType() == null ? BlogSchemaType.ARTICLE : req.schemaType(),
-                blankToNull(req.researchNotes()));
+        return new BlogPost.Content(req.categoryId(), req.slug(), req.title().trim(), blankToNull(req.seoTitle()),
+                blankToNull(req.excerpt()), req.body().strip(), blankToNull(req.coverCaption()),
+                blankToNull(req.coverAlt()), req.coverTakenOn(), blankToNull(req.authorName()),
+                views.faqsJson(req.faqs()), views.tagsJson(req.tags()),
+                req.schemaType() == null ? BlogSchemaType.ARTICLE : req.schemaType(), blankToNull(req.researchNotes()));
     }
 
     private void linkTreks(UUID postId, List<UUID> trackIds) {

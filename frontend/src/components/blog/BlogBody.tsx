@@ -5,8 +5,13 @@ import { parseBody } from '../../lib/blogBody.ts'
 
 // Renders a post's body (format: lib/blogBody.ts). Nothing is ever rendered as HTML, so the body can't inject markup.
 
-/** **bold** and [text](link); links go to http(s) URLs (new tab) or paths on this site. */
-function inline(text: string): ReactNode[] {
+const NO_PENDING: ReadonlySet<string> = new Set()
+
+/**
+ * **bold** and [text](link); links go to http(s) URLs (new tab) or paths on this site. A link in `pending` (a /blog
+ * page that isn't live yet) shows as its words alone, and turns into a link once that page is published.
+ */
+function inline(text: string, pending: ReadonlySet<string> = NO_PENDING): ReactNode[] {
   const out: ReactNode[] = []
   const pattern = /\*\*(.+?)\*\*|\[([^\]]+)\]\(([^)\s]+)\)/g
   let last = 0
@@ -19,7 +24,9 @@ function inline(text: string): ReactNode[] {
     } else {
       const [label, href] = [m[2], m[3]]
       const className = 'font-medium text-brand-800 underline underline-offset-2 hover:text-brand-900'
-      if (href.startsWith('/') && !href.startsWith('//')) {
+      if (pending.has(href)) {
+        out.push(label)
+      } else if (href.startsWith('/') && !href.startsWith('//')) {
         out.push(<Link key={key} to={href} className={className}>{label}</Link>)
       } else if (/^https?:\/\//i.test(href)) {
         out.push(<a key={key} href={href} target="_blank" rel="noopener noreferrer" className={className}>{label}</a>)
@@ -38,21 +45,28 @@ export function RichText({ text }: { text: string }) {
   return <>{inline(text)}</>
 }
 
-export function BlogBody({ body, photos }: { body: string; photos: BlogPhoto[] }) {
+export function BlogBody({ body, photos, pendingLinks = [] }: { body: string; photos: BlogPhoto[]; pendingLinks?: string[] }) {
   const known = new Map(photos.map((p) => [p.url, p]))
+  const pending = new Set(pendingLinks)
   return (
     <div className="space-y-5 text-[1.05rem] leading-relaxed text-stone-700">
       {parseBody(body).map((b, i) => {
         switch (b.kind) {
           case 'h2':
-            return <h2 key={i} className="pt-4 font-display text-2xl font-medium text-stone-900">{inline(b.text)}</h2>
+            return <h2 key={i} className="pt-4 font-display text-2xl font-medium text-stone-900">{inline(b.text, pending)}</h2>
           case 'h3':
-            return <h3 key={i} className="pt-2 font-display text-xl font-medium text-stone-900">{inline(b.text)}</h3>
+            return <h3 key={i} className="pt-2 font-display text-xl font-medium text-stone-900">{inline(b.text, pending)}</h3>
           case 'ul':
             return (
               <ul key={i} className="list-disc space-y-1.5 pl-6 marker:text-laterite-500">
-                {b.items.map((item, j) => <li key={j}>{inline(item)}</li>)}
+                {b.items.map((item, j) => <li key={j}>{inline(item, pending)}</li>)}
               </ul>
+            )
+          case 'ol':
+            return (
+              <ol key={i} className="list-decimal space-y-1.5 pl-6 marker:font-medium marker:text-laterite-600">
+                {b.items.map((item, j) => <li key={j}>{inline(item, pending)}</li>)}
+              </ol>
             )
           case 'img': {
             const photo = known.get(b.url)
@@ -71,7 +85,7 @@ export function BlogBody({ body, photos }: { body: string; photos: BlogPhoto[] }
                 {b.lines.map((line, j) => (
                   <span key={j}>
                     {j > 0 && <br />}
-                    {inline(line)}
+                    {inline(line, pending)}
                   </span>
                 ))}
               </p>

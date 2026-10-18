@@ -20,6 +20,8 @@ function metaDescription(text: string): string {
 type Props = {
   /** Page name; the site name is appended. Omit for the home page. */
   title?: string
+  /** Use `title` as it is, without the site name (a long blog post title). */
+  bareTitle?: boolean
   description?: string
   /** Canonical path, e.g. `/treks/rajmachi`. Omit on pages that shouldn't be indexed. */
   path?: string
@@ -29,15 +31,17 @@ type Props = {
   jsonLd?: object
   /** Keeps the page out of search results (private, auth and not-found pages). */
   noindex?: boolean
+  /** A blog post: shared as an article, with when it was published and last changed. */
+  article?: { published: string | null; modified: string }
 }
 
 /**
  * The page's head tags (docs/TRD.md §7.16). React 19 hoists these into <head>; render exactly one per page.
  * index.html's own head tags are for link previews only and main.tsx removes them on load, so every route renders this.
  */
-export function Seo({ title, description: text = DEFAULT_DESCRIPTION, path, image = DEFAULT_IMAGE, jsonLd, noindex = false }: Props) {
+export function Seo({ title, bareTitle = false, description: text = DEFAULT_DESCRIPTION, path, image = DEFAULT_IMAGE, jsonLd, noindex = false, article }: Props) {
   const description = metaDescription(text) || DEFAULT_DESCRIPTION
-  const fullTitle = title ? `${title} · ${SITE_NAME}` : DEFAULT_TITLE
+  const fullTitle = title ? (bareTitle ? title : `${title} · ${SITE_NAME}`) : DEFAULT_TITLE
   const url = path === undefined ? undefined : SITE_ORIGIN + path
   return (
     <>
@@ -46,7 +50,9 @@ export function Seo({ title, description: text = DEFAULT_DESCRIPTION, path, imag
       {noindex && <meta name="robots" content="noindex" />}
       {url && <link rel="canonical" href={url} />}
       <meta property="og:site_name" content={SITE_NAME} />
-      <meta property="og:type" content="website" />
+      <meta property="og:type" content={article ? 'article' : 'website'} />
+      {article?.published && <meta property="article:published_time" content={article.published} />}
+      {article && <meta property="article:modified_time" content={article.modified} />}
       <meta property="og:title" content={fullTitle} />
       <meta property="og:description" content={description} />
       <meta property="og:image" content={image} />

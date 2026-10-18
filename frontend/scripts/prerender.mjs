@@ -91,8 +91,8 @@ function metaDescription(text) {
 }
 
 // Same tags as <Seo> (src/components/Seo.tsx).
-function head({ title, description: text, path, image = DEFAULT_IMAGE }) {
-  const fullTitle = escape(`${title} · ${SITE_NAME}`)
+function head({ title, bareTitle = false, description: text, path, image = DEFAULT_IMAGE, article }) {
+  const fullTitle = escape(bareTitle ? title : `${title} · ${SITE_NAME}`)
   const description = escape(metaDescription(text))
   const url = SITE_ORIGIN + path
   return [
@@ -100,7 +100,9 @@ function head({ title, description: text, path, image = DEFAULT_IMAGE }) {
     `<meta data-static-head name="description" content="${description}" />`,
     `<link data-static-head rel="canonical" href="${url}" />`,
     `<meta data-static-head property="og:site_name" content="${SITE_NAME}" />`,
-    `<meta data-static-head property="og:type" content="website" />`,
+    `<meta data-static-head property="og:type" content="${article ? 'article' : 'website'}" />`,
+    ...(article?.published ? [`<meta data-static-head property="article:published_time" content="${escape(article.published)}" />`] : []),
+    ...(article?.modified ? [`<meta data-static-head property="article:modified_time" content="${escape(article.modified)}" />`] : []),
     `<meta data-static-head property="og:title" content="${fullTitle}" />`,
     `<meta data-static-head property="og:description" content="${description}" />`,
     `<meta data-static-head property="og:image" content="${escape(image)}" />`,
@@ -146,12 +148,18 @@ function plainOpening(body) {
   const para = []
   for (const raw of body.split(/\r?\n/)) {
     const line = raw.trim()
-    const prose = line && !/^(#{2,3} |[-*] |!\[)/.test(line)
+    const prose = line && !/^(#{2,3} |[-*] |\d+\. |!\[)/.test(line)
     if (prose) para.push(line)
     else if (para.length) break
   }
   return para.join(' ').replace(/\*\*(.+?)\*\*/g, '$1').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
 }
+/** Same as postTitle in BlogPages.tsx: the SEO title, with the site name while that stays short enough for Google. */
+function postTitle(post) {
+  const text = post.seo_title || post.title
+  return { text, bare: `${text} · ${SITE_NAME}`.length > TITLE_MAX }
+}
+const TITLE_MAX = 65
 await mkdir('dist/blog', { recursive: true })
 // Category pages in the Blog menu (3+ posts; the rest are noindex), with the same title as Category in BlogPages.tsx.
 let categories = 0
@@ -171,7 +179,15 @@ for (const { slug } of (await get('/api/public/blog/posts')).items) {
   if (!/^[a-z0-9-]+$/.test(slug)) continue
   const post = await get(`/api/public/blog/posts/${slug}`)
   const description = post.excerpt || plainOpening(post.body) || STATIC_PAGES.find((p) => p.path === '/blog').description
-  await write({ title: post.title, description, path: `/blog/${slug}`, image: post.cover_url ?? undefined })
+  const title = postTitle(post)
+  await write({
+    title: title.text,
+    bareTitle: title.bare,
+    description,
+    path: `/blog/${slug}`,
+    image: post.cover_url ?? undefined,
+    article: { published: post.published_at, modified: post.updated_at },
+  })
   posts++
 }
 

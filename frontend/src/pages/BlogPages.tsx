@@ -211,9 +211,20 @@ function PostView({ slug }: { slug: string }) {
   return <Article post={post.data} />
 }
 
+/** Longest "<title> · The Empty Valley" before Google cuts it; past it the post's title stands alone. */
+const TITLE_MAX = 65
+
+/** The tab and Google title: the SEO title (else the title), with the site name while it fits. Mirrored in prerender.mjs. */
+function postTitle(p: BlogPost) {
+  const text = p.seo_title || p.title
+  return { text, bare: `${text} · The Empty Valley`.length > TITLE_MAX }
+}
+
 function Article({ post: p }: { post: BlogPost }) {
   const description = p.excerpt ?? plainOpening(p.body)
   const url = `${SITE_ORIGIN}/blog/${p.slug}`
+  const title = postTitle(p)
+  const trail = p.category.parent ? [p.category.parent, p.category] : [p.category]
   const edited = p.published_at !== null && p.updated_at.slice(0, 10) !== p.published_at.slice(0, 10)
   const answered = p.faqs.filter((f) => f.question && f.answer)
   const article = {
@@ -224,7 +235,17 @@ function Article({ post: p }: { post: BlogPost }) {
     ...(p.published_at ? { datePublished: p.published_at } : {}),
     dateModified: p.updated_at,
     ...(p.author_name ? { author: { '@type': 'Person', name: p.author_name } } : {}),
+    publisher: { '@type': 'Organization', name: 'The Empty Valley', url: SITE_ORIGIN },
     mainEntityOfPage: url,
+  }
+  const breadcrumbs = {
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { name: 'Home', path: '/' },
+      { name: 'Blog', path: '/blog' },
+      ...trail.map((c) => ({ name: c.name, path: categoryHref(c) })),
+      { name: p.title, path: `/blog/${p.slug}` },
+    ].map((c, i) => ({ '@type': 'ListItem', position: i + 1, name: c.name, item: SITE_ORIGIN + c.path })),
   }
   const faqPage = answered.length > 0 && {
     '@type': 'FAQPage',
@@ -233,14 +254,16 @@ function Article({ post: p }: { post: BlogPost }) {
   return (
     <article>
       <Seo
-        title={p.title}
+        title={title.text}
+        bareTitle={title.bare}
         description={description || BLOG_DESCRIPTION}
         path={`/blog/${p.slug}`}
         image={p.cover_url ?? undefined}
-        jsonLd={{ '@context': 'https://schema.org', '@graph': faqPage ? [article, faqPage] : [article] }}
+        article={{ published: p.published_at, modified: p.updated_at }}
+        jsonLd={{ '@context': 'https://schema.org', '@graph': faqPage ? [article, breadcrumbs, faqPage] : [article, breadcrumbs] }}
       />
       <header className="mx-auto max-w-3xl px-4 pt-8 sm:pt-12">
-        <Breadcrumb trail={p.category.parent ? [p.category.parent, p.category] : [p.category]} />
+        <Breadcrumb trail={trail} />
         <h1 className="mt-4 font-display text-3xl leading-tight font-light tracking-[-0.02em] text-stone-900 sm:text-5xl">{p.title}</h1>
         {p.excerpt && <p className="mt-4 text-lg leading-relaxed text-stone-600">{p.excerpt}</p>}
         <p className="mt-5 flex flex-wrap gap-x-3 gap-y-1 text-sm text-stone-500">
@@ -252,7 +275,8 @@ function Article({ post: p }: { post: BlogPost }) {
 
       {p.cover_url && (
         <figure className="mx-auto mt-8 max-w-5xl px-4">
-          <img src={p.cover_url} alt={p.cover_caption ?? ''} className="aspect-[16/9] w-full rounded-(--card-radius) object-cover" />
+          <img src={p.cover_url} alt={p.cover_alt ?? p.cover_caption ?? ''} fetchPriority="high"
+            className="aspect-[16/9] w-full rounded-(--card-radius) object-cover" />
           {(p.cover_caption || p.cover_taken_on) && (
             <figcaption className="mt-2 text-center text-sm text-stone-500">
               {[p.cover_caption, p.cover_taken_on && calendarDate(p.cover_taken_on)].filter(Boolean).join(' · ')}
@@ -262,7 +286,15 @@ function Article({ post: p }: { post: BlogPost }) {
       )}
 
       <div className="mx-auto max-w-3xl space-y-12 px-4 py-10 sm:py-12">
-        <BlogBody body={p.body} photos={p.photos} />
+        <BlogBody body={p.body} photos={p.photos} pendingLinks={p.pending_links} />
+
+        {p.tags.length > 0 && (
+          <ul aria-label="Tags" className="-mt-4 flex flex-wrap gap-2">
+            {p.tags.map((t) => (
+              <li key={t} className="rounded-full bg-paper-100 px-3 py-1 text-xs font-medium text-stone-600">{t}</li>
+            ))}
+          </ul>
+        )}
 
         {answered.length > 0 && (
           <section aria-labelledby="faqs">
@@ -282,17 +314,20 @@ function Article({ post: p }: { post: BlogPost }) {
         )}
 
         {p.related_treks.length > 0 && (
-          <section aria-labelledby="treks" className="rounded-2xl bg-paper-100 p-5 sm:p-6">
+          <section aria-labelledby="treks" className="grid gap-3">
             <h2 id="treks" className="text-xs font-semibold tracking-[0.12em] text-laterite-600 uppercase">Treks in this story</h2>
-            <ul className="mt-3 flex flex-wrap gap-2">
-              {p.related_treks.map((t) => (
-                <li key={t.id}>
-                  <Link to={`/treks/${t.slug}`} className="inline-block rounded-full bg-white px-4 py-1.5 text-sm font-medium text-brand-800 ring-1 ring-stone-200 hover:ring-brand-400">
-                    {t.name} →
-                  </Link>
-                </li>
-              ))}
-            </ul>
+            {p.related_treks.map((t) => (
+              <div key={t.id} className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-brand-950 p-5 text-white sm:p-6">
+                <div>
+                  <p className="font-display text-xl">Book the {/\btrek\b/i.test(t.name) ? t.name : `${t.name} trek`}</p>
+                  <p className="mt-1 text-sm text-white/75">Small groups of ten at most, led by a local guide you choose.</p>
+                </div>
+                <Link to={`/treks/${t.slug}`} viewTransition
+                  className="rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-brand-950 hover:bg-brand-100">
+                  See dates →
+                </Link>
+              </div>
+            ))}
           </section>
         )}
 
