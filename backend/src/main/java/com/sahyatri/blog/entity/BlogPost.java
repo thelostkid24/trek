@@ -18,9 +18,9 @@ import java.util.UUID;
 public class BlogPost {
 
     /** What the editor writes; everything but the cover photo, related treks and publishing. */
-    public record Content(UUID categoryId, String slug, String title, String excerpt, String body, String coverCaption,
-                          LocalDate coverTakenOn, String authorName, String faqsJson, BlogSchemaType schemaType,
-                          String researchNotes) {
+    public record Content(UUID categoryId, String slug, String title, String seoTitle, String excerpt, String body,
+                          String coverCaption, String coverAlt, LocalDate coverTakenOn, String authorName,
+                          String faqsJson, String tagsJson, BlogSchemaType schemaType, String researchNotes) {
     }
 
     @Id
@@ -34,6 +34,9 @@ public class BlogPost {
 
     @Column(nullable = false)
     private String title;
+
+    /** The browser tab and Google title when set (≤ 70); otherwise the title. */
+    private String seoTitle;
 
     /** Up to 160 characters: the line on cards and the search-result description. */
     private String excerpt;
@@ -49,6 +52,9 @@ public class BlogPost {
 
     private LocalDate coverTakenOn;
 
+    /** The hero image's alt text; the caption stands in when blank. */
+    private String coverAlt;
+
     @Column(nullable = false, updatable = false)
     private UUID authorId;
 
@@ -59,6 +65,11 @@ public class BlogPost {
     @Column(columnDefinition = "jsonb", nullable = false)
     @ColumnTransformer(write = "?::jsonb")
     private String faqs;
+
+    /** JSON array of up to six tag names. */
+    @Column(columnDefinition = "jsonb", nullable = false)
+    @ColumnTransformer(write = "?::jsonb")
+    private String tags;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -89,12 +100,15 @@ public class BlogPost {
         this.categoryId = c.categoryId();
         this.slug = c.slug();
         this.title = c.title();
+        this.seoTitle = c.seoTitle();
         this.excerpt = c.excerpt();
         this.body = c.body();
         this.coverCaption = c.coverCaption();
+        this.coverAlt = c.coverAlt();
         this.coverTakenOn = c.coverTakenOn();
         this.authorName = c.authorName();
         this.faqs = c.faqsJson();
+        this.tags = c.tagsJson();
         this.schemaType = c.schemaType();
         this.researchNotes = c.researchNotes();
         this.updatedAt = Instant.now();
@@ -135,6 +149,10 @@ public class BlogPost {
         return title;
     }
 
+    public String getSeoTitle() {
+        return seoTitle;
+    }
+
     public String getExcerpt() {
         return excerpt;
     }
@@ -155,6 +173,10 @@ public class BlogPost {
         return coverTakenOn;
     }
 
+    public String getCoverAlt() {
+        return coverAlt;
+    }
+
     public UUID getAuthorId() {
         return authorId;
     }
@@ -165,6 +187,10 @@ public class BlogPost {
 
     public String getFaqs() {
         return faqs;
+    }
+
+    public String getTags() {
+        return tags;
     }
 
     public BlogSchemaType getSchemaType() {

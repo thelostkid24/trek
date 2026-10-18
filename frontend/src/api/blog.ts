@@ -60,15 +60,23 @@ export type BlogPostSummary = {
 }
 
 export type BlogPost = BlogPostSummary & {
-  /** Paragraphs, "## " headings, "- " lists and the post's photos as ![caption](url) (lib/blogBody.ts). */
+  /** The browser-tab and Google title when set; otherwise the title. */
+  seo_title: string | null
+  /** Paragraphs, "## " headings, "- " and "1. " lists and the post's photos as ![caption](url) (lib/blogBody.ts). */
   body: string
+  /** /blog links in the body with no public page yet; their words show as plain text until they have one. */
+  pending_links: string[]
   cover_photo_id: string | null
   /** Shown under the hero image with the date it was taken. */
   cover_caption: string | null
+  /** The hero image's alt text; the caption stands in when blank. */
+  cover_alt: string | null
   cover_taken_on: string | null
   photos: BlogPhoto[]
   author_name: string | null
   faqs: BlogFaq[]
+  /** Up to six, e.g. "Winter", "Beginners". */
+  tags: string[]
   schema_type: BlogSchemaType
   related_treks: BlogTrekRef[]
   /** Admin only; null on the public site. */
@@ -91,14 +99,17 @@ export type BlogCategoryInput = { name: string; slug: string; description: strin
 
 export type BlogPostInput = {
   title: string
+  seo_title: string
   slug: string
   category_id: string
   excerpt: string
   body: string
   cover_caption: string
+  cover_alt: string
   cover_taken_on: string | null
   author_name: string
   faqs: BlogFaq[]
+  tags: string[]
   schema_type: BlogSchemaType
   research_notes: string
   track_ids: string[]
@@ -123,6 +134,18 @@ export const adminBlogPost = (token: string, id: string) => apiFetch<BlogPost>(`
 
 export const createBlogPost = (token: string, body: BlogPostInput) =>
   apiFetch<BlogPost>(`${ADMIN}/posts`, { method: 'POST', token, body })
+
+/** A post in an import file (an article pack): its sub-category and treks named by slug. */
+export type BlogImportPost = Omit<BlogPostInput, 'category_id' | 'track_ids' | 'cover_taken_on'> & {
+  category_slug: string
+  track_slugs: string[]
+}
+
+export type BlogImportResult = { created: string[]; skipped: string[] }
+
+/** Adds the posts as drafts; a slug that's already a post's is skipped, so a file can be imported again. */
+export const importBlogPosts = (token: string, posts: unknown[]) =>
+  apiFetch<BlogImportResult>(`${ADMIN}/posts/import`, { method: 'POST', token, body: { posts } })
 
 export const updateBlogPost = (token: string, id: string, body: BlogPostInput) =>
   apiFetch<BlogPost>(`${ADMIN}/posts/${id}`, { method: 'PUT', token, body })

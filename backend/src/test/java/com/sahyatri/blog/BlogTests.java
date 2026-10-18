@@ -187,6 +187,82 @@ class BlogTests extends AuthTestSupport {
     }
 
     @Test
+    void postsKeepAnSeoTitleHeroAltTextAndTags() throws Exception {
+        String admin = adminToken();
+        String sub = subCategory(admin, categoryId(admin, "fitness"));
+        String postSlug = slug();
+        String post = newPost(admin, sub, postSlug);
+        authed(put(ADMIN + "/posts/" + post), admin, postJson(sub, postSlug, """
+                "seo_title":"Kedarkantha Fitness: Are You Ready?","cover_alt":"Trekkers on the summit ridge",
+                "tags":[" Winter ","Beginners","Winter"]"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.seo_title").value("Kedarkantha Fitness: Are You Ready?"))
+                .andExpect(jsonPath("$.cover_alt").value("Trekkers on the summit ridge"))
+                .andExpect(jsonPath("$.tags", contains("Winter", "Beginners")));
+        authed(put(ADMIN + "/posts/" + post), admin, postJson(sub, postSlug, "\"tags\":[\"a\",\"b\",\"c\",\"d\",\"e\",\"f\",\"g\"]"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.details.fields.tags").exists());
+    }
+
+    @Test
+    void linksToPostsThatArentLiveAreListedAsPending() throws Exception {
+        String admin = adminToken();
+        String sub = subCategory(admin, categoryId(admin, "on-the-trail"));
+        String live = publishedPost(admin, sub);
+        String draftSlug = slug();
+        newPost(admin, sub, draftSlug);
+        String postSlug = slug();
+        String body = "See [this](/blog/%s), [that](/blog/%s/), [never](/blog/not-written-yet), [the topic](/blog/on-the-trail) and [a trek](/treks/x)."
+                .formatted(live, draftSlug);
+        String post = newPost(admin, sub, postSlug);
+        authed(put(ADMIN + "/posts/" + post), admin, """
+                {"title":"Links","slug":"%s","category_id":"%s","body":"%s"}""".formatted(postSlug, sub, body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.pending_links", contains("/blog/" + draftSlug + "/", "/blog/not-written-yet")));
+    }
+
+    @Test
+    void anArticlePackImportsAsDraftsAndSkipsSlugsAlreadyTaken() throws Exception {
+        String admin = adminToken();
+        UUID track = createTrack(admin, 2);
+        String trekSlug = jdbc.queryForObject("SELECT slug FROM tracks WHERE id = ?", String.class, track);
+        String sub = subCategory(admin, categoryId(admin, "who-can-trek"));
+        String subSlug = slugOf(admin, sub);
+        String taken = slug();
+        newPost(admin, sub, taken);
+        String fresh = slug();
+        String pack = """
+                {"posts":[
+                  {"title":"Can your parents trek?","slug":"%s","category_slug":"%s","seo_title":"Parents on the trail",
+                   "excerpt":"Yes, with training.","body":"## Fitness\\n\\n- Walk daily","cover_caption":"Summit ridge",
+                   "cover_alt":"Two trekkers","faqs":[{"question":"How old?","answer":"Any age, fit."}],
+                   "tags":["Families"],"schema_type":"ARTICLE","research_notes":"Facts to check","track_slugs":["%s"]},
+                  {"title":"Already here","slug":"%s","category_slug":"%s","body":"Text"}
+                ]}""".formatted(fresh, subSlug, trekSlug, taken, subSlug);
+        authed(post(ADMIN + "/posts/import"), admin, pack)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.created", contains(fresh)))
+                .andExpect(jsonPath("$.skipped", contains(taken)));
+        mockMvc.perform(get(PUBLIC + "/posts/" + fresh)).andExpect(status().isNotFound());
+        String id = JsonPath.<List<String>>read(authed(get(ADMIN + "/posts"), admin, null).andReturn().getResponse()
+                .getContentAsString(), "$.items[?(@.slug == '" + fresh + "')].id").getFirst();
+        authed(get(ADMIN + "/posts/" + id), admin, null)
+                .andExpect(jsonPath("$.published_at").value(nullValue()))
+                .andExpect(jsonPath("$.related_treks[0].slug").value(trekSlug))
+                .andExpect(jsonPath("$.research_notes").value("Facts to check"))
+                .andExpect(jsonPath("$.tags", contains("Families")));
+
+        // Importing again changes nothing; a bad sub-category rejects the batch and names the post.
+        authed(post(ADMIN + "/posts/import"), admin, pack).andExpect(jsonPath("$.created", hasSize(0)));
+        authed(post(ADMIN + "/posts/import"), admin, """
+                {"posts":[{"title":"A","slug":"%s","category_slug":"%s","body":"x"},
+                          {"title":"B","slug":"%s","category_slug":"who-can-trek","body":"x"}]}"""
+                .formatted(slug(), subSlug, slug()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.details.fields['posts[1].category_slug']").exists());
+    }
+
+    @Test
     void photosBelongToTheirPostAndOneIsTheHero() throws Exception {
         String admin = adminToken();
         String sub = subCategory(admin, categoryId(admin, "mountain-culture"));

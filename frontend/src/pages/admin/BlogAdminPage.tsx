@@ -11,6 +11,7 @@ import {
   deleteBlogPhoto,
   deleteBlogPost,
   describeBlogPhoto,
+  importBlogPosts,
   setBlogPostCover,
   setBlogPostPublished,
   updateBlogCategory,
@@ -92,7 +93,12 @@ function Posts({ onEdit }: { onEdit: (id: string | 'new') => void }) {
   const { withAuth } = useAuth()
   const posts = useQuery({ queryKey: POSTS_KEY, queryFn: () => withAuth(adminBlogPosts) })
   return (
-    <Panel title="Posts" action={<Button onClick={() => onEdit('new')}>New post</Button>}>
+    <Panel title="Posts" action={
+      <div className="flex gap-2">
+        <ImportPosts />
+        <Button onClick={() => onEdit('new')}>New post</Button>
+      </div>
+    }>
       {posts.isPending ? (
         <Loading />
       ) : posts.isError ? (
@@ -119,6 +125,58 @@ function Posts({ onEdit }: { onEdit: (id: string | 'new') => void }) {
         </ul>
       )}
     </Panel>
+  )
+}
+
+/**
+ * Adds an article pack (a JSON file of `{ posts: [...] }`, e.g. docs/blog/kedarkantha-pack.json) as drafts. Posts
+ * whose slug is already taken are skipped, so the same file can be imported again safely.
+ */
+function ImportPosts() {
+  const { withAuth } = useAuth()
+  const queryClient = useQueryClient()
+  const input = useRef<HTMLInputElement>(null)
+  const [message, setMessage] = useState<string | null>(null)
+  const run = useMutation({
+    mutationFn: async (file: File) => {
+      let parsed: unknown
+      try {
+        parsed = JSON.parse(await file.text())
+      } catch {
+        throw new Error('That file isn’t valid JSON.')
+      }
+      const list = (parsed as { posts?: unknown })?.posts
+      if (!Array.isArray(list) || list.length === 0) throw new Error('The file needs a "posts" list.')
+      return withAuth((token) => importBlogPosts(token, list))
+    },
+    onSuccess: (r) => {
+      setMessage(`Added ${r.created.length} draft${r.created.length === 1 ? '' : 's'}` +
+        (r.skipped.length ? `; skipped ${r.skipped.length} already here.` : '.'))
+      void queryClient.invalidateQueries({ queryKey: POSTS_KEY })
+    },
+    onError: () => setMessage(null),
+  })
+  const fields = fieldErrors(run.error)
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <input ref={input} type="file" accept="application/json,.json" className="sr-only" tabIndex={-1}
+        onChange={(e) => {
+          const file = e.target.files?.[0]
+          e.target.value = ''
+          if (file) run.mutate(file)
+        }} />
+      <Button tone="secondary" disabled={run.isPending} onClick={() => input.current?.click()}>
+        {run.isPending ? 'Importing…' : 'Import drafts'}
+      </Button>
+      {message && <p className="text-xs text-brand-800">{message}</p>}
+      {run.error && (
+        <p className="max-w-xs text-right text-xs text-laterite-600">
+          {Object.keys(fields).length
+            ? Object.entries(fields).map(([k, v]) => `${k}: ${v}`).join('; ')
+            : run.error.message}
+        </p>
+      )}
+    </div>
   )
 }
 
@@ -278,7 +336,7 @@ function CategoryForm({ category, parentId, onDone }: { category: BlogCategory |
 
 // --- Post editor
 
-const FORMAT_HELP = 'Blank line = new paragraph · ## Heading · - list item · **bold** · [link text](https://…) · photos: “Insert in post” below. Never copy bus or train times; link the route page.'
+const FORMAT_HELP = 'Blank line = new paragraph · ## Heading · - list item · 1. numbered item · **bold** · [link text](https://…) · photos: “Insert in post” below. Never copy bus or train times; link the route page.'
 
 function PostEditor({ postId, onSaved, onDone }: { postId: string | null; onSaved: (id: string) => void; onDone: () => void }) {
   const { withAuth } = useAuth()
@@ -299,14 +357,17 @@ function PostEditor({ postId, onSaved, onDone }: { postId: string | null; onSave
 function toInput(post: BlogPost | null): BlogPostInput {
   return {
     title: post?.title ?? '',
+    seo_title: post?.seo_title ?? '',
     slug: post?.slug ?? '',
     category_id: post?.category.id ?? '',
     excerpt: post?.excerpt ?? '',
     body: post?.body ?? '',
     cover_caption: post?.cover_caption ?? '',
+    cover_alt: post?.cover_alt ?? '',
     cover_taken_on: post?.cover_taken_on ?? null,
     author_name: post?.author_name ?? '',
     faqs: post?.faqs ?? [],
+    tags: post?.tags ?? [],
     schema_type: post?.schema_type ?? 'ARTICLE',
     research_notes: post?.research_notes ?? '',
     track_ids: post?.related_treks.map((t) => t.id) ?? [],
@@ -335,7 +396,11 @@ function PostForm({ post, onSaved, onDone }: { post: BlogPost | null; onSaved: (
     void queryClient.invalidateQueries({ queryKey: POSTS_KEY })
     void queryClient.invalidateQueries({ queryKey: CATEGORIES_KEY })
   }
-  const body = (): BlogPostInput => ({ ...draft, faqs: draft.faqs.filter((f) => f.question.trim() || f.answer.trim()) })
+  const body = (): BlogPostInput => ({
+    ...draft,
+    faqs: draft.faqs.filter((f) => f.question.trim() || f.answer.trim()),
+    tags: draft.tags.map((t) => t.trim()).filter(Boolean),
+  })
   const save = useMutation({
     mutationFn: () => withAuth((token) => (post ? updateBlogPost(token, post.id, body()) : createBlogPost(token, body()))),
     onSuccess: (updated) => {
@@ -410,6 +475,9 @@ function PostForm({ post, onSaved, onDone }: { post: BlogPost | null; onSaved: (
               placeholder="Pick one…" onChange={(e) => edit({ category_id: e.target.value })}
               options={subCategoryOptions(categories.data?.items ?? [])} />
           </div>
+          <TextField label="SEO title" name="post-seo-title" maxLength={70} value={draft.seo_title} error={errors.seo_title}
+            hint={`The browser tab and Google title, under 60 characters (${draft.seo_title.length} now). Blank uses the title.`}
+            onChange={(e) => edit({ seo_title: e.target.value })} />
           <TextAreaField label="Excerpt" name="post-excerpt" maxLength={160} rows={2} value={draft.excerpt} error={errors.excerpt}
             hint="Under the title and the Google description. Needed to publish."
             onChange={(e) => edit({ excerpt: e.target.value })} />
@@ -421,6 +489,9 @@ function PostForm({ post, onSaved, onDone }: { post: BlogPost | null; onSaved: (
               error={errors.cover_taken_on} onChange={(e) => edit({ cover_taken_on: e.target.value || null })} />
           </div>
           {errors.cover_photo_id && <p className="-mt-3 text-sm text-laterite-600">Hero image: {errors.cover_photo_id}.</p>}
+          <TextField label="Hero image alt text" name="post-cover-alt" maxLength={200} value={draft.cover_alt} error={errors.cover_alt}
+            hint="What the photo shows, for screen readers and Google Images. Blank uses the caption."
+            onChange={(e) => edit({ cover_alt: e.target.value })} />
 
           <div>
             <div className="mb-1 flex gap-1 rounded-full bg-stone-100 p-1 text-sm sm:w-fit" role="tablist" aria-label="Body view">
@@ -434,7 +505,17 @@ function PostForm({ post, onSaved, onDone }: { post: BlogPost | null; onSaved: (
             </div>
             {preview ? (
               <div className="rounded-xl border border-stone-200 p-4 sm:p-6">
-                {draft.body.trim() ? <BlogBody body={draft.body} photos={post?.photos ?? []} /> : <p className="text-sm text-stone-500">Nothing written yet.</p>}
+                {draft.body.trim() ? (
+                  <BlogBody body={draft.body} photos={post?.photos ?? []} pendingLinks={post?.pending_links} />
+                ) : (
+                  <p className="text-sm text-stone-500">Nothing written yet.</p>
+                )}
+                {(post?.pending_links.length ?? 0) > 0 && (
+                  <p className="mt-4 border-t border-stone-200 pt-3 text-xs text-stone-500">
+                    {post!.pending_links.length} link{post!.pending_links.length === 1 ? '' : 's'} to blog pages that aren’t
+                    live yet show as plain text, and turn into links once those pages are published.
+                  </p>
+                )}
               </div>
             ) : (
               <TextAreaField label="Body" name="post-body" required maxLength={50000} rows={18} value={draft.body}
@@ -482,6 +563,10 @@ function PostForm({ post, onSaved, onDone }: { post: BlogPost | null; onSaved: (
             </div>
             {errors.track_ids && <p className="mt-1 text-sm text-laterite-600">{errors.track_ids}</p>}
           </fieldset>
+
+          <TextField label="Tags" name="post-tags" value={draft.tags.join(',')} error={errors.tags}
+            hint="3 to 6, separated by commas, e.g. Winter, Beginners, Best time. Shown under the post."
+            onChange={(e) => edit({ tags: e.target.value.split(',') })} />
 
           <div className="grid gap-4 sm:grid-cols-2">
             <TextField label="Author" name="post-author" maxLength={100} value={draft.author_name} error={errors.author_name}

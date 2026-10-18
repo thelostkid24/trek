@@ -19,15 +19,23 @@ import org.springframework.stereotype.Component;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /** Turns posts into what the admin and public endpoints return. Callers hold the transaction. */
 @Component
 class BlogViews {
+
+    /** A link in the body's [text](/blog/…) form. */
+    private static final Pattern BLOG_LINK = Pattern.compile("\\]\\((/blog/[^)\\s]+)\\)");
 
     private final BlogCategoryRepository categories;
     private final BlogPhotoRepository photos;
@@ -73,10 +81,42 @@ class BlogViews {
                 .toList();
         String author = p.getAuthorName() != null ? p.getAuthorName()
                 : users.findById(p.getAuthorId()).map(User::getFullName).orElse(null);
-        return new BlogPostResponse(p.getId(), p.getSlug(), p.getTitle(), p.getExcerpt(), p.getBody(),
-                ref(p.getCategoryId(), categoriesById()), p.getCoverPhotoId(), coverUrl(p), p.getCoverCaption(),
-                p.getCoverTakenOn(), photoList, author, faqs(p.getFaqs()), p.getSchemaType(), relatedTreks(p.getId()),
-                admin ? p.getResearchNotes() : null, p.getPublishedAt(), p.getUpdatedAt());
+        return new BlogPostResponse(p.getId(), p.getSlug(), p.getTitle(), p.getSeoTitle(), p.getExcerpt(), p.getBody(),
+                pendingLinks(p.getBody()), ref(p.getCategoryId(), categoriesById()), p.getCoverPhotoId(), coverUrl(p),
+                p.getCoverCaption(), p.getCoverAlt(), p.getCoverTakenOn(), photoList, author, faqs(p.getFaqs()),
+                tags(p.getTags()), p.getSchemaType(), relatedTreks(p.getId()), admin ? p.getResearchNotes() : null,
+                p.getPublishedAt(), p.getUpdatedAt());
+    }
+
+    /**
+     * The /blog paths the body links to that don't open a public page: a post that isn't published (or was never
+     * written), or a category with no published posts. A published post's old slug counts as live (it redirects).
+     */
+    List<String> pendingLinks(String body) {
+        Set<String> linked = new LinkedHashSet<>();
+        Matcher m = BLOG_LINK.matcher(body);
+        while (m.find()) {
+            linked.add(m.group(1));
+        }
+        if (linked.isEmpty()) {
+            return List.of();
+        }
+        Set<String> live = new HashSet<>(jdbc.queryForList("""
+                SELECT '/blog/' || slug FROM blog_posts WHERE published_at IS NOT NULL
+                UNION SELECT '/blog/' || r.old_slug FROM blog_slug_redirects r
+                      JOIN blog_posts p ON p.id = r.post_id WHERE p.published_at IS NOT NULL
+                UNION SELECT '/blog/' || CASE WHEN parent.id IS NULL THEN c.slug ELSE parent.slug || '/' || c.slug END
+                      FROM blog_categories c LEFT JOIN blog_categories parent ON parent.id = c.parent_id
+                      WHERE EXISTS (SELECT 1 FROM blog_posts p JOIN blog_categories pc ON pc.id = p.category_id
+                                    WHERE p.published_at IS NOT NULL AND (pc.id = c.id OR pc.parent_id = c.id))""",
+                String.class));
+        return linked.stream().filter(path -> !live.contains(normalised(path))).toList();
+    }
+
+    /** "/blog/a/?x#y" → "/blog/a". */
+    private static String normalised(String path) {
+        String p = path.replaceAll("[?#].*$", "");
+        return p.length() > 1 && p.endsWith("/") ? p.substring(0, p.length() - 1) : p;
     }
 
     BlogPhotoResponse photo(BlogPhoto photo) {
@@ -95,6 +135,15 @@ class BlogViews {
         return json.writeValueAsString(faqs == null ? List.of() : faqs.stream()
                 .map(f -> new BlogFaq(f.question().trim(), f.answer().trim()))
                 .toList());
+    }
+
+    String tagsJson(List<String> tags) {
+        return json.writeValueAsString(tags == null ? List.of() : tags.stream().map(String::trim).distinct().toList());
+    }
+
+    private List<String> tags(String stored) {
+        return json.readValue(stored, new TypeReference<List<String>>() {
+        });
     }
 
     private List<BlogFaq> faqs(String stored) {

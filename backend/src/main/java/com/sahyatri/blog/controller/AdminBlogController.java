@@ -3,6 +3,8 @@ package com.sahyatri.blog.controller;
 import com.sahyatri.blog.dto.BlogCategoryRequest;
 import com.sahyatri.blog.dto.BlogCategoryResponse;
 import com.sahyatri.blog.dto.BlogCoverRequest;
+import com.sahyatri.blog.dto.BlogImportRequest;
+import com.sahyatri.blog.dto.BlogImportResponse;
 import com.sahyatri.blog.dto.BlogPhotoRequest;
 import com.sahyatri.blog.dto.BlogPhotoResponse;
 import com.sahyatri.blog.dto.BlogPostRequest;
@@ -81,6 +83,11 @@ public class AdminBlogController {
     @ResponseStatus(HttpStatus.CREATED)
     public BlogPostResponse createPost(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody BlogPostRequest req) {
         return blog.createPost(userId(jwt), req);
+    }
+
+    @PostMapping("/posts/import")
+    public BlogImportResponse importPosts(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody BlogImportRequest req) {
+        return blog.importPosts(userId(jwt), req.posts());
     }
 
     @PutMapping("/posts/{id}")
