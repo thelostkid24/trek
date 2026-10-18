@@ -25,7 +25,8 @@ const missing = new Map()
 let checked = 0
 for await (const file of htmlFiles('dist')) {
   const html = await readFile(file, 'utf8')
-  for (const [, attrs, body] of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)) {
+  // Browsers also end a script at `</script >` or `</script foo>`, so the end tag may carry anything up to `>`.
+  for (const [, attrs, body] of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\b[^>]*>/gi)) {
     // External scripts are allowed by origin; JSON-LD and other data blocks never execute.
     if (/\bsrc\s*=/i.test(attrs)) continue
     const type = attrs.match(/\btype\s*=\s*["']?([^"'\s>]+)/i)?.[1]?.toLowerCase()
