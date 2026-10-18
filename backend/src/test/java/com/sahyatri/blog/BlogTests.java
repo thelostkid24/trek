@@ -72,7 +72,7 @@ class BlogTests extends AuthTestSupport {
     }
 
     @Test
-    void publishingNeedsTheHeroImageExcerptAndTheMoneyRule() throws Exception {
+    void publishingNeedsTheExcerptAndTheMoneyRuleAndAHeroNeedsItsCaption() throws Exception {
         String admin = adminToken();
         String sub = subCategory(admin, categoryId(admin, "gear-and-packing"));
         String postSlug = slug();
@@ -81,11 +81,17 @@ class BlogTests extends AuthTestSupport {
                 .andExpect(status().isCreated()));
 
         publish(admin, post, true).andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.details.fields.cover_photo_id").exists())
-                .andExpect(jsonPath("$.details.fields.cover_caption").exists())
-                .andExpect(jsonPath("$.details.fields.cover_taken_on").exists())
+                .andExpect(jsonPath("$.details.fields.cover_photo_id").doesNotExist())
+                .andExpect(jsonPath("$.details.fields.cover_caption").doesNotExist())
                 .andExpect(jsonPath("$.details.fields.excerpt").exists())
                 .andExpect(jsonPath("$.details.fields.money_rule_confirmed").doesNotExist());
+
+        // A hero image, once picked, needs its caption and date.
+        String photo = id(authed(photoRequest(post, image(40, 30)), admin, null).andExpect(status().isCreated()));
+        authed(put(ADMIN + "/posts/" + post + "/cover"), admin, "{\"photo_id\":\"" + photo + "\"}").andExpect(status().isOk());
+        publish(admin, post, true).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.details.fields.cover_caption").exists())
+                .andExpect(jsonPath("$.details.fields.cover_taken_on").exists());
 
         makeReady(admin, post, sub, postSlug);
         publish(admin, post, false).andExpect(status().isBadRequest())
@@ -107,6 +113,20 @@ class BlogTests extends AuthTestSupport {
 
         authed(put(ADMIN + "/posts/" + post + "/published"), admin, "{\"published\":false}").andExpect(status().isOk());
         mockMvc.perform(get(PUBLIC + "/posts/" + postSlug)).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void aPostWithoutAHeroImagePublishes() throws Exception {
+        String admin = adminToken();
+        String sub = subCategory(admin, categoryId(admin, "plan-your-trek"));
+        String postSlug = slug();
+        String post = newPost(admin, sub, postSlug);
+        authed(put(ADMIN + "/posts/" + post), admin, postJson(sub, postSlug, "\"excerpt\":\"No photo needed.\""))
+                .andExpect(status().isOk());
+        publish(admin, post, true).andExpect(status().isOk()).andExpect(jsonPath("$.published_at").exists());
+        mockMvc.perform(get(PUBLIC + "/posts/" + postSlug))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.cover_url").value(nullValue()));
     }
 
     @Test
