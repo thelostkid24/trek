@@ -483,7 +483,7 @@ function PostForm({ post, onSaved, onDone }: { post: BlogPost | null; onSaved: (
             onChange={(e) => edit({ excerpt: e.target.value })} />
           <div className="grid gap-4 sm:grid-cols-[1fr_12rem]">
             <TextField label="Hero image caption" name="post-cover-caption" maxLength={200} value={draft.cover_caption}
-              error={errors.cover_caption} hint="Pick the hero image under Photos. Caption and date are needed to publish."
+              error={errors.cover_caption} hint="Optional: pick a hero image under Photos. With one, its caption and date are needed to publish."
               onChange={(e) => edit({ cover_caption: e.target.value })} />
             <TextField label="Taken on" name="post-cover-date" type="date" value={draft.cover_taken_on ?? ''}
               error={errors.cover_taken_on} onChange={(e) => edit({ cover_taken_on: e.target.value || null })} />

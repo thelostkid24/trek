@@ -41,8 +41,9 @@ import java.util.UUID;
 
 /**
  * Writing the blog (docs/TRD.md §7.19). The ten categories are seeded; admins add sub-categories under them and file
- * each post under exactly one sub-category. Posts are drafts until published, and publishing needs the hero caption
- * and date, an excerpt and the editor's confirmation that no money figures are published (the money rule). A
+ * each post under exactly one sub-category. Posts are drafts until published, and publishing needs an excerpt, the
+ * editor's confirmation that no money figures are published (the money rule) and, when it has a hero image, the
+ * image's caption and date. A
  * published post that changes slug keeps its old URL as a redirect. Photos are re-encoded like trek photos; the file
  * is written before its row and removed after it, so a public URL never points at a missing file.
  */
@@ -206,21 +207,19 @@ public class BlogAdminService {
     }
 
     /**
-     * Publishing shows the post on /blog dated now; unpublishing takes it back to a draft. Publishing needs the hero
-     * photo with its caption and date, an excerpt, and {@code moneyRuleConfirmed}.
+     * Publishing shows the post on /blog dated now; unpublishing takes it back to a draft. Publishing needs an excerpt
+     * and {@code moneyRuleConfirmed}; the hero image is optional, but one that's set needs its caption and date.
      */
     @Transactional
     public BlogPostResponse setPublished(UUID adminId, UUID id, boolean published, boolean moneyRuleConfirmed) {
         BlogPost post = requirePost(id);
         if (published && !post.isPublished()) {
             Map<String, String> missing = new LinkedHashMap<>();
-            if (post.getCoverPhotoId() == null) {
-                missing.put("cover_photo_id", "pick a hero image");
-            }
-            if (post.getCoverCaption() == null) {
+            // A post can go out without a hero image; one that has it says what it shows and when it was taken.
+            if (post.getCoverPhotoId() != null && post.getCoverCaption() == null) {
                 missing.put("cover_caption", "give the hero image a caption");
             }
-            if (post.getCoverTakenOn() == null) {
+            if (post.getCoverPhotoId() != null && post.getCoverTakenOn() == null) {
                 missing.put("cover_taken_on", "say when the hero image was taken");
             }
             if (post.getExcerpt() == null) {
