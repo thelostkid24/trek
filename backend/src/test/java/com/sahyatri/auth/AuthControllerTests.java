@@ -184,6 +184,20 @@ class AuthControllerTests extends AuthTestSupport {
     }
 
     @Test
+    void cookieEndpointsRejectOtherOrigins() throws Exception {
+        String refresh = refreshToken(signup(uniqueEmail(), "trekking1").andReturn());
+
+        // Why CSRF tokens can stay off (SecurityConfig): the CORS filter stops another origin spending or revoking the cookie.
+        for (String path : new String[] {"/api/auth/refresh", "/api/auth/logout"}) {
+            mockMvc.perform(post(path).cookie(refreshCookie(refresh)).header(HttpHeaders.ORIGIN, "https://evil.example"))
+                    .andExpect(status().isForbidden());
+        }
+        mockMvc.perform(post("/api/auth/refresh").cookie(refreshCookie(refresh))
+                        .header(HttpHeaders.ORIGIN, "http://localhost:5173"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void refreshWithoutOrWithUnknownCookieFails() throws Exception {
         mockMvc.perform(post("/api/auth/refresh"))
                 .andExpect(status().isUnauthorized())
