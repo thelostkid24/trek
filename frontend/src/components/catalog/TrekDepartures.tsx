@@ -18,7 +18,7 @@ const startOf = (r: DateRow) => (r.departure ?? r.planned).start_date
 /**
  * The departures column: the trek's price once (it doesn't depend on the guide), then one row per month that opens to
  * its dates, one card per date introducing its guide and leading on to the departure page, where they book. Planned
- * dates sit among them as "Guide: to be updated" cards that can't be booked.
+ * dates sit among them as cards with just the dates and a note that we're allocating the guide, never bookable.
  */
 export function TrekDepartures({ trek }: { trek: TrekPage }) {
   const { track, departures, planned_dates: planned } = trek
@@ -145,21 +145,12 @@ function DepartureCard({ departure: d }: { departure: TrekDeparture }) {
   )
 }
 
-/** A date that's set but whose guide isn't: no photo, no booking until a guide is named and the date published. */
+/** A date that's set but whose guide isn't: just the dates and a note that we're on it, no booking until a guide is named. */
 function PlannedCard({ date: p }: { date: PlannedDate }) {
   return (
     <li className="rounded-xl bg-white p-4 ring-1 ring-paper-300">
-      <div className="flex items-center gap-4">
-        <span className="flex size-16 shrink-0 items-center justify-center rounded-full bg-paper-200 text-2xl text-stone-400" aria-hidden="true">
-          ?
-        </span>
-        <div className="min-w-0">
-          <p className="text-lg font-semibold text-stone-900">{shortRange(p.start_date, p.end_date)}</p>
-          <p className="text-sm font-medium text-stone-800">Guide: to be updated</p>
-          {p.note && <p className="text-sm text-stone-600">{p.note}</p>}
-        </div>
-      </div>
-      <p className="mt-4 text-sm font-medium text-stone-500">Booking opens once the guide is confirmed</p>
+      <p className="text-lg font-semibold text-stone-900">{shortRange(p.start_date, p.end_date)}</p>
+      <p className="mt-1 text-sm text-stone-600">Thanks for your patience, we are allocating the best guide for this route.</p>
     </li>
   )
 }

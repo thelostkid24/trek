@@ -10,7 +10,7 @@ import { Button, ErrorNote, Loading, Panel } from './AdminUi.tsx'
 
 /**
  * A track's planned dates (docs/TRD.md §7.20): dates the trek runs before a guide is confirmed. The trek page shows
- * each as "Guide: to be updated", never bookable. Publishing a departure on the same start date replaces it there.
+ * each with just its dates and "we are allocating the best guide", never bookable. Publishing a departure on the same start date replaces it there.
  */
 export function PlannedDatesEditor({ trackId }: { trackId: string }) {
   const { withAuth } = useAuth()
@@ -47,8 +47,9 @@ function DatesForm({ trackId, saved, queryKey }: { trackId: string; saved: Plann
       }
     >
       <p className="text-sm text-stone-600">
-        Dates this trek runs whose guide isn't confirmed yet. The trek page shows them as “Guide: to be updated” and
-        nobody can book them. Once a guide is set, add the departure under Departures and publish it; this date then
+        Dates this trek runs whose guide isn't confirmed yet. The trek page shows just the dates and “Thanks for your
+        patience, we are allocating the best guide for this route” (the note stays here, for admins), and nobody can
+        book them. Once a guide is set, add the departure under Departures and publish it; this date then
         drops off the page by itself. The end date follows from the trek's length.
       </p>
       <ol className="mt-4 space-y-3">
@@ -59,7 +60,7 @@ function DatesForm({ trackId, saved, queryKey }: { trackId: string; saved: Plann
               <TextField label="Start date" name={`planned-${i}-start`} type="date" required value={item.start_date}
                 onChange={(e) => update(i, { start_date: e.target.value })} error={errors[`items[${i}].start_date`]}
                 hint={savedRow ? shortRange(savedRow.start_date, savedRow.end_date) : undefined} />
-              <TextField label="Note (optional)" name={`planned-${i}-note`} maxLength={60} value={item.note ?? ''}
+              <TextField label="Admin note (optional)" name={`planned-${i}-note`} maxLength={60} value={item.note ?? ''}
                 onChange={(e) => update(i, { note: e.target.value || null })} error={errors[`items[${i}].note`]}
                 hint="E.g. Christmas batch" />
               <button type="button" onClick={() => setItems((list) => list.filter((_, j) => j !== i))}
