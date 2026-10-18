@@ -15,6 +15,9 @@ import hero1 from '../assets/hero/hero-1.jpg'
 import hero2 from '../assets/hero/hero-2.jpg'
 import hero3 from '../assets/hero/hero-3.jpg'
 import hero4 from '../assets/hero/hero-4.jpg'
+import dayaraBugyal from '../assets/treks/dayara-bugyal.jpg'
+import harKiDun from '../assets/treks/har-ki-dun.jpg'
+import sarPass from '../assets/treks/sar-pass.jpg'
 
 /** Same query (and cache) as /treks, so opening "See all treks" from here is instant. */
 const useCatalog = () => useQuery({ queryKey: ['public-catalog'], queryFn: listCatalog })
@@ -227,18 +230,19 @@ const HOME_TREKS = 5
  * Treks we're preparing that aren't in the catalog yet: shown as "Upcoming" cards that don't open anything. One
  * drops out on its own once a trek with the same slug is added in Admin.
  */
-/** Every trek we run is in Uttarakhand; the cards name the state, not the trailhead. */
+/** Every trek in the catalog is in Uttarakhand; the cards name the state, not the trailhead. */
 const TREK_STATE = 'Uttarakhand'
 
-const PLANNED_TREKS = [
-  { slug: 'har-ki-dun', name: 'Har Ki Dun', facts: '7 days · 11,700 ft' },
-  { slug: 'tungnath-chandrashila', name: 'Tungnath Chandrashila', facts: '3 days · 13,000 ft' },
-  { slug: 'dayara-bugyal', name: 'Dayara Bugyal', facts: '6 days · 12,000 ft' },
-  { slug: 'kuari-pass', name: 'Kuari Pass', facts: '6 days · 12,516 ft' },
+/** `cover` is shown top-aligned so the peaks stay in the crop. */
+const PLANNED_TREKS: { slug: string; name: string; facts: string; state: string; cover?: string }[] = [
+  { slug: 'har-ki-dun', name: 'Har Ki Dun', facts: '7 days · 11,700 ft', state: TREK_STATE, cover: harKiDun },
+  { slug: 'sar-pass', name: 'Sar Pass', facts: '5 days · 13,800 ft', state: 'Himachal Pradesh', cover: sarPass },
+  { slug: 'dayara-bugyal', name: 'Dayara Bugyal', facts: '6 days · 12,000 ft', state: TREK_STATE, cover: dayaraBugyal },
+  { slug: 'kuari-pass', name: 'Kuari Pass', facts: '6 days · 12,516 ft', state: TREK_STATE },
 ]
 
 /**
- * A short row of treks, bookable ones first, then listed ones without dates, then planned ones dimmed; arrows (or a swipe) move along it and
+ * A short row of treks, bookable ones first, then listed ones without dates, then planned ones (dimmed unless they have a photo); arrows (or a swipe) move along it and
  * "See all treks" leads to the catalog. Each card shares a view-transition name with the trek page hero, so opening
  * a card grows it into the hero. The trek is fetched before navigating (usually already warm from hover) so the
  * hero exists when the new page is snapshotted.
@@ -423,8 +427,14 @@ function PlannedCard({
 }) {
   return (
     <li style={staggerStyle(reveal, delay)} className={`${CARD_WIDTH} ${revealClass(reveal.inView)}`}>
-      <div className="relative isolate flex aspect-[4/5] flex-col justify-between overflow-hidden rounded-[1.5rem] bg-brand-950 p-5 text-white opacity-70">
-        <Ridgeline className="absolute inset-0 -z-10 size-full" />
+      <div
+        className={`relative isolate flex aspect-[4/5] flex-col justify-between overflow-hidden rounded-[1.5rem] bg-brand-950 p-5 text-white ${trek.cover ? '' : 'opacity-70'}`}
+      >
+        {trek.cover ? (
+          <img src={trek.cover} alt="" loading="lazy" className="absolute inset-0 -z-10 size-full object-cover object-top" />
+        ) : (
+          <Ridgeline className="absolute inset-0 -z-10 size-full" />
+        )}
         <div className="absolute inset-0 -z-10 bg-gradient-to-t from-ink-950/90 via-ink-950/20 to-ink-950/30" aria-hidden="true" />
         <span className="self-start rounded-full border border-white/25 bg-ink-950/40 px-3 py-1 text-[0.65rem] font-medium tracking-[0.18em] text-white/80 uppercase backdrop-blur-sm">
           Upcoming
@@ -432,7 +442,7 @@ function PlannedCard({
         <div>
           <h3 className="text-xl leading-tight font-normal tracking-[-0.01em]">{trek.name}</h3>
           <p className="mt-2 text-sm text-white/75">{trek.facts}</p>
-          <p className="mt-0.5 text-sm text-white/75">{TREK_STATE}</p>
+          <p className="mt-0.5 text-sm text-white/75">{trek.state}</p>
         </div>
       </div>
     </li>
