@@ -7,6 +7,7 @@ import { useAuth } from '../../auth/useAuth.ts'
 import { shortRange } from '../../lib/format.ts'
 import { TextField } from '../auth/TextField.tsx'
 import { Button, ErrorNote, Loading, Panel } from './AdminUi.tsx'
+import { FreeGuidesHint } from './FreeGuidesHint.tsx'
 
 /**
  * A track's planned dates (docs/TRD.md §7.20): dates the trek runs before a guide is confirmed. The trek page shows
@@ -67,6 +68,11 @@ function DatesForm({ trackId, saved, queryKey }: { trackId: string; saved: Plann
                 className="pb-3 text-left text-xs font-medium text-laterite-600 hover:text-laterite-500">
                 Remove
               </button>
+              {item.start_date && (
+                <div className="sm:col-span-3">
+                  <FreeGuidesHint from={item.start_date} to={savedRow?.end_date ?? item.start_date} />
+                </div>
+              )}
             </li>
           )
         })}

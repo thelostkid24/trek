@@ -93,6 +93,7 @@ public class AccountDeletionService {
         jdbc.update("DELETE FROM trekker_profiles WHERE user_id = ?", userId);
         jdbc.update("DELETE FROM email_verifications WHERE user_id = ?", userId);
         jdbc.update("DELETE FROM password_resets WHERE user_id = ?", userId);
+        jdbc.update("DELETE FROM saved_guides WHERE user_id = ?", userId);
         if (phone != null) {
             jdbc.update("DELETE FROM otp_challenges WHERE phone = ?", phone);
         }

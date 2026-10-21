@@ -202,6 +202,10 @@ NULL everywhere = not captured (rows made before V11, or nothing sent). Tracking
 - **`guide_milestones`** — `id UUID PK`, `guide_id → users ON DELETE CASCADE`, `year INT 1950..2100`, `text TEXT 1..140`, `position INT ≥ 0`, `created_at`. Index `(guide_id, position)`. At most 30 per guide (service).
 - V26–V30 are reserved for §7.21.3–§7.21.7: V26 certifications, V27 media, V28 reviews, V29 questions, V30 favourites and availability.
 
+### 6.24 Saved guides and guide availability — `V30__guide_favourites_availability.sql`
+- **`saved_guides`** — `user_id → users`, `guide_id → users` (both `ON DELETE CASCADE`), `created_at`. `PK (user_id, guide_id)`, CHECK `user_id <> guide_id`, index `(user_id, created_at DESC)`. A trekker's private "My Fav" list; account deletion (§7.18) deletes the trekker's rows (the user row stays, so the cascade doesn't fire).
+- **`guide_availability`** — `id UUID PK`, `guide_id → users ON DELETE CASCADE`, `start_date DATE`, `end_date DATE` (CHECK `end_date >= start_date`, both days included), `note TEXT NULL 1..120`, `created_at`. Indexes `(guide_id, start_date)`, `(end_date)`. A guide's ranges never overlap (service, under a `FOR UPDATE` lock on the guide's user row). Past ranges are kept.
+
 ## 7. Feature log
 Each feature appends: scope, endpoints, tables, screens, tests.
 
@@ -1240,7 +1244,23 @@ _Not built yet._ Overall stars plus four optional 1–5 sub-ratings (Safety & de
 _Not built yet._ "Ask <name> a question": signed-in trekkers or visitors with an email; the guide gets an email and answers in Guide → Questions; the answer reaches the trekker by email and in their account; admins can read threads. Reply time (median first reply, last 90 days) comes from here.
 
 #### 7.21.7 Favourites and availability — `V30`
-_Not built yet._ A signed-in trekker saves a guide ("My Fav") to a private list in their account; no public count. A guide marks date ranges they're free; only admins see them, beside departures and planned dates (§7.20).
+Tables in §6.24.
+
+| Method & path | Auth | Request | Success | Errors |
+|---|---|---|---|---|
+| `GET /api/trekker/saved-guides` | TREKKER | — | `200 { items: [{ guide_id, slug, full_name, avatar_url, home_city, rating, review_count, saved_at }] }`, newest first; disabled guides are left out (their rows stay) | `401`, `403` |
+| `PUT /api/trekker/saved-guides/{guideId}` | TREKKER | — | `204` (idempotent; a second save keeps the first `saved_at`) | `404 GUIDE_NOT_FOUND` (not an active guide) |
+| `DELETE /api/trekker/saved-guides/{guideId}` | TREKKER | — | `204` (idempotent) | — |
+| `GET /api/guide/availability` | GUIDE | — | `200 { items: [AvailabilityRange] }`: ranges not yet ended, soonest first | `401`, `403` |
+| `POST /api/guide/availability` | GUIDE | `{ start_date, end_date, note ≤ 120 }` (blank note = none) | `201 AvailabilityRange` | `400 VALIDATION_FAILED` (`end_date` before `start_date` or in the past; `note` too long), `409 AVAILABILITY_OVERLAP` (`details: { id, start_date, end_date }` of the range it shares a day with) |
+| `PUT /api/guide/availability/{id}` | GUIDE | same | `200 AvailabilityRange` | as POST, `404 AVAILABILITY_NOT_FOUND` (not theirs) |
+| `DELETE /api/guide/availability/{id}` | GUIDE | — | `204` | `404 AVAILABILITY_NOT_FOUND` |
+| `GET /api/admin/guides/availability?from&to` | ADMIN | both required, `to ≥ from`, < 400 days apart | `200 { items: [{ id, guide_id, guide_name, slug, start_date, end_date, note }] }`: active guides' ranges sharing a day with the window | `400 VALIDATION_FAILED` |
+
+- `AvailabilityRange` = `{ id, start_date, end_date, note }`. Overlap rule: ranges sharing even one day are **rejected**, not merged (the guide edits the existing range); touching ranges are fine. No public endpoint exposes availability; the public guide page never includes it.
+- Favourites: no public count, the guide isn't told. Guides and admins can't save (`/api/trekker/**`).
+- Frontend: `FavouriteButton` (outline heart, "My Fav" / "Saved"; visitors go to `/login` with `state.from` back to the page; hidden for the owner and for guides and admins). Account tab "Saved guides" (`/account/saved-guides`, `SavedGuidesPage.tsx`: cards linking to `guidePath`, Remove). Guide → Availability (`GuideAvailabilityPage.tsx`): add/edit form, ranges listed by month, edit and remove, "Dates and prices are set with the Empty Valley team." `AvailabilityLink` shows the owner that line and "Mark my availability →" (`/guide/availability`); visitors see nothing. Admins see "Free guides on these dates" (`components/admin/FreeGuidesHint.tsx`) under the departure form's start date (window = the trek's days; a name picks that guide) and under each planned date (§7.20).
+- Tests: `SavedGuideTests`, `GuideAvailabilityTests`.
 
 ## 8. Running locally
 

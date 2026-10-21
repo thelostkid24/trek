@@ -19,9 +19,10 @@ import { MAX_GROUP_SIZE } from '../../api/catalog.ts'
 import { fieldErrors } from '../../auth/errorMessages.ts'
 import { useAuth } from '../../auth/useAuth.ts'
 import { Button, ErrorNote, Loading, Panel, StatusPill } from '../../components/admin/AdminUi.tsx'
+import { FreeGuidesHint } from '../../components/admin/FreeGuidesHint.tsx'
 import { TextField } from '../../components/auth/TextField.tsx'
 import { SelectField, TextAreaField } from '../../components/profile/fields.tsx'
-import { dateRange, rupees, todayIst } from '../../lib/format.ts'
+import { addDays, dateRange, rupees, todayIst } from '../../lib/format.ts'
 
 const KEY = ['admin-departures']
 
@@ -337,6 +338,15 @@ function DepartureForm({ departure, onDone }: { departure: AdminDeparture | null
             onChange={(e) => setStartDate(e.target.value)}
             error={errors.start_date}
           />
+          {startDate && (
+            <div className="sm:col-span-2">
+              <FreeGuidesHint
+                from={startDate}
+                to={addDays(startDate, (tracks.data.items.find((t) => t.id === trackId)?.duration_days ?? 1) - 1)}
+                onPick={setGuideId}
+              />
+            </div>
+          )}
           <TextField
             label="Price per seat"
             name="price"
