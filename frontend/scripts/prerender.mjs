@@ -91,7 +91,7 @@ function metaDescription(text) {
 }
 
 // Same tags as <Seo> (src/components/Seo.tsx).
-function head({ title, bareTitle = false, description: text, path, image = DEFAULT_IMAGE, article }) {
+function head({ title, bareTitle = false, description: text, path, image = DEFAULT_IMAGE, imageSize, article }) {
   const fullTitle = escape(bareTitle ? title : `${title} · ${SITE_NAME}`)
   const description = escape(metaDescription(text))
   const url = SITE_ORIGIN + path
@@ -106,6 +106,12 @@ function head({ title, bareTitle = false, description: text, path, image = DEFAU
     `<meta data-static-head property="og:title" content="${fullTitle}" />`,
     `<meta data-static-head property="og:description" content="${description}" />`,
     `<meta data-static-head property="og:image" content="${escape(image)}" />`,
+    ...(imageSize
+      ? [
+          `<meta data-static-head property="og:image:width" content="${imageSize[0]}" />`,
+          `<meta data-static-head property="og:image:height" content="${imageSize[1]}" />`,
+        ]
+      : []),
     `<meta data-static-head property="og:url" content="${url}" />`,
     `<meta data-static-head name="twitter:card" content="summary_large_image" />`,
   ].join('\n    ')
@@ -130,7 +136,8 @@ for (const trek of (await get('/api/public/tracks')).items) {
   treks++
 }
 
-// Same title, description and canonical as GuidePage.tsx. The list has no bio, so each profile is fetched. The page
+// Same title, description, canonical and image as GuidePage.tsx. The list has no bio, so each profile is fetched. The
+// preview image is the 1200×630 card the API draws for the guide (§7.21.2), linked on the API's own host. The page
 // lives at /guides/<slug>; links with the guide's id (shared before slugs, §7.21) get the same head, canonical to the
 // slug, and the app swaps the address. Older slugs fall back to app.html until the next deploy writes them.
 await mkdir('dist/guides', { recursive: true })
@@ -141,7 +148,13 @@ for (const { id } of (await get('/api/public/guides')).items) {
   const name = guide.full_name ?? 'Local guide'
   const description = guide.bio || `${name} leads small-batch treks with ${SITE_NAME}.`
   const slug = guide.slug && /^[a-z0-9-]+$/.test(guide.slug) ? guide.slug : null
-  const page = { title: `${name}, trek guide`, description, path: `/guides/${slug ?? id}`, image: guide.cover_url ?? undefined }
+  const page = {
+    title: `${name}, trek guide`,
+    description,
+    path: `/guides/${slug ?? id}`,
+    image: `${api}/api/public/guides/${slug ?? id}/card.png`,
+    imageSize: [1200, 630],
+  }
   await write(page)
   if (slug) await write(page, `/guides/${id}`)
   guides++

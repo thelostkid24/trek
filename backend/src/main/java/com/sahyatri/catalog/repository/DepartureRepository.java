@@ -60,6 +60,27 @@ public interface DepartureRepository extends JpaRepository<Departure, UUID> {
         long getTimes();
     }
 
+    /**
+     * Trekkers with a confirmed booking on one of the guide's completed departures ({@code trekkers}), and how many of
+     * them have two or more confirmed bookings with this guide on any departure ({@code returned}). Law 8: read time.
+     */
+    @Query(nativeQuery = true, value = """
+            with walked as (
+                select distinct b.user_id from bookings b join departures d on d.id = b.departure_id
+                where d.guide_id = :guideId and d.status = 'COMPLETED' and b.status = 'CONFIRMED'),
+            booked as (
+                select b.user_id, count(*) as times from bookings b join departures d on d.id = b.departure_id
+                where d.guide_id = :guideId and b.status = 'CONFIRMED' group by b.user_id)
+            select count(*) as trekkers, count(*) filter (where booked.times >= 2) as returned
+            from walked join booked on booked.user_id = walked.user_id""")
+    ReturnCount countReturning(UUID guideId);
+
+    interface ReturnCount {
+        long getTrekkers();
+
+        long getReturned();
+    }
+
     boolean existsByTrackId(UUID trackId);
 
     boolean existsByTrackIdAndGuideIdAndStatusIn(UUID trackId, UUID guideId, Collection<DepartureStatus> statuses);
