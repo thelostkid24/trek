@@ -36,7 +36,8 @@ public class SitemapService {
         Set<String> paths = new LinkedHashSet<>(STATIC_PATHS);
         List<CatalogTrek> treks = catalog.catalog();
         treks.forEach(t -> paths.add("/treks/" + t.slug()));
-        treks.forEach(t -> t.departures().forEach(d -> paths.add("/guides/" + d.guide().id())));
+        // Every active guide: profiles are shared as the guide's trekking CV (§7.21), not only while they lead dates.
+        catalog.guides().forEach(g -> paths.add("/guides/" + (g.slug() == null ? g.id() : g.slug())));
         paths.addAll(blog.sitemapPaths());
 
         StringBuilder xml = new StringBuilder("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import type { GuideCard, GuideCredentials, PublicReview } from '../../api/catalog.ts'
+import { guidePath, type GuideCard, type GuideCredentials, type PublicReview } from '../../api/catalog.ts'
 import { parseDate } from '../../lib/format.ts'
 import { isCertified } from '../../lib/trek.ts'
 import { IconFacts, type Fact } from './IconFacts.tsx'
@@ -72,7 +72,7 @@ export function GuideProfileCard({ guide: g, departureId }: { guide: GuideCard; 
       {g.quote && <blockquote className="mt-4 border-l-2 border-laterite-400 pl-4 font-serif text-lg text-stone-700 italic">“{g.quote}”</blockquote>}
 
       <Link
-        to={`/guides/${g.id}?departure=${departureId}`}
+        to={`${guidePath(g)}?departure=${departureId}`}
         viewTransition
         className="mt-5 inline-flex items-center gap-1 font-semibold text-brand-800 hover:text-brand-900"
       >

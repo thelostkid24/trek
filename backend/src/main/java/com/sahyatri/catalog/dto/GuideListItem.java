@@ -9,6 +9,7 @@ import java.util.UUID;
  */
 public record GuideListItem(
         UUID id,
+        String slug,
         String fullName,
         String avatarUrl,
         String homeCity,

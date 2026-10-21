@@ -115,20 +115,28 @@ export const router = createBrowserRouter([
               { path: 'insights', lazy: page(() => import('./pages/admin/InsightsPage.tsx'), 'InsightsPage') },
             ],
           },
+          // The guide area shares the guide layout (name, then pill tabs); docs/TRD.md §7.21.
           {
-            path: '/guide',
             lazy: async () => {
-              const { GuideReportsPage } = await import('./pages/guide/GuideReportsPage.tsx')
+              const { GuideLayout } = await import('./pages/guide/GuideLayout.tsx')
               return {
                 element: (
-                  <Private title="Guide reports">
+                  <Private title="Guide">
                     <RequireAuth role="GUIDE">
-                      <GuideReportsPage />
+                      <GuideLayout />
                     </RequireAuth>
                   </Private>
                 ),
               }
             },
+            children: [
+              { path: '/guide', element: <Navigate to="/guide/profile" replace /> },
+              { path: '/guide/profile', lazy: page(() => import('./pages/guide/GuideProfileEditPage.tsx'), 'GuideProfileEditPage') },
+              { path: '/guide/reviews', lazy: page(() => import('./pages/guide/GuideReviewsPage.tsx'), 'GuideReviewsPage') },
+              { path: '/guide/questions', lazy: page(() => import('./pages/guide/GuideQuestionsPage.tsx'), 'GuideQuestionsPage') },
+              { path: '/guide/availability', lazy: page(() => import('./pages/guide/GuideAvailabilityPage.tsx'), 'GuideAvailabilityPage') },
+              { path: '/guide/reports', lazy: page(() => import('./pages/guide/GuideReportsPage.tsx'), 'GuideReportsPage') },
+            ],
           },
           { path: '*', element: <NotFoundPage /> },
         ],

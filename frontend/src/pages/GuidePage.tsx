@@ -1,13 +1,21 @@
 import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
-import { Link, useParams, useSearchParams } from 'react-router-dom'
-import { getGuide, type DepartureSummary, type GuideProfile } from '../api/catalog.ts'
+import { useEffect, useState } from 'react'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { getGuide, guidePath, type DepartureSummary, type GuideProfile } from '../api/catalog.ts'
 import { ApiError } from '../api/client.ts'
 import { messageFor } from '../auth/errorMessages.ts'
+import { useAuth } from '../auth/useAuth.ts'
 import { Avatar } from '../components/Avatar.tsx'
-import { CredentialList, RatingLine, ReviewList } from '../components/catalog/GuideProfileCard.tsx'
+import { RatingLine } from '../components/catalog/GuideProfileCard.tsx'
 import { IconFacts, type Fact } from '../components/catalog/IconFacts.tsx'
-import { SectionLabel } from '../components/catalog/TrekSections.tsx'
+import { AskForReviewButton } from '../components/guide/sections/AskForReviewButton.tsx'
+import { AskQuestionCard } from '../components/guide/sections/AskQuestionCard.tsx'
+import { AvailabilityLink } from '../components/guide/sections/AvailabilityLink.tsx'
+import { CertificationsSection } from '../components/guide/sections/CertificationsSection.tsx'
+import { FavouriteButton } from '../components/guide/sections/FavouriteButton.tsx'
+import { MediaSection } from '../components/guide/sections/MediaSection.tsx'
+import { ReviewsSection } from '../components/guide/sections/ReviewsSection.tsx'
+import { TierBadge } from '../components/guide/sections/TierBadge.tsx'
 import { rupees, shortRange, weekdaysAndYear } from '../lib/format.ts'
 import { Seo } from '../components/Seo.tsx'
 import { SITE_ORIGIN } from '../lib/siteLinks.ts'
@@ -15,7 +23,9 @@ import { SITE_ORIGIN } from '../lib/siteLinks.ts'
 /**
  * /guides/:id — public. "Know your guide": who they are, their credentials and record, what trekkers say, then the
  * dates they lead. Opened from a departure (`?departure=<id>`), that departure sits in a card on the right with its
- * Book button. Contract: docs/TRD.md §7.7.
+ * Book button. `:id` may be the guide's slug, an old slug or their id; the address is swapped for the current slug.
+ * Each part of the page from §7.21 is its own component in components/guide/sections. Contract: docs/TRD.md §7.7,
+ * §7.21.
  */
 export function GuidePage() {
   const { id = '' } = useParams()
@@ -51,7 +61,21 @@ export function GuidePage() {
   return <Profile guide={guide.data} departureId={params.get('departure')} />
 }
 
+/** Old links (an id or a slug the guide used before) end up on the current slug, keeping `?departure=`. */
+function useCanonicalAddress(key: string, slug: string | null) {
+  const navigate = useNavigate()
+  const { search, hash } = useLocation()
+  useEffect(() => {
+    if (slug && key !== slug) navigate(`/guides/${slug}${search}${hash}`, { replace: true })
+  }, [key, slug, search, hash, navigate])
+}
+
 function Profile({ guide: g, departureId }: { guide: GuideProfile; departureId: string | null }) {
+  const { id: key = '' } = useParams()
+  useCanonicalAddress(key, g.slug)
+  const auth = useAuth()
+  const owner = auth.status === 'authenticated' && auth.user.id === g.id
+  const section = { guide: g, owner }
   const name = g.full_name ?? 'Local guide'
   const first = name.split(' ')[0]
   // The departure the trekker came from, if it's still listed.
@@ -67,7 +91,7 @@ function Profile({ guide: g, departureId }: { guide: GuideProfile; departureId: 
 
   return (
     <div className="bg-paper-50">
-      <Seo title={`${name}, trek guide`} description={g.bio ?? `${name} leads small-batch treks with The Empty Valley.`} path={`/guides/${g.id}`} />
+      <Seo title={`${name}, trek guide`} description={g.bio ?? `${name} leads small-batch treks with The Empty Valley.`} path={guidePath(g)} />
       <div className="mx-auto max-w-5xl space-y-10 px-4 py-8 sm:py-12">
         <button type="button" onClick={() => window.history.back()} className="text-sm text-brand-700 hover:text-brand-900">
           ← Back
@@ -81,14 +105,28 @@ function Profile({ guide: g, departureId }: { guide: GuideProfile; departureId: 
           )}
           <div>
             <h1 className="font-serif text-5xl font-light leading-none tracking-tight text-stone-900">{name}</h1>
-            <p className="mt-2">
+            <p className="mt-2 flex flex-wrap items-center gap-3">
               <RatingLine rating={g.rating} count={g.review_count} />
+              <TierBadge {...section} />
             </p>
-            <ShareProfile name={name} url={`${SITE_ORIGIN}/guides/${g.id}`} />
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <ShareProfile name={name} url={`${SITE_ORIGIN}${guidePath(g)}`} />
+              <FavouriteButton {...section} />
+              {owner && (
+                <>
+                  <Link to="/guide/profile" className="rounded-full border border-paper-300 bg-white px-4 py-2 text-sm font-medium text-ink-900 hover:border-ink-900">
+                    Edit profile
+                  </Link>
+                  <AskForReviewButton {...section} />
+                </>
+              )}
+            </div>
           </div>
         </header>
 
         <IconFacts facts={stats} className="flex flex-wrap gap-x-10 gap-y-4" />
+
+        <MediaSection {...section} />
 
         <div className={booking ? 'grid gap-8 lg:grid-cols-[1fr_22rem] lg:items-start' : ''}>
           {booking && (
@@ -97,7 +135,7 @@ function Profile({ guide: g, departureId }: { guide: GuideProfile; departureId: 
             </aside>
           )}
           <div className="max-w-3xl min-w-0 space-y-8 lg:col-start-1 lg:row-start-1">
-            <CredentialList guide={g} />
+            <CertificationsSection {...section} />
 
             {(g.quote || g.bio) && (
               <section className="space-y-4">
@@ -110,18 +148,12 @@ function Profile({ guide: g, departureId }: { guide: GuideProfile; departureId: 
               </section>
             )}
 
-            <section>
-              <SectionLabel aside={g.review_count > 0 ? `${g.review_count} ${g.review_count === 1 ? 'review' : 'reviews'}` : undefined}>
-                What trekkers say
-              </SectionLabel>
-              {g.reviews.length === 0 ? (
-                <p className="mt-3 text-sm text-stone-600">Reviews appear here after {first}'s treks are completed.</p>
-              ) : (
-                <ReviewList reviews={g.reviews} />
-              )}
-            </section>
+            <ReviewsSection {...section} />
+
+            <AskQuestionCard {...section} />
 
             <WalkWith first={first} upcoming={g.upcoming} />
+            <AvailabilityLink {...section} />
           </div>
         </div>
       </div>
@@ -156,7 +188,7 @@ function ShareProfile({ name, url }: { name: string; url: string }) {
     <button
       type="button"
       onClick={() => void share()}
-      className="mt-4 inline-flex items-center gap-2 rounded-full border border-paper-300 bg-white px-4 py-2 text-sm font-medium text-ink-900 transition hover:border-ink-900"
+      className="inline-flex items-center gap-2 rounded-full border border-paper-300 bg-white px-4 py-2 text-sm font-medium text-ink-900 transition hover:border-ink-900"
     >
       <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" className="size-4" aria-hidden="true">
         <path d="M10 13V3m0 0L6.5 6.5M10 3l3.5 3.5M4 11v4.5A1.5 1.5 0 0 0 5.5 17h9a1.5 1.5 0 0 0 1.5-1.5V11" strokeLinecap="round" strokeLinejoin="round" />

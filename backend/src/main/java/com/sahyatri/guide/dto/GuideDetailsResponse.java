@@ -9,9 +9,11 @@ import java.util.UUID;
 /**
  * A guide's credentials. {@code yearsLeading} comes from {@code leadingSince} and today's year; null when unknown.
  * All fields are null for a guide nobody has filled in yet. {@code priorTreks}: treks they led before Sahyātri.
+ * {@code slug}: the profile URL's last part, null until assigned (§7.21).
  */
 public record GuideDetailsResponse(
         UUID guideId,
+        String slug,
         Integer leadingSince,
         Integer yearsLeading,
         String languages,
@@ -26,11 +28,11 @@ public record GuideDetailsResponse(
 
     public static GuideDetailsResponse of(UUID guideId, GuideDetails d, List<PriorTrek> priorTreks, LocalDate today) {
         if (d == null) {
-            return new GuideDetailsResponse(guideId, null, null, null, null, null, null, null, null, null, null,
+            return new GuideDetailsResponse(guideId, null, null, null, null, null, null, null, null, null, null, null,
                     priorTreks);
         }
         Integer years = d.getLeadingSince() == null ? null : Math.max(0, today.getYear() - d.getLeadingSince());
-        return new GuideDetailsResponse(guideId, d.getLeadingSince(), years, d.getLanguages(), d.getCertification(),
+        return new GuideDetailsResponse(guideId, d.getSlug(), d.getLeadingSince(), years, d.getLanguages(), d.getCertification(),
                 d.getCertificationNumber(), d.getBmcInstitute(), d.getBmcCertificateNumber(), d.getAmcInstitute(),
                 d.getAmcCertificateNumber(), d.getQuote(), priorTreks);
     }

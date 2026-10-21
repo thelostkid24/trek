@@ -1,6 +1,6 @@
 // Writes a copy of dist/index.html for every public page, with that page's own title, description, canonical and
 // link-preview tags in the static-head block: the fixed pages (/treks, /faqs, …), every trek (dist/treks/<slug>.html),
-// every guide (dist/guides/<id>.html) and every published blog post (dist/blog/<slug>.html). Link-preview fetchers (WhatsApp, Facebook, X) don't run JavaScript, and
+// every guide (dist/guides/<slug>.html, and <id>.html for older links) and every published blog post (dist/blog/<slug>.html). Link-preview fetchers (WhatsApp, Facebook, X) don't run JavaScript, and
 // search crawlers see these tags before rendering, so each page reads as itself from the first fetch. Firebase serves
 // these files before its catch-all rewrite (cleanUrls in firebase.json maps /faqs to faqs.html). See docs/TRD.md §7.16.
 //
@@ -111,9 +111,9 @@ function head({ title, bareTitle = false, description: text, path, image = DEFAU
   ].join('\n    ')
 }
 
-/** Writes dist/<path>.html, which cleanUrls serves at <path>. */
-async function write(page) {
-  await writeFile(`dist${page.path}.html`, html.slice(0, start + START.length) + '\n    ' + head(page) + '\n    ' + html.slice(end))
+/** Writes dist/<file>.html (the page's own path unless given), which cleanUrls serves at <file>. */
+async function write(page, file = page.path) {
+  await writeFile(`dist${file}.html`, html.slice(0, start + START.length) + '\n    ' + head(page) + '\n    ' + html.slice(end))
 }
 
 for (const page of STATIC_PAGES) await write(page)
@@ -130,7 +130,9 @@ for (const trek of (await get('/api/public/tracks')).items) {
   treks++
 }
 
-// Same title, description and canonical as GuidePage.tsx. The list has no bio, so each profile is fetched.
+// Same title, description and canonical as GuidePage.tsx. The list has no bio, so each profile is fetched. The page
+// lives at /guides/<slug>; links with the guide's id (shared before slugs, §7.21) get the same head, canonical to the
+// slug, and the app swaps the address. Older slugs fall back to app.html until the next deploy writes them.
 await mkdir('dist/guides', { recursive: true })
 let guides = 0
 for (const { id } of (await get('/api/public/guides')).items) {
@@ -138,7 +140,10 @@ for (const { id } of (await get('/api/public/guides')).items) {
   const guide = await get(`/api/public/guides/${id}`)
   const name = guide.full_name ?? 'Local guide'
   const description = guide.bio || `${name} leads small-batch treks with ${SITE_NAME}.`
-  await write({ title: `${name}, trek guide`, description, path: `/guides/${guide.id}` })
+  const slug = guide.slug && /^[a-z0-9-]+$/.test(guide.slug) ? guide.slug : null
+  const page = { title: `${name}, trek guide`, description, path: `/guides/${slug ?? id}`, image: guide.cover_url ?? undefined }
+  await write(page)
+  if (slug) await write(page, `/guides/${id}`)
   guides++
 }
 

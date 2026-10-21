@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { DIFFICULTY_LABEL, type Difficulty, type GuideCard, type TrackDetail } from '../../api/catalog.ts'
+import { DIFFICULTY_LABEL, guidePath, type Difficulty, type GuideCard, type TrackDetail } from '../../api/catalog.ts'
 import { feet, toFeet } from '../../lib/format.ts'
 import { Avatar } from '../Avatar.tsx'
 
@@ -68,7 +68,7 @@ export function GuideLine({ guide, trekName, size = 'sm' }: { guide: GuideCard; 
       ? `led ${trekName} ${guide.led_this_trek} ${guide.led_this_trek === 1 ? 'time' : 'times'}`
       : `new to ${trekName}`
   return (
-    <Link to={`/guides/${guide.id}`} viewTransition className="group flex min-w-0 items-center gap-3">
+    <Link to={guidePath(guide)} viewTransition className="group flex min-w-0 items-center gap-3">
       <Avatar url={guide.avatar_url} name={name} size={size} />
       <span className="min-w-0">
         <span className="block truncate font-semibold text-stone-900 group-hover:text-brand-800 group-hover:underline">

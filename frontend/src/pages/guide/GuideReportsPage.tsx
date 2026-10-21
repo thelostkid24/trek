@@ -6,8 +6,8 @@ import { ErrorNote, Loading, Panel } from '../../components/admin/AdminUi.tsx'
 import { SnowReports } from '../../components/admin/SnowReports.tsx'
 
 /**
- * /guide — a guide files the weekly snow report for the treks they lead (docs/TRD.md §7.13). Rendered inside
- * <RequireAuth role="GUIDE">.
+ * /guide/reports — a guide files the weekly snow report for the treks they lead (docs/TRD.md §7.13). Rendered inside
+ * the guide layout.
  */
 export function GuideReportsPage() {
   const { withAuth } = useAuth()
@@ -15,7 +15,7 @@ export function GuideReportsPage() {
   const [picked, setPicked] = useState<string | null>(null)
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5 px-4 py-6 sm:py-10">
+    <div className="mx-auto max-w-3xl space-y-5 px-5 py-6 sm:px-10">
       <h1 className="font-display text-2xl font-semibold">Snow reports</h1>
       {tracks.isPending ? (
         <Loading />

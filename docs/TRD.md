@@ -193,6 +193,15 @@ NULL everywhere = not captured (rows made before V11, or nothing sent). Tracking
 ### 6.18 Checkout email codes — `V23__booking_email_codes.sql`
 - **`booking_email_codes`** — `id UUID PK`, `email TEXT NOT NULL` (lowercased), `code_hash TEXT NOT NULL` (HMAC-SHA256 keyed by `JWT_SECRET`), `expires_at`, `attempts INT NOT NULL DEFAULT 0`, `created_at`. Index `(email, created_at)`. Proves a booking's contact email (§7.6); no `consumed_at`, since a correct code stays good until it expires.
 
+### 6.19 Guide profile — `V25__guide_profile.sql`
+- **`guide_profiles`** — adds `slug TEXT UNIQUE` (`^[a-z0-9]+(-[a-z0-9]+)*$`, ≤ 60; the profile is `/guides/{slug}`) and `cover_key TEXT` (cover photo at `guide-covers/<key>.jpg`, 1800×600). V25 creates a row for every guide and backfills slugs from `full_name` (`shrey-rai`, namesakes `-2`, `-3` in sign-up order; `guide` when the name is empty). Rows for new guides are made when an admin promotes them; `quote` doubles as the intro line under the name.
+- **`guide_slug_history`** — `slug TEXT PK`, `guide_id → users ON DELETE CASCADE`, `created_at`. Slugs a guide used before; they keep resolving to that guide and no other guide may take them.
+- **`guide_specialties`** — `id UUID PK`, `name TEXT UNIQUE 1..40`, `position INT ≥ 0`, `created_at`. Seeded with ten (Winter & snow craft, High passes, First-time trekkers, Women-only groups, Families with children, Local culture, Birding, Wildflowers, Photography stops, Summit pushes); admins add and remove.
+- **`guide_profile_specialties`** — `guide_id → users`, `specialty_id → guide_specialties` (both `ON DELETE CASCADE`), `position INT 0..7`. `PK (guide_id, specialty_id)`. At most eight per guide.
+- **`guide_route_notes`** — `guide_id → users`, `track_id → tracks` (both cascade), `note TEXT 1..200`, `updated_at`. `PK (guide_id, track_id)`.
+- **`guide_milestones`** — `id UUID PK`, `guide_id → users ON DELETE CASCADE`, `year INT 1950..2100`, `text TEXT 1..140`, `position INT ≥ 0`, `created_at`. Index `(guide_id, position)`. At most 30 per guide (service).
+- V26–V30 are reserved for §7.21.3–§7.21.7: V26 certifications, V27 media, V28 reviews, V29 questions, V30 favourites and availability.
+
 ## 7. Feature log
 Each feature appends: scope, endpoints, tables, screens, tests.
 
@@ -969,7 +978,7 @@ Gear rental and its payment, add-ons after booking (they're chosen at checkout, 
 
 - **Treks led before Sahyātri:** a guide new to the site has completed nothing with us, so the pages read "First time leading it" even for someone who has led the trek for years. An admin records how often they led each trek elsewhere (`guide_prior_treks`, §6.13); `led_this_trek` on `GuideCard` and `treks_led` / `treks[].times` on the guide page are completed departures plus these, still worked out at read time. Frontend: "Treks led before Sahyātri" rows (trek, times) at the end of the Credentials form. Tests: `TrekContentTests`.
 
-- **Guide profile (admin-set):** a guide has no profile screen, so an admin sets what the pages show: the name and photo on the account, and home city and bio on the guide's `trekker_profiles` row (created if missing), the same fields §7.7 reads. A guide's bio may run to 2000 characters (a trekker's to 500), in paragraphs separated by blank lines. `guide.service.GuideProfileService` reuses `AvatarService.replace/clear`. Frontend: Admin → Guides → "Profile" on each guide (photo, name, home town, bio), beside "Credentials". The WAF's `xss-body-except-uploads` rule must include `/api/admin/guides/*/avatar`. Tests: `GuideProfileTests`.
+- **Guide profile (admin-set):** an admin sets what the pages show (the guide edits the same fields from `/guide/profile`, §7.21): the name and photo on the account, and home city and bio on the guide's `trekker_profiles` row (created if missing), the same fields §7.7 reads. A guide's bio may run to 2000 characters (a trekker's to 500), in paragraphs separated by blank lines. `guide.service.GuideProfileService` reuses `AvatarService.replace/clear`. Frontend: Admin → Guides → "Profile" on each guide (photo, name, home town, bio), beside "Credentials". The WAF's `xss-body-except-uploads` rule must include `/api/admin/guides/*/avatar`. Tests: `GuideProfileTests`.
 
 - The departure page's "Your guide" card shows only the "Certified" chip; the course details are on the guide page. Shown on `GuideCard` (§7.7) and on the guide page as the highlighted "Mountaineering credentials" card (dark header with a shield and the IMF note, green border) holding a table: one row per course (BMC, AMC) with institute and certificate number, a note that the courses are IMF-recognised, then any other certificate, leading since and languages. "Certified" shows once any course or certificate has both institute/name and number. Frontend: Admin → Guides → "Credentials" on each guide (BMC/AMC institute fields suggest NIM, ABVIMAS, HMI and JIM&WS). Tests: `TrekContentTests`.
 
@@ -1189,6 +1198,49 @@ From Notion "14 oct changes": the season's Kedarkantha dates are fixed, but most
 
 ### Charity share
 `app.charity` (`CHARITY_NAME`, `CHARITY_BPS`, default 100 = 1%) is part of the price, never added on top. It only shows as a line on the trek page ("1% goes to …, and the rest runs the company"); no money is split or recorded per booking yet.
+
+### 7.21 Shareable guide profile
+**Status:** foundation (§7.21.1) implemented; §7.21.2–§7.21.7 in progress. Tables in §6.19.
+
+**Scope:** the guide page becomes a LinkedIn-style profile a guide shares anywhere to fill their dates, following the "Guide Profile Mockup" design: cover, headline, stats, specialties, media, about, certifications, routes, career, reviews, questions, upcoming departures. The guide edits it themselves; admins verify certificates. Decisions (2026-10-21): guide self-edit with admin-verified certificates; open seat counts stay hidden (no seat dots); reviews from a guide's own (off-platform) trekkers are allowed, confirmed by an email or phone code (phone behind `VITE_PHONE_OTP` until SMS works), badged "Group verified" and never counted in the headline rating or count; questions go through an in-site inbox with email alerts; guides upload photos and short videos (MP4/MOV H.264, ≤ 90 s, ≤ 100 MB, straight to S3 by presigned URL, no transcoding); tiers are worked out at read time from config thresholds (law 8); reviews add four optional sub-ratings and a fixed tag list; reviews and guide replies go live at once and an admin can hide them (audit-logged); the profile URL is `/guides/{slug}`; the link-preview image is drawn by the backend; specialties come from an admin list; availability is private to admins; favourites are a signed-in trekker's private list; the route map waits.
+
+Each part of the public page is its own component in `components/guide/sections/` taking `{ guide, owner }` (`owner`: the signed-in user is this guide), so the parts below are built side by side: `CertificationsSection`, `TierBadge` (§7.21.3), `MediaSection` (§7.21.4), `ReviewsSection`, `AskForReviewButton` (§7.21.5), `AskQuestionCard` (§7.21.6), `FavouriteButton`, `AvailabilityLink` (§7.21.7). The guide area's tabs are their own pages in `pages/guide/`. Each part reads its own data from its own endpoint rather than adding to `GuideProfile`.
+
+#### 7.21.1 Foundation: slug, guide self-edit, guide area
+| Method & path | Auth | Request | Success | Errors |
+|---|---|---|---|---|
+| `GET /api/guide/profile` | GUIDE | — | `200 OwnGuideProfile` (creates the profile row and slug if missing) | `401`, `403 FORBIDDEN` |
+| `PUT /api/guide/profile` | GUIDE | `{ full_name (1..100, required), home_city ≤ 100, quote ≤ 240, languages ≤ 120, bio ≤ 2000, leading_since (1950..this year), specialty_ids ≤ 8, milestones: [{ year (1950..this year), text 1..140 }] ≤ 30, route_notes: [{ track_id, note 1..200 }] ≤ 50 }` — replaces everything; blank text and null lists clear | `200 OwnGuideProfile` | `400 VALIDATION_FAILED` (`specialty_ids` repeated or unknown; `route_notes[i].track_id` repeated or not a trek they lead; `milestones[i].year` in the future) |
+| `PUT /api/guide/profile/avatar`, `/cover` | GUIDE | multipart `file` (JPEG/PNG ≤ 5 MB); the cover is a 3:1 centre crop at 1800×600 | `200 OwnGuideProfile` | `400 UNSUPPORTED_IMAGE`, `413 FILE_TOO_LARGE` |
+| `DELETE /api/guide/profile/avatar`, `/cover` | GUIDE | — | `200 OwnGuideProfile` | — |
+| `PUT /api/admin/guides/{id}/slug` | ADMIN | `{ slug }` (`^[a-z0-9]+(-[a-z0-9]+)*$`, ≤ 60) | `200` admin GuideProfile (§7.12, now with `slug`); the old slug goes to history (audit `GUIDE_SLUG_CHANGED`) | `400`, `404 GUIDE_NOT_FOUND`, `409 SLUG_TAKEN` (another guide has or had it) |
+| `GET /api/admin/guide-specialties` | ADMIN | — | `200 { items: [{ id, name }] }` | — |
+| `POST /api/admin/guide-specialties` | ADMIN | `{ name 1..40 }` | `201 { id, name }` (added last) | `400`, `409 SPECIALTY_EXISTS` (case-insensitive) |
+| `DELETE /api/admin/guide-specialties/{id}` | ADMIN | — | `204` (dropped from every guide) | `404 SPECIALTY_NOT_FOUND` |
+
+- `OwnGuideProfile` = `{ guide_id, slug, full_name, avatar_url, cover_url, home_city, bio, quote, languages, leading_since, specialty_ids, milestones: [{ year, text }], route_notes: [{ track_id, note }], specialty_options: [{ id, name }], routes: [{ track_id, name }] }`. `routes`: treks the guide completed with us, led before Sahyātri or leads on an upcoming published date. Course credentials, the slug and prior treks stay admin-set (§7.12).
+- `GET /api/public/guides/{key}` takes the id, the slug or a slug used before, and adds `slug`, `cover_url`, `specialties` (names, the guide's order), `milestones` and `treks[].note`. `GuideCard` and `GuideListItem` add `slug`. The sitemap lists every active guide at `/guides/{slug}`.
+- Frontend: `/guides/:id` swaps an id or old slug in the address for the current slug (keeping `?departure=`); links use `guidePath` (`api/catalog.ts`). The owner sees "Edit profile". The guide area `/guide` (`pages/guide/GuideLayout.tsx`, like the account area) has tabs Profile (`/guide/profile`, `GuideProfileEditPage.tsx`: photo and cover save at once; about, intro, languages, year started, bio, specialties, a note per route and career milestones save with one button), Reviews, Questions, Availability (placeholders until §7.21.5–7) and Snow reports (`/guide/reports`, §7.13). The header shows "Guide" for guides and their profile menu has "My profile". Admin → Guides → Profile gains "Profile address"; a "Guide specialties" panel keeps the list. `prerender.mjs` writes `dist/guides/<slug>.html` and a copy at `<id>.html` (canonical to the slug); old slugs get the site-wide head until a deploy.
+- The WAF's `xss-body-except-uploads` rule must also exempt `/api/guide/profile/avatar` and `/api/guide/profile/cover` (DEPLOY.md §10).
+- Tests: `OwnGuideProfileTests`.
+
+#### 7.21.2 Page layout and link preview
+_Not built yet._ The public page follows the design: cover, headline ("Mountain guide · <home city>"), name, tier and "Certifications verified" chips, languages as chips, the intro, share; stats (rating and reviews, treks led, years guiding, highest pass led, % of trekkers who come back, reply time — each worked out at read time and hidden below a minimum); specialties; about ("Written by <first name>"); routes (list with times led; the picked route shows top altitude, times, season, the guide's note and its reviews; no map); career; the departures sidebar (trek, dates, price, "Batch full"; never open seat counts); profile link. The owner sees an owner bar ("This is your public profile") with Share and Edit. `GET /api/public/guides/{slug}/card.png` draws a 1200×630 preview (cached ~1 h) used as `og:image`.
+
+#### 7.21.3 Certifications and tiers — `V26`
+_Not built yet._ `guide_certifications`: type (BMC, AMC, Search & Rescue, MOI, Wilderness First Responder/Aid, Police verification, Insurance, Other), issuer, year or valid-to, number, a private document (PDF/JPG ≤ 5 MB, admins only), verified by an admin (audit-logged; editing resets it), "Expired" past valid-to. The BMC/AMC/other columns of §7.12 move in and are dropped later. Tiers at read time from config (Empty Valley treks and reviews only): Trail Guide (verified BMC + 5 treks), Senior Guide (25 treks, ≥ 4.5 from ≥ 10 reviews), Summit Guide (verified AMC, 75 treks, ≥ 4.7 from ≥ 25 reviews).
+
+#### 7.21.4 Photos and videos — `V27`
+_Not built yet._ Guides upload photos (like trek photos) and videos (MP4/MOV H.264 ≤ 90 s, ≤ 100 MB) straight to S3 by presigned URL, reorder and remove them; the page shows a carousel. No transcoding.
+
+#### 7.21.5 Reviews — `V28`
+_Not built yet._ Overall stars plus four optional 1–5 sub-ratings (Safety & decisions, Route knowledge, Communication, Care at altitude; a bar hides under five answers), a fixed tag list ("Mentioned often"), filters (All / Verified trek / Group verified), one public reply per review from the guide, "Report" to admin, admin hide with a stored reason. "Ask for review": a link `/r/{slug}` with WhatsApp text and a QR code; the guide picks an Empty Valley trek or "My own trekkers". Off-platform reviewers confirm by email or phone code, are badged "Group verified" and don't count in the headline rating or count.
+
+#### 7.21.6 Questions — `V29`
+_Not built yet._ "Ask <name> a question": signed-in trekkers or visitors with an email; the guide gets an email and answers in Guide → Questions; the answer reaches the trekker by email and in their account; admins can read threads. Reply time (median first reply, last 90 days) comes from here.
+
+#### 7.21.7 Favourites and availability — `V30`
+_Not built yet._ A signed-in trekker saves a guide ("My Fav") to a private list in their account; no public count. A guide marks date ranges they're free; only admins see them, beside departures and planned dates (§7.20).
 
 ## 8. Running locally
 

@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
-import { getDeparture, getGuide, type DepartureDetail } from '../api/catalog.ts'
+import { getDeparture, getGuide, guidePath, type DepartureDetail } from '../api/catalog.ts'
 import { ApiError } from '../api/client.ts'
 import { messageFor } from '../auth/errorMessages.ts'
 import { FillBar } from '../components/catalog/DeparturePieces.tsx'
@@ -132,7 +132,7 @@ function GuideReviews({ departure: d }: { departure: DepartureDetail }) {
         <>
           <ReviewList reviews={reviews.slice(0, 4)} />
           {reviews.length > 4 && (
-            <Link to={`/guides/${d.guide.id}?departure=${d.id}`} viewTransition className="mt-3 inline-block text-sm font-semibold text-brand-800 hover:text-brand-900">
+            <Link to={`${guidePath(d.guide)}?departure=${d.id}`} viewTransition className="mt-3 inline-block text-sm font-semibold text-brand-800 hover:text-brand-900">
               All {count} reviews on {first}'s page →
             </Link>
           )}

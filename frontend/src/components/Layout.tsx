@@ -292,14 +292,18 @@ function AccountLink({ tone }: { tone: HeaderTone }) {
       )}
       {user.role === 'GUIDE' && (
         <Link to="/guide" className="font-medium opacity-85 hover:opacity-100">
-          Snow reports
+          Guide
         </Link>
       )}
       <ProfileMenu
         name={name}
         fullName={user.full_name ?? name}
         avatarUrl={user.avatar_url}
-        links={[...(user.role === 'TREKKER' ? [{ to: PROFILE_PATH, label: 'My profile' }] : []), { to: BLOG_PATH, label: 'Blog' }]}
+        links={[
+          ...(user.role === 'TREKKER' ? [{ to: PROFILE_PATH, label: 'My profile' }] : []),
+          ...(user.role === 'GUIDE' ? [{ to: '/guide/profile', label: 'My profile' }] : []),
+          { to: BLOG_PATH, label: 'Blog' },
+        ]}
         onSignOut={() => {
           if (!user.guest || window.confirm(GUEST_SIGN_OUT_WARNING)) void auth.signOut()
         }}

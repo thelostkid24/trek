@@ -19,7 +19,7 @@ import java.util.UUID;
 
 /**
  * A guide's public profile (§7.12): name and photo on the account, home city and bio on the profile row the guide
- * pages already read. An admin sets them, because a guide has no profile screen of their own.
+ * pages already read. An admin sets them here; the guide edits the same fields from /guide (§7.21).
  */
 @Service
 public class GuideProfileService {
@@ -28,16 +28,18 @@ public class GuideProfileService {
     private final TrekkerProfileRepository profiles;
     private final AvatarService avatars;
     private final AvatarFiles avatarFiles;
+    private final GuideSlugService slugs;
 
     public GuideProfileService(UserRepository users, TrekkerProfileRepository profiles, AvatarService avatars,
-                               AvatarFiles avatarFiles) {
+                               AvatarFiles avatarFiles, GuideSlugService slugs) {
         this.users = users;
         this.profiles = profiles;
         this.avatars = avatars;
         this.avatarFiles = avatarFiles;
+        this.slugs = slugs;
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public GuideProfileResponse get(UUID guideId) {
         return toResponse(requireGuide(guideId));
     }
@@ -54,6 +56,14 @@ public class GuideProfileService {
         return toResponse(guide);
     }
 
+    /** A new profile URL; the old one keeps redirecting (§7.21). */
+    @Transactional
+    public GuideProfileResponse changeSlug(UUID adminId, UUID guideId, String slug) {
+        User guide = requireGuide(guideId);
+        slugs.change(adminId, guideId, guide.getFullName(), slug);
+        return toResponse(guide);
+    }
+
     public GuideProfileResponse uploadPhoto(UUID guideId, MultipartFile file) {
         return toResponse(avatars.replace(requireGuide(guideId), file));
     }
@@ -64,7 +74,8 @@ public class GuideProfileService {
 
     private GuideProfileResponse toResponse(User guide) {
         TrekkerProfile p = profiles.findById(guide.getId()).orElse(null);
-        return new GuideProfileResponse(guide.getId(), guide.getFullName(), avatarFiles.url(guide.getAvatarKey()),
+        String slug = slugs.ensure(guide.getId(), guide.getFullName()).getSlug();
+        return new GuideProfileResponse(guide.getId(), slug, guide.getFullName(), avatarFiles.url(guide.getAvatarKey()),
                 p == null ? null : p.getHomeCity(), p == null ? null : p.getBio());
     }
 

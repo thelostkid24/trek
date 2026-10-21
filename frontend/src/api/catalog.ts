@@ -120,6 +120,8 @@ export type GuideCredentials = {
  */
 export type GuideCard = GuideBrief &
   GuideCredentials & {
+    /** The profile URL's last part; null until assigned (docs/TRD.md §7.21). */
+    slug: string | null
     home_city: string | null
     bio: string | null
     led_this_trek: number
@@ -202,15 +204,24 @@ export type PublicReview = {
 
 export type GuideProfile = GuideCredentials & {
   id: string
+  /** Canonical URL part (docs/TRD.md §7.21); the page swaps an id or old slug in the address for it. */
+  slug: string | null
   full_name: string | null
   avatar_url: string | null
+  /** 3:1 cover photo, or null. */
+  cover_url: string | null
   home_city: string | null
   bio: string | null
   treks_led: number
   rating: number | null
   review_count: number
   reviews: PublicReview[]
-  treks: { track: TrackBrief; times: number }[]
+  /** Picked by the guide, in their order. */
+  specialties: string[]
+  /** "Career in the mountains", oldest first. */
+  milestones: { year: number; text: string }[]
+  /** Most led first; `note` is the guide's line about the route. */
+  treks: { track: TrackBrief; times: number; note: string | null }[]
   upcoming: DepartureSummary[]
 }
 
@@ -243,6 +254,7 @@ export type CatalogTrek = {
 /** One guide on the public guides list, most-led trek first. Contract: docs/TRD.md §7.17. */
 export type GuideListItem = GuideBrief &
   GuideCredentials & {
+    slug: string | null
     home_city: string | null
     treks_led: number
     rating: number | null
@@ -264,7 +276,11 @@ export const trekQueryOptions = (slug: string) => queryOptions({ queryKey: ['pub
 
 export const listGuides = () => apiFetch<Items<GuideListItem>>('/api/public/guides')
 
-export const getGuide = (id: string) => apiFetch<GuideProfile>(`/api/public/guides/${encodeURIComponent(id)}`)
+/** A guide's public page: /guides/{slug}, or /guides/{id} for one without a slug yet. */
+export const guidePath = (g: { id: string; slug?: string | null }) => `/guides/${g.slug ?? g.id}`
+
+/** `key`: the guide's slug, a slug they used before, or their id. */
+export const getGuide = (key: string) => apiFetch<GuideProfile>(`/api/public/guides/${encodeURIComponent(key)}`)
 
 export const getDeparture = (id: string) =>
   apiFetch<DepartureDetail>(`/api/public/departures/${encodeURIComponent(id)}`)
