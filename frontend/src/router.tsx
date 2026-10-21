@@ -73,6 +73,7 @@ export const router = createBrowserRouter([
               { path: '/account/bookings/:id', lazy: page(() => import('./pages/trekker/BookingDetailPage.tsx'), 'BookingDetailPage') },
               { path: '/account/gear', lazy: page(() => import('./pages/trekker/GearPage.tsx'), 'GearPage') },
               { path: '/account/questions/:id?', lazy: page(() => import('./pages/trekker/QuestionsPage.tsx'), 'QuestionsPage') },
+              { path: '/account/saved-guides', lazy: page(() => import('./pages/trekker/SavedGuidesPage.tsx'), 'SavedGuidesPage') },
             ],
           },
           { path: '/account/verify-email', lazy: page(() => import('./pages/VerifyEmailPage.tsx'), 'VerifyEmailPage', 'Verify email') },

@@ -10,6 +10,7 @@ const NAV = [
   { to: PROFILE_PATH, label: 'My profile' },
   { to: '/account/gear', label: 'Gear' },
   { to: '/account/questions', label: 'Questions' },
+  { to: '/account/saved-guides', label: 'Saved guides' },
 ]
 
 const joinedFormat = new Intl.DateTimeFormat('en-IN', { month: 'long', year: 'numeric' })
