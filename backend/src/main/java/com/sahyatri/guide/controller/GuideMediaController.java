@@ -4,8 +4,7 @@ import com.sahyatri.guide.dto.GuideMediaItem;
 import com.sahyatri.guide.dto.GuideMediaList;
 import com.sahyatri.guide.dto.MediaCaptionRequest;
 import com.sahyatri.guide.dto.MediaOrderRequest;
-import com.sahyatri.guide.dto.VideoUploadRequest;
-import com.sahyatri.guide.dto.VideoUploadResponse;
+import com.sahyatri.guide.dto.YouTubeVideoRequest;
 import com.sahyatri.guide.service.GuideMediaService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -52,19 +51,8 @@ public class GuideMediaController {
 
     @PostMapping("/videos")
     @ResponseStatus(HttpStatus.CREATED)
-    public VideoUploadResponse startVideo(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody VideoUploadRequest req) {
-        return media.startVideo(userId(jwt), req);
-    }
-
-    @PutMapping(path = "/videos/{id}/poster", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public GuideMediaItem uploadPoster(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id,
-                                       @RequestPart("file") MultipartFile file) {
-        return media.uploadPoster(userId(jwt), id, file);
-    }
-
-    @PostMapping("/videos/{id}/complete")
-    public GuideMediaItem completeVideo(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id) {
-        return media.completeVideo(userId(jwt), id);
+    public GuideMediaItem addYouTube(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody YouTubeVideoRequest req) {
+        return media.addYouTube(userId(jwt), req);
     }
 
     @PutMapping("/order")

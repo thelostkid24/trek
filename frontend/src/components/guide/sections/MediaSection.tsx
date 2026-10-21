@@ -4,24 +4,18 @@ import { useAuth } from '../../../auth/useAuth.ts'
 import { messageFor } from '../../../auth/errorMessages.ts'
 import { ApiError } from '../../../api/client.ts'
 import {
-  completeGuideVideo,
+  addGuideYouTubeVideo,
   deleteGuideMedia,
   getOwnGuideMedia,
   getPublicGuideMedia,
   MAX_CAPTION,
   MAX_MEDIA,
   MAX_PHOTO_BYTES,
-  MAX_VIDEO_BYTES,
-  MAX_VIDEO_SECONDS,
   PHOTO_TYPES,
-  putToStorage,
-  readVideo,
   reorderGuideMedia,
-  startGuideVideo,
   updateGuideMediaCaption,
   uploadGuidePhoto,
-  uploadGuideVideoPoster,
-  VIDEO_TYPES,
+  youTubeEmbedUrl,
   type GuideMediaItem,
 } from '../../../api/guideMedia.ts'
 import type { GuideSectionProps } from './types.ts'
@@ -29,8 +23,10 @@ import type { GuideSectionProps } from './types.ts'
 const OWN_KEY = ['guide-media-own']
 
 /**
- * Photos and videos (§7.21.4): a large stage with the picked item and a strip of thumbnails. Visitors see nothing
- * until there is media; the owner adds, captions, reorders and removes it here.
+ * Photos and YouTube videos (§7.21.4): a large stage with the picked item and a strip of thumbnails. A video shows
+ * YouTube's still until it's played, then plays embedded from youtube-nocookie.com, so nothing loads from YouTube
+ * before the visitor asks. Visitors see nothing until there is media; the owner adds, captions, reorders and
+ * removes it here.
  */
 export function MediaSection({ guide, owner }: GuideSectionProps) {
   const { withAuth } = useAuth()
@@ -41,10 +37,9 @@ export function MediaSection({ guide, owner }: GuideSectionProps) {
   })
   const ownMedia = useQuery({ queryKey: OWN_KEY, queryFn: () => withAuth(getOwnGuideMedia), enabled: owner })
   const all = (owner ? ownMedia.data : publicMedia.data) ?? []
-  const ready = all.filter((m) => m.status === 'READY')
   const [editing, setEditing] = useState(false)
 
-  if (!owner && ready.length === 0) return null
+  if (!owner && all.length === 0) return null
 
   return (
     <section className="space-y-3" aria-label="Photos and videos">
@@ -60,7 +55,7 @@ export function MediaSection({ guide, owner }: GuideSectionProps) {
           </button>
         )}
       </div>
-      {editing ? <Editor items={all} /> : ready.length > 0 && <Gallery items={ready} />}
+      {editing ? <Editor items={all} /> : all.length > 0 && <Gallery items={all} />}
       {owner && <AddMedia count={all.length} />}
     </section>
   )
@@ -80,18 +75,16 @@ function Gallery({ items }: { items: GuideMediaItem[] }) {
     <div className="space-y-2">
       <div className="relative aspect-video overflow-hidden rounded-xl bg-ink-900">
         {item.kind === 'PHOTO' ? (
-          <img src={item.url} alt={item.caption ?? 'Photo from the guide'} className="h-full w-full object-cover" />
-        ) : playing === item.id ? (
-          // Guides' clips have no caption files; their caption line shows on the stage before play.
-          // oxlint-disable-next-line jsx-a11y/media-has-caption
-          <video
+          <img src={item.url ?? undefined} alt={item.caption ?? 'Photo from the guide'} className="h-full w-full object-cover" />
+        ) : playing === item.id && item.youtube_id && youTubeEmbedUrl(item.youtube_id) ? (
+          <iframe
             key={item.id}
-            src={item.url}
-            poster={item.poster_url ?? undefined}
-            controls
-            autoPlay
-            playsInline
-            className="h-full w-full bg-black object-contain"
+            src={youTubeEmbedUrl(item.youtube_id)!}
+            title={item.caption ?? 'Video from the guide'}
+            allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+            allowFullScreen
+            referrerPolicy="strict-origin-when-cross-origin"
+            className="h-full w-full border-0"
           />
         ) : (
           <button
@@ -100,7 +93,7 @@ function Gallery({ items }: { items: GuideMediaItem[] }) {
             className="group absolute inset-0 h-full w-full"
             aria-label={`Play video${item.caption ? `: ${item.caption}` : ''}`}
           >
-            {item.poster_url && <img src={item.poster_url} alt="" className="h-full w-full object-cover" />}
+            {item.thumbnail_url && <img src={item.thumbnail_url} alt="" className="h-full w-full object-cover" />}
             <span className="absolute inset-0 m-auto flex h-16 w-16 items-center justify-center rounded-full bg-white/90 text-2xl text-ink-900 shadow-lg group-hover:bg-white">
               ▶
             </span>
@@ -110,7 +103,7 @@ function Gallery({ items }: { items: GuideMediaItem[] }) {
           <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 bg-gradient-to-t from-black/70 to-transparent px-4 pt-10 pb-3 text-white">
             <p className="min-w-0 text-sm">
               {item.kind === 'VIDEO' && (
-                <span className="mr-2 text-xs font-semibold tracking-wider">VIDEO{item.duration_s ? ` · ${clock(item.duration_s)}` : ''}</span>
+                <span className="mr-2 text-xs font-semibold tracking-wider">VIDEO</span>
               )}
               {item.caption}
             </p>
@@ -147,65 +140,99 @@ function AddMedia({ count }: { count: number }) {
   const { withAuth } = useAuth()
   const queryClient = useQueryClient()
   const input = useRef<HTMLInputElement>(null)
-  const [progress, setProgress] = useState<string | null>(null)
+  const [link, setLink] = useState('')
+  const [showLink, setShowLink] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const full = count >= MAX_MEDIA
+  const done = () => void queryClient.invalidateQueries({ queryKey: OWN_KEY })
 
-  async function add(file: File) {
-    setError(null)
-    try {
-      if (PHOTO_TYPES.includes(file.type)) {
-        if (file.size > MAX_PHOTO_BYTES) throw new Error('That photo is over 5 MB. Please choose a smaller one.')
-        setProgress('Uploading photo…')
-        await withAuth((token) => uploadGuidePhoto(token, file, null))
-      } else if (VIDEO_TYPES.includes(file.type)) {
-        if (file.size > MAX_VIDEO_BYTES) throw new Error('That video is over 100 MB. Please trim it or choose another.')
-        setProgress('Reading video…')
-        const { duration, poster } = await readVideo(file)
-        if (duration > MAX_VIDEO_SECONDS) {
-          throw new Error(`Videos can be up to ${MAX_VIDEO_SECONDS} seconds; this one is ${Math.round(duration)}.`)
-        }
-        const upload = await withAuth((token) =>
-          startGuideVideo(token, { content_type: file.type, size_bytes: file.size, duration_s: duration, caption: null }),
-        )
-        await putToStorage(upload, file, (f) => setProgress(`Uploading video… ${Math.round(f * 100)}%`))
-        setProgress('Finishing…')
-        if (poster) await withAuth((token) => uploadGuideVideoPoster(token, upload.id, poster))
-        await withAuth((token) => completeGuideVideo(token, upload.id))
-      } else {
-        throw new Error('Choose a JPEG or PNG photo, or an MP4 or MOV video.')
-      }
-    } catch (e) {
-      setError(e instanceof ApiError ? messageFor(e) : e instanceof Error ? e.message : messageFor(e))
-    } finally {
-      setProgress(null)
-      void queryClient.invalidateQueries({ queryKey: OWN_KEY })
-    }
-  }
+  const photo = useMutation({
+    mutationFn: (file: File) => {
+      if (!PHOTO_TYPES.includes(file.type)) throw new Error('Choose a JPEG or PNG photo.')
+      if (file.size > MAX_PHOTO_BYTES) throw new Error('That photo is over 5 MB. Please choose a smaller one.')
+      return withAuth((token) => uploadGuidePhoto(token, file, null))
+    },
+    onMutate: () => setError(null),
+    onError: (e) => setError(e instanceof ApiError ? messageFor(e) : e instanceof Error ? e.message : messageFor(e)),
+    onSettled: done,
+  })
+  const video = useMutation({
+    mutationFn: () => withAuth((token) => addGuideYouTubeVideo(token, link.trim(), null)),
+    onMutate: () => setError(null),
+    onSuccess: () => {
+      setLink('')
+      setShowLink(false)
+    },
+    onError: (e) => setError(messageFor(e)),
+    onSettled: done,
+  })
+  const busy = photo.isPending || video.isPending
 
   return (
-    <div className="space-y-1">
+    <div className="space-y-2">
       <input
         ref={input}
         type="file"
-        accept={[...PHOTO_TYPES, ...VIDEO_TYPES].join(',')}
+        accept={PHOTO_TYPES.join(',')}
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0]
           e.target.value = ''
-          if (file) void add(file)
+          if (file) photo.mutate(file)
         }}
       />
-      <button
-        type="button"
-        disabled={full || progress !== null}
-        onClick={() => input.current?.click()}
-        className="w-full rounded-xl border-2 border-dashed border-paper-300 px-4 py-4 text-sm font-medium text-ink-700 hover:border-ink-700 disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {progress ?? (full ? `${MAX_MEDIA} is the most a profile can have` : '+ Add photo or video')}
-      </button>
+      {full ? (
+        <p className="text-sm text-ink-700">{MAX_MEDIA} is the most a profile can have. Remove one to add another.</p>
+      ) : (
+        <div className="grid gap-2 sm:grid-cols-2">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => input.current?.click()}
+            className="rounded-xl border-2 border-dashed border-paper-300 px-4 py-4 text-sm font-medium text-ink-700 hover:border-ink-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {photo.isPending ? 'Uploading photo…' : '+ Add photo'}
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            aria-expanded={showLink}
+            onClick={() => setShowLink((v) => !v)}
+            className="rounded-xl border-2 border-dashed border-paper-300 px-4 py-4 text-sm font-medium text-ink-700 hover:border-ink-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            + Add YouTube video
+          </button>
+        </div>
+      )}
+      {showLink && !full && (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (link.trim()) video.mutate()
+          }}
+          className="flex flex-col gap-2 sm:flex-row"
+        >
+          <input
+            type="url"
+            inputMode="url"
+            value={link}
+            onChange={(e) => setLink(e.target.value)}
+            placeholder="https://youtu.be/…"
+            aria-label="YouTube link"
+            className="min-w-0 flex-1 rounded-lg border border-paper-300 px-3 py-2 text-sm"
+          />
+          <button
+            type="submit"
+            disabled={busy || !link.trim()}
+            className="rounded-full bg-brand-900 px-5 py-2 text-sm font-semibold text-white hover:bg-brand-800 disabled:opacity-50"
+          >
+            {video.isPending ? 'Adding…' : 'Add video'}
+          </button>
+        </form>
+      )}
       <p className="text-xs text-ink-400">
-        Photos: JPEG or PNG up to 5 MB. Videos: MP4 or MOV (H.264), up to {MAX_VIDEO_SECONDS} seconds and 100 MB.
+        Photos: JPEG or PNG up to 5 MB. Videos: paste a YouTube link (upload it to YouTube first; Shorts work too). It
+        plays right here on your profile.
       </p>
       {error && <p className="text-sm text-sunset-500" role="alert">{error}</p>}
     </div>
@@ -253,10 +280,7 @@ function Editor({ items }: { items: GuideMediaItem[] }) {
               </span>
             </div>
             <div className="min-w-0 flex-1">
-              {m.status === 'PENDING' ? (
-                <p className="text-sm text-ink-400">Upload didn't finish. Remove it and add it again.</p>
-              ) : (
-                <input
+              <input
                   defaultValue={m.caption ?? ''}
                   maxLength={MAX_CAPTION}
                   placeholder="Add a caption"
@@ -266,7 +290,6 @@ function Editor({ items }: { items: GuideMediaItem[] }) {
                   }}
                   className="w-full rounded-lg border border-paper-300 px-2 py-1.5 text-sm"
                 />
-              )}
             </div>
             <div className="flex shrink-0 items-center gap-1">
               <IconButton label="Move left" disabled={busy || i === 0} onClick={() => move.mutate({ from: i, to: i - 1 })}>
@@ -312,9 +335,5 @@ function IconButton({ label, disabled, onClick, children }: { label: string; dis
 }
 
 function thumb(m: GuideMediaItem) {
-  return m.kind === 'PHOTO' ? m.url : m.poster_url
-}
-
-function clock(seconds: number) {
-  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
+  return m.kind === 'PHOTO' ? m.url : m.thumbnail_url
 }

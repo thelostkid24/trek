@@ -2,9 +2,7 @@ package com.sahyatri.guide;
 
 import com.jayway.jsonpath.JsonPath;
 import com.sahyatri.auth.AuthTestSupport;
-import com.sahyatri.guide.service.GuideMediaCleanupJob;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.mock.web.MockMultipartFile;
@@ -14,7 +12,6 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -33,13 +30,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/** Photos and videos on the guide profile (docs/TRD.md §7.21.4), against local storage. */
+/** Photos and YouTube videos on the guide profile (docs/TRD.md §7.21.4), against local storage. */
 class GuideMediaTests extends AuthTestSupport {
-
-    private static final byte[] VIDEO = "\0\0\0\u0018ftypmp42 pretend video bytes".getBytes();
-
-    @Autowired
-    private GuideMediaCleanupJob cleanup;
 
     @Test
     void photoIsReencodedServedAndListedPublicly() throws Exception {
@@ -50,7 +42,6 @@ class GuideMediaTests extends AuthTestSupport {
         String body = uploadPhoto(guide, png(3000, 1500), " Kedarkantha summit ")
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.kind").value("PHOTO"))
-                .andExpect(jsonPath("$.status").value("READY"))
                 .andExpect(jsonPath("$.caption").value("Kedarkantha summit"))
                 .andExpect(jsonPath("$.url", startsWith("http")))
                 .andReturn().getResponse().getContentAsString();
@@ -80,81 +71,43 @@ class GuideMediaTests extends AuthTestSupport {
     }
 
     @Test
-    void videoGoesStraightToStorageThenPlaysWithRanges() throws Exception {
+    void youTubeLinksAreAddedByVideoId() throws Exception {
         String email = uniqueEmail();
         String guide = tokenWithRole(email, "GUIDE");
         UUID guideId = userIdByEmail(email);
 
-        String started = startVideo(guide, "video/mp4", VIDEO.length, 42.3)
+        addVideo(guide, "https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=42s", " Meet Shrey, in his own words ")
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.headers['Content-Type']").value("video/mp4"))
-                .andReturn().getResponse().getContentAsString();
-        String id = JsonPath.read(started, "$.id");
-        String uploadUrl = JsonPath.read(started, "$.upload_url");
+                .andExpect(jsonPath("$.kind").value("VIDEO"))
+                .andExpect(jsonPath("$.youtube_id").value("dQw4w9WgXcQ"))
+                .andExpect(jsonPath("$.thumbnail_url").value("https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg"))
+                .andExpect(jsonPath("$.url").value(nullValue()))
+                .andExpect(jsonPath("$.caption").value("Meet Shrey, in his own words"));
+        for (String[] link : new String[][] {
+                {"youtu.be/aaaaaaaaaa1?si=share", "aaaaaaaaaa1"},
+                {"https://youtube.com/shorts/bbbbbbbbb-2", "bbbbbbbbb-2"},
+                {"https://m.youtube.com/watch?feature=share&v=ccccccccc_3", "ccccccccc_3"},
+                {"https://www.youtube-nocookie.com/embed/ddddddddd44", "ddddddddd44"},
+                {"https://www.youtube.com/live/eeeeeeeee55", "eeeeeeeee55"}}) {
+            addVideo(guide, link[0], null).andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.youtube_id").value(link[1]));
+        }
+        mockMvc.perform(get("/api/public/guides/" + guideId + "/media"))
+                .andExpect(jsonPath("$.items", hasSize(6)))
+                .andExpect(jsonPath("$.items[0].youtube_id").value("dQw4w9WgXcQ"));
 
-        // Pending: not public, and confirming before the file arrives fails.
-        mockMvc.perform(get("/api/public/guides/" + guideId + "/media")).andExpect(jsonPath("$.items", hasSize(0)));
-        authed(get("/api/guide/media"), guide, null)
-                .andExpect(jsonPath("$.items[0].status").value("PENDING"))
-                .andExpect(jsonPath("$.items[0].duration_s").value(43));
-        authed(post("/api/guide/media/videos/" + id + "/complete"), guide, null)
+        addVideo(guide, "https://youtu.be/dQw4w9WgXcQ", null)
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("UPLOAD_MISSING"));
-
-        // The upload link checks its signature, the type and the exact size.
-        mockMvc.perform(put(URI.create(uploadUrl.replace("sig=", "sig=0"))).contentType("video/mp4").content(VIDEO))
-                .andExpect(status().isForbidden());
-        mockMvc.perform(put(URI.create(uploadUrl)).contentType("video/quicktime").content(VIDEO))
-                .andExpect(status().isBadRequest());
-        mockMvc.perform(put(URI.create(uploadUrl)).contentType("video/mp4").content(new byte[VIDEO.length + 1]))
-                .andExpect(status().isBadRequest());
-        mockMvc.perform(put(URI.create(uploadUrl)).contentType("video/mp4").content(VIDEO))
-                .andExpect(status().isOk());
-
-        authed(multipart(HttpMethod.PUT, "/api/guide/media/videos/" + id + "/poster")
-                .file(new MockMultipartFile("file", "poster.jpg", "image/png", png(640, 360))), guide, null)
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.poster_url", startsWith("http")));
-        authed(post("/api/guide/media/videos/" + id + "/complete"), guide, null)
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("READY"))
-                .andExpect(jsonPath("$.size_bytes").value(VIDEO.length));
-
-        String list = mockMvc.perform(get("/api/public/guides/" + guideId + "/media"))
-                .andExpect(jsonPath("$.items", hasSize(1)))
-                .andExpect(jsonPath("$.items[0].kind").value("VIDEO"))
-                .andReturn().getResponse().getContentAsString();
-        String playUrl = JsonPath.read(list, "$.items[0].url");
-        String posterUrl = JsonPath.read(list, "$.items[0].poster_url");
-        mockMvc.perform(get(path(posterUrl))).andExpect(status().isOk());
-
-        String location = mockMvc.perform(get(path(playUrl)))
-                .andExpect(status().isFound())
-                .andReturn().getResponse().getHeader(HttpHeaders.LOCATION);
-        byte[] part = mockMvc.perform(get(URI.create(location)).header(HttpHeaders.RANGE, "bytes=4-7"))
-                .andExpect(status().isPartialContent())
-                .andExpect(header().string(HttpHeaders.CONTENT_TYPE, "video/mp4"))
-                .andReturn().getResponse().getContentAsByteArray();
-        assertThat(new String(part)).isEqualTo("ftyp");
-        mockMvc.perform(get(URI.create(location.replace("sig=", "sig=0")))).andExpect(status().isForbidden());
-
-        // Deleting removes the video and its poster.
-        authed(delete("/api/guide/media/" + id), guide, null).andExpect(status().isNoContent());
-        mockMvc.perform(get(path(playUrl))).andExpect(status().isNotFound());
-        mockMvc.perform(get(path(posterUrl))).andExpect(status().isNotFound());
-        mockMvc.perform(get(URI.create(location))).andExpect(status().isNotFound());
-    }
-
-    @Test
-    void videoLimits() throws Exception {
-        String guide = tokenWithRole(uniqueEmail(), "GUIDE");
-        startVideo(guide, "video/webm", 1000, 10).andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("UNSUPPORTED_VIDEO"));
-        startVideo(guide, "video/mp4", 100L * 1024 * 1024 + 1, 10).andExpect(status().isContentTooLarge())
-                .andExpect(jsonPath("$.code").value("FILE_TOO_LARGE"));
-        startVideo(guide, "video/quicktime", 1000, 90.5).andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.details.fields.duration_s").exists());
-        startVideo(guide, "video/quicktime", 1000, 90).andExpect(status().isCreated());
+                .andExpect(jsonPath("$.code").value("VIDEO_ALREADY_ADDED"));
+        for (String bad : List.of("https://vimeo.com/123456", "https://www.youtube.com/watch?v=short",
+                "https://evil.example/watch?v=dQw4w9WgXcQ", "https://www.youtube.com/@channel", "not a link",
+                "javascript:alert(1)")) {
+            addVideo(guide, bad, null)
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("UNSUPPORTED_VIDEO_LINK"));
+        }
+        addVideo(guide, "", null).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.details.fields.url").exists());
     }
 
     @Test
@@ -163,11 +116,11 @@ class GuideMediaTests extends AuthTestSupport {
         for (int i = 0; i < 19; i++) {
             uploadPhoto(guide, png(10, 10), "Photo " + i).andExpect(status().isCreated());
         }
-        startVideo(guide, "video/mp4", 1000, 30).andExpect(status().isCreated());
+        addVideo(guide, "https://youtu.be/ffffffffff6", null).andExpect(status().isCreated());
         uploadPhoto(guide, png(10, 10), null)
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("TOO_MANY_MEDIA"));
-        startVideo(guide, "video/mp4", 1000, 30).andExpect(status().isConflict());
+        addVideo(guide, "https://youtu.be/gggggggggg7", null).andExpect(status().isConflict());
 
         String list = authed(get("/api/guide/media"), guide, null).andReturn().getResponse().getContentAsString();
         List<String> ids = JsonPath.read(list, "$.items[*].id");
@@ -207,41 +160,20 @@ class GuideMediaTests extends AuthTestSupport {
         String other = tokenWithRole(uniqueEmail(), "GUIDE");
         String id = JsonPath.read(uploadPhoto(owner, png(10, 10), null).andReturn().getResponse().getContentAsString(),
                 "$.id");
-        String video = JsonPath.read(startVideo(owner, "video/mp4", 1000, 5).andReturn().getResponse()
+        String video = JsonPath.read(addVideo(owner, "https://youtu.be/hhhhhhhhhh8", null).andReturn().getResponse()
                 .getContentAsString(), "$.id");
 
         authed(put("/api/guide/media/" + id), other, """
                 {"caption":"Mine now"}""").andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("MEDIA_NOT_FOUND"));
         authed(delete("/api/guide/media/" + id), other, null).andExpect(status().isNotFound());
-        authed(post("/api/guide/media/videos/" + video + "/complete"), other, null).andExpect(status().isNotFound());
+        authed(delete("/api/guide/media/" + video), other, null).andExpect(status().isNotFound());
         authed(get("/api/guide/media"), other, null).andExpect(jsonPath("$.items", hasSize(0)));
         authed(put("/api/guide/media/order"), other, json(List.of(id))).andExpect(status().isBadRequest());
 
         String trekker = emailTrekker(uniqueEmail());
         authed(get("/api/guide/media"), trekker, null).andExpect(status().isForbidden());
         mockMvc.perform(get("/api/guide/media")).andExpect(status().isUnauthorized());
-    }
-
-    @Test
-    void cleanupRemovesUnconfirmedVideosAfterADay() throws Exception {
-        String guide = tokenWithRole(uniqueEmail(), "GUIDE");
-        String started = startVideo(guide, "video/mp4", VIDEO.length, 12).andReturn().getResponse()
-                .getContentAsString();
-        String stale = JsonPath.read(started, "$.id");
-        mockMvc.perform(put(URI.create(JsonPath.read(started, "$.upload_url"))).contentType("video/mp4").content(VIDEO))
-                .andExpect(status().isOk());
-        String fresh = JsonPath.read(startVideo(guide, "video/mp4", 1000, 12).andReturn().getResponse()
-                .getContentAsString(), "$.id");
-        jdbc.update("UPDATE guide_media SET created_at = now() - interval '25 hours' WHERE id = ?::uuid", stale);
-
-        cleanup.run();
-
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM guide_media WHERE id = ?::uuid", Long.class, stale))
-                .isZero();
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM guide_media WHERE id = ?::uuid", Long.class, fresh))
-                .isOne();
-        assertThat(UPLOAD_DIR.resolve("guide-videos/" + stale)).doesNotExist();
     }
 
     private ResultActions uploadPhoto(String token, byte[] bytes, String caption) throws Exception {
@@ -253,9 +185,10 @@ class GuideMediaTests extends AuthTestSupport {
         return authed(request, token, null);
     }
 
-    private ResultActions startVideo(String token, String type, long size, double duration) throws Exception {
-        return authed(post("/api/guide/media/videos"), token, """
-                {"content_type":"%s","size_bytes":%d,"duration_s":%s}""".formatted(type, size, duration));
+    private ResultActions addVideo(String token, String url, String caption) throws Exception {
+        return authed(post("/api/guide/media/videos"), token, caption == null
+                ? "{\"url\":\"%s\"}".formatted(url)
+                : "{\"url\":\"%s\",\"caption\":\"%s\"}".formatted(url, caption));
     }
 
     private static String json(List<String> ids) {
