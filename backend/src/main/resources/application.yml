@@ -121,6 +121,10 @@ app:
       - patterns: [/api/public/guides/*/reviews]
         methods: [POST]
         per-minute: 10
+      # Visitor questions to a guide (§7.21.6); each email also has its own code and daily question caps.
+      - patterns: [/api/public/questions/email-code, /api/public/guides/*/questions, /api/public/questions/*/messages]
+        methods: [POST]
+        per-minute: 5
       - patterns: [/api/account/**]
         methods: [POST, PUT, PATCH, DELETE]
         per-minute: 20

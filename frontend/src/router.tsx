@@ -72,6 +72,7 @@ export const router = createBrowserRouter([
               { path: '/account/bookings', lazy: page(() => import('./pages/trekker/BookingsPage.tsx'), 'BookingsPage') },
               { path: '/account/bookings/:id', lazy: page(() => import('./pages/trekker/BookingDetailPage.tsx'), 'BookingDetailPage') },
               { path: '/account/gear', lazy: page(() => import('./pages/trekker/GearPage.tsx'), 'GearPage') },
+              { path: '/account/questions/:id?', lazy: page(() => import('./pages/trekker/QuestionsPage.tsx'), 'QuestionsPage') },
             ],
           },
           { path: '/account/verify-email', lazy: page(() => import('./pages/VerifyEmailPage.tsx'), 'VerifyEmailPage', 'Verify email') },
@@ -91,6 +92,8 @@ export const router = createBrowserRouter([
           { path: SITE_LINKS.terms, element: <TermsPage /> },
           { path: SITE_LINKS.privacy, element: <PrivacyPage /> },
           { path: SITE_LINKS.cookies, element: <CookiesPage /> },
+          // Public: a visitor's question thread, opened from the signed link in our emails (docs/TRD.md §7.21.6).
+          { path: '/questions/:token', lazy: page(() => import('./pages/QuestionThreadPage.tsx'), 'QuestionThreadPage', 'Your question') },
           // Public: guest checkout needs no account (docs/TRD.md §7.6).
           { path: '/book/:departureId', lazy: page(() => import('./pages/trekker/BookPage.tsx'), 'BookPage', 'Book') },
           {
@@ -115,6 +118,7 @@ export const router = createBrowserRouter([
               { path: 'blog', lazy: page(() => import('./pages/admin/BlogAdminPage.tsx'), 'BlogAdminPage') },
               { path: 'insights', lazy: page(() => import('./pages/admin/InsightsPage.tsx'), 'InsightsPage') },
               { path: 'reviews', lazy: page(() => import('./pages/admin/ReviewsAdminPage.tsx'), 'ReviewsAdminPage') },
+              { path: 'questions/:id?', lazy: page(() => import('./pages/admin/QuestionsAdminPage.tsx'), 'QuestionsAdminPage') },
             ],
           },
           // The guide area shares the guide layout (name, then pill tabs); docs/TRD.md §7.21.
@@ -135,7 +139,7 @@ export const router = createBrowserRouter([
               { path: '/guide', element: <Navigate to="/guide/profile" replace /> },
               { path: '/guide/profile', lazy: page(() => import('./pages/guide/GuideProfileEditPage.tsx'), 'GuideProfileEditPage') },
               { path: '/guide/reviews', lazy: page(() => import('./pages/guide/GuideReviewsPage.tsx'), 'GuideReviewsPage') },
-              { path: '/guide/questions', lazy: page(() => import('./pages/guide/GuideQuestionsPage.tsx'), 'GuideQuestionsPage') },
+              { path: '/guide/questions/:id?', lazy: page(() => import('./pages/guide/GuideQuestionsPage.tsx'), 'GuideQuestionsPage') },
               { path: '/guide/availability', lazy: page(() => import('./pages/guide/GuideAvailabilityPage.tsx'), 'GuideAvailabilityPage') },
               { path: '/guide/reports', lazy: page(() => import('./pages/guide/GuideReportsPage.tsx'), 'GuideReportsPage') },
             ],

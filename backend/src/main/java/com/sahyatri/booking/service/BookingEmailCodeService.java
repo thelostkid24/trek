@@ -20,7 +20,8 @@ import java.util.Map;
 /**
  * Proves a booking's contact email at checkout (§7.6): a 6-digit code goes to the address and comes back with the
  * hold. A correct code stays good until it expires, so a hold that fails for other reasons (seats just went) can be
- * retried without a new one.
+ * retried without a new one. Questions to a guide prove a visitor's email the same way (§7.21.6); a code proves the
+ * address whichever wording it was sent with.
  */
 @Service
 public class BookingEmailCodeService {
@@ -40,18 +41,29 @@ public class BookingEmailCodeService {
         this.hmacKey = props.jwtSecret();
     }
 
+    /** What the code is for; only changes the email's wording. */
+    public enum Purpose { BOOKING, QUESTION }
+
     @Transactional
     public EmailCodeResponse send(String rawEmail) {
-        return send(rawEmail, "%s is your The Empty Valley booking code", """
+        return send(rawEmail, Purpose.BOOKING);
+    }
+
+    /** A code for checkout (§7.6) or a visitor's question to a guide (§7.21.6). */
+    @Transactional
+    public EmailCodeResponse send(String rawEmail, Purpose purpose) {
+        String what = purpose == Purpose.QUESTION ? "question" : "booking";
+        String action = purpose == Purpose.QUESTION ? "send your question to a guide" : "book your trek";
+        return sendCode(rawEmail, "%s is your The Empty Valley " + what + " code", """
                 Hi,
 
-                Enter this code to confirm your email and book your trek with The Empty Valley:
+                Enter this code to confirm your email and %s with The Empty Valley:
 
-                %s
+                %%s
 
                 It works for 10 minutes. If you didn't ask for it, you can ignore this email.
 
-                — The Empty Valley team""");
+                — The Empty Valley team""".formatted(action));
     }
 
     /**
@@ -60,7 +72,7 @@ public class BookingEmailCodeService {
      */
     @Transactional
     public EmailCodeResponse sendForReview(String rawEmail, String guideName) {
-        return send(rawEmail, "%s is your code to review " + guideName.replace("%", "%%"), """
+        return sendCode(rawEmail, "%s is your code to review " + guideName.replace("%", "%%"), """
                 Hi,
 
                 Enter this code to confirm your email and post your review of %s on The Empty Valley:
@@ -72,7 +84,7 @@ public class BookingEmailCodeService {
                 — The Empty Valley team""".formatted(guideName.replace("%", "%%")));
     }
 
-    private EmailCodeResponse send(String rawEmail, String subjectFormat, String bodyFormat) {
+    private EmailCodeResponse sendCode(String rawEmail, String subjectFormat, String bodyFormat) {
         String email = normalize(rawEmail);
         Instant now = Instant.now();
         codes.findFirstByEmailOrderByCreatedAtDesc(email).ifPresent(last -> {

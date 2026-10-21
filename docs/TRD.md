@@ -215,6 +215,10 @@ NULL everywhere = not captured (rows made before V11, or nothing sent). Tracking
 - **`review_reports`** — `id`, `review_id → reviews ON DELETE CASCADE`, `reporter_id → users`, `reason 1..500`, `created_at`, `resolved_at`. Partial unique `(review_id, reporter_id) WHERE resolved_at IS NULL`.
 - `otp_challenges.purpose` also allows `REVIEW`.
 
+### 6.23 Guide questions — `V29__guide_questions.sql`
+- **`question_threads`** — `id UUID PK`, `guide_id → users ON DELETE CASCADE`, `asker_id → users ON DELETE CASCADE NULL` (a signed-in trekker), `visitor_email TEXT NULL ≤ 254` (lowercased, proven by a code), exactly one of the two set; `asker_name TEXT 1..100` (the account name, or what the visitor typed; "Removed" after account deletion), `status TEXT OPEN | ANSWERED | CLOSED`, `created_at`, `last_message_at`, `first_reply_at NULL` (the guide's first message; ≥ `created_at`), `closed_at` (set exactly when CLOSED), `closed_by → users ON DELETE SET NULL`. Indexes `(guide_id, last_message_at DESC)`, `(asker_id, last_message_at DESC)`, `(visitor_email, created_at)`, `(last_message_at DESC)`.
+- **`question_messages`** — `id UUID PK`, `thread_id → question_threads ON DELETE CASCADE`, `author_role TEXT TREKKER | GUIDE | ADMIN` (TREKKER covers visitors), `author_id → users ON DELETE SET NULL NULL` (null for a visitor), `body TEXT 1..2000` (stored with email addresses and phone numbers already replaced), `created_at`. Index `(thread_id, created_at)`. Never edited.
+
 ## 7. Feature log
 Each feature appends: scope, endpoints, tables, screens, tests.
 
@@ -1327,7 +1331,32 @@ Sources: **BOOKING** ("Verified trek", §7.14) and **OWN_TREKKER** ("Group verif
 - Tests: `ReviewV2Tests` (bars and threshold, tags, own-trekker email and phone codes incl. wrong/expired/one-per-identity, exclusion from every headline rating, replies and ownership, reports, admin hide/unhide with audit, booker redirect).
 
 #### 7.21.6 Questions — `V29`
-_Not built yet._ "Ask <name> a question": signed-in trekkers or visitors with an email; the guide gets an email and answers in Guide → Questions; the answer reaches the trekker by email and in their account; admins can read threads. Reply time (median first reply, last 90 days) comes from here.
+**Status:** implemented. Tables in §6.23.
+
+| Method & path | Auth | Request | Success | Errors |
+|---|---|---|---|---|
+| `POST /api/public/questions/email-code` | — | `{ email }` | `202 { expires_in, resend_after }` (a 6-digit code; the §7.6 mechanism and limits, question wording) | `400`, `429 EMAIL_CODE_RATE_LIMITED` |
+| `POST /api/public/guides/{key}/questions` | — | `{ name 1..100, email, email_code, body 1..2000 }` | `201 { id }`; the guide is emailed, and the visitor gets a confirmation with their link | `400 VALIDATION_FAILED`, `400 EMAIL_CODE_INVALID`, `410 EMAIL_CODE_EXPIRED`, `429 EMAIL_CODE_TOO_MANY_ATTEMPTS`, `404 GUIDE_NOT_FOUND`, `429 QUESTION_RATE_LIMITED` |
+| `GET /api/public/guides/{key}/reply-time` | — | — | `200 { median_minutes \| null }` | `404 GUIDE_NOT_FOUND` |
+| `GET /api/public/questions/{token}` | — (signed link) | — | `200 QuestionThread` | `403 QUESTION_LINK_INVALID`, `410 QUESTION_LINK_EXPIRED`, `404 QUESTION_NOT_FOUND` |
+| `POST /api/public/questions/{token}/messages` | — (signed link) | `{ body 1..2000 }` | `200 QuestionThread`; the guide is emailed | as above, `409 QUESTION_CLOSED` |
+| `POST /api/trekker/guides/{key}/questions` | TREKKER | `{ body 1..2000 }` | `201 QuestionThread`; the guide is emailed | `400`, `404 GUIDE_NOT_FOUND`, `429 QUESTION_RATE_LIMITED` |
+| `GET /api/trekker/questions` · `GET /{id}` | TREKKER | — | `200 { items: QuestionThreadSummary[] }` · `200 QuestionThread` (their own only) | `404 QUESTION_NOT_FOUND` |
+| `POST /api/trekker/questions/{id}/messages` | TREKKER | `{ body }` | `200 QuestionThread`; the guide is emailed | `404`, `409 QUESTION_CLOSED` |
+| `GET /api/guide/questions` · `GET /{id}` | GUIDE | — | `200 { items }` (OPEN first, then newest activity) · `200 QuestionThread` (asked of them only) | `404 QUESTION_NOT_FOUND` |
+| `POST /api/guide/questions/{id}/messages` | GUIDE | `{ body }` | `200 QuestionThread`; the asker is emailed | `404`, `409 QUESTION_CLOSED` |
+| `GET /api/admin/questions?status=` · `GET /{id}` | ADMIN | optional `OPEN \| ANSWERED \| CLOSED` | `200 { items }` (latest 200) · `200 QuestionThread`, both with `asker_email` | `404` |
+| `POST /api/admin/questions/{id}/close` | ADMIN | `{ note? ≤ 2000 }` (body optional) | `200 QuestionThread`; a note is added as a message from "The Empty Valley"; audit `QUESTION_THREAD_CLOSED` | `404`, `409 QUESTION_CLOSED` |
+
+- `QuestionThreadSummary` = `{ id, status, guide_id, guide_name, guide_slug, asker_name, asker_email (admins only, else null), visitor, created_at, last_message_at, last_author_role, preview (≤ 140) }`. `QuestionThread` = `{ id, status, guide_id, guide_name, guide_slug, asker_name, asker_email, visitor, created_at, first_reply_at, closed_at, can_reply, messages: [{ id, author_role, author_name, body, created_at }] }`. OPEN waits on the guide, ANSWERED means the guide wrote last, and nobody can write once it's CLOSED.
+- Who may ask: a signed-in trekker (name from the account), or anyone else with a name and an email proven by the code. A code from checkout proves the email as well; a correct code stays good until it expires. `{key}` is the guide's id, slug or a slug they used before (`GuideSlugService.resolve`); it must be an active guide. Each asker (account or email) opens at most 5 threads a day; the IP rule allows 5 POSTs a minute on the public question routes.
+- Thread ownership is checked in `QuestionService`: a thread that isn't yours is a 404, never a 403, so ids can't be probed.
+- **No contact details:** email addresses and phone-like runs of 10+ digits in a message are replaced with "[contact removed]" before it's stored. Emails go from `MAIL_FROM` with no Reply-To, never name the other side's email or phone, and say that replies happen on the site. Guide alert → `/guide/questions/{id}`; reply to a trekker → `/account/questions/{id}`; to a visitor → `/questions/{token}`. A mail failure is logged after commit and never loses a message.
+- **Visitor links:** `token` = `<thread id>.<expiry epoch seconds>.<HMAC-SHA256 hex>`, keyed by `JWT_SECRET` under the `question-link:` prefix. Nothing is stored; every email carries a fresh link valid for 30 days. The signature is checked before the expiry (an edited expiry is invalid, not expired), and a link only opens a visitor's thread.
+- **Reply time** (law 8, worked out on every read): the median minutes from question to the guide's first reply over threads asked in the last 90 days. A thread still unanswered after 24 hours counts with the time it has waited so far, so ignored questions don't flatter it; one an admin closed without a reply doesn't count. `null` below 5 such threads.
+- Deleting a trekker account renames their threads' `asker_name` to "Removed"; the guide keeps the thread.
+- Frontend: `AskQuestionCard` ("Ask <first name> a question", "YOUR QUESTION", "Send through Empty Valley"; visitors give name and email, then the emailed code; hidden for the owner) and `ReplyTimeStat` ("~2 h" over "Reply time"; nothing when null) on the guide page. Guide → Questions (`/guide/questions/:id?`, `GuideQuestionsPage.tsx`), account → Questions (`/account/questions/:id?`, `pages/trekker/QuestionsPage.tsx`) and Admin → Questions (`/admin/questions/:id?`, `QuestionsAdminPage.tsx`, with Close) share `components/questions/QuestionInbox.tsx`; the visitor's link opens `/questions/:token` (`QuestionThreadPage.tsx`, noindex). Calls in `api/questions.ts`.
+- Tests: `GuideQuestionTests`.
 
 #### 7.21.7 Favourites and availability — `V30`
 _Not built yet._ A signed-in trekker saves a guide ("My Fav") to a private list in their account; no public count. A guide marks date ranges they're free; only admins see them, beside departures and planned dates (§7.20).
