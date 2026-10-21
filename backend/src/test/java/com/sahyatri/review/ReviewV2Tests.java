@@ -87,7 +87,8 @@ class ReviewV2Tests extends AuthTestSupport {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.average").value(4.5))
                 .andExpect(jsonPath("$.count").value(4))
-                .andExpect(jsonPath("$.categories[*].key").value(List.of("OVERALL")))
+                .andExpect(jsonPath("$.categories", hasSize(1)))
+                .andExpect(jsonPath("$.categories[0].key").value("OVERALL"))
                 .andExpect(jsonPath("$.mentioned_often[0].tag").value("FELT_SAFE"))
                 .andExpect(jsonPath("$.mentioned_often[0].count").value(2))
                 .andExpect(jsonPath("$.mentioned_often[*].tag", not(hasItem("GREAT_FOOD"))));
@@ -98,7 +99,9 @@ class ReviewV2Tests extends AuthTestSupport {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.tags[0]").value("KNEW_THE_ROUTE"));
         mockMvc.perform(get("/api/public/guides/" + s.slug() + "/reviews-summary"))
-                .andExpect(jsonPath("$.categories[*].key").value(List.of("OVERALL", "SAFETY")))
+                .andExpect(jsonPath("$.categories", hasSize(2)))
+                .andExpect(jsonPath("$.categories[0].key").value("OVERALL"))
+                .andExpect(jsonPath("$.categories[1].key").value("SAFETY"))
                 .andExpect(jsonPath("$.categories[1].average").value(4.6))
                 .andExpect(jsonPath("$.categories[1].answers").value(5));
 
@@ -211,7 +214,8 @@ class ReviewV2Tests extends AuthTestSupport {
                 .andExpect(jsonPath("$.counts.all").value(6))
                 .andExpect(jsonPath("$.counts.booking").value(1))
                 .andExpect(jsonPath("$.counts.own_trekker").value(5))
-                .andExpect(jsonPath("$.categories[*].key").value(List.of("OVERALL")))
+                .andExpect(jsonPath("$.categories", hasSize(1)))
+                .andExpect(jsonPath("$.categories[0].key").value("OVERALL"))
                 .andExpect(jsonPath("$.mentioned_often", hasSize(0)));
         mockMvc.perform(get("/api/public/guides/" + s.slug() + "/reviews?source=OWN_TREKKER&size=2"))
                 .andExpect(jsonPath("$.total").value(5))
