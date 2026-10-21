@@ -4,10 +4,13 @@ import { getReview, writeReview, type Booking } from '../../api/bookings.ts'
 import { ApiError } from '../../api/client.ts'
 import { fieldErrors, messageFor } from '../../auth/errorMessages.ts'
 import { useAuth } from '../../auth/useAuth.ts'
+import type { ReviewTag, SubRatings } from '../../api/reviews.ts'
 import { TextAreaField } from '../profile/fields.tsx'
+import { StarPicker, SubRatingFields, TagChips } from '../review/ReviewFields.tsx'
 
 /**
- * "How was it?" on a completed trek (docs/TRD.md §7.14): stars and a few words about the guide. It shows on the
+ * "How was it?" on a completed trek (docs/TRD.md §7.14, §7.21.5): stars, optional sub-ratings and tags, and a few
+ * words about the guide. It shows on the
  * guide's page with the trekker's first name; they can change it later.
  */
 export function ReviewSection({ booking: b }: { booking: Booking }) {
@@ -33,7 +36,7 @@ export function ReviewSection({ booking: b }: { booking: Booking }) {
         <ReviewForm
           key={review.data?.updated_at ?? 'new'}
           bookingId={b.id}
-          initial={review.data ? { rating: review.data.rating, body: review.data.body ?? '' } : null}
+          initial={review.data ?? null}
           queryKey={queryKey}
         />
       )}
@@ -47,15 +50,23 @@ function ReviewForm({
   queryKey,
 }: {
   bookingId: string
-  initial: { rating: number; body: string } | null
+  initial: (SubRatings & { rating: number; body: string | null; tags: ReviewTag[] }) | null
   queryKey: string[]
 }) {
   const { withAuth } = useAuth()
   const queryClient = useQueryClient()
   const [rating, setRating] = useState(initial?.rating ?? 0)
   const [body, setBody] = useState(initial?.body ?? '')
+  const [subs, setSubs] = useState<SubRatings>({
+    safety_rating: initial?.safety_rating ?? null,
+    route_rating: initial?.route_rating ?? null,
+    communication_rating: initial?.communication_rating ?? null,
+    care_rating: initial?.care_rating ?? null,
+  })
+  const [tags, setTags] = useState<ReviewTag[]>(initial?.tags ?? [])
   const save = useMutation({
-    mutationFn: () => withAuth((token) => writeReview(token, bookingId, { rating, body: body.trim() || null })),
+    mutationFn: () =>
+      withAuth((token) => writeReview(token, bookingId, { rating, body: body.trim() || null, tags, ...subs })),
     onSuccess: (data) => queryClient.setQueryData(queryKey, data),
   })
   const errors = fieldErrors(save.error)
@@ -66,21 +77,9 @@ function ReviewForm({
 
   return (
     <form onSubmit={submit} className="mt-3 space-y-3">
-      <div role="radiogroup" aria-label="Rating" className="flex gap-1">
-        {[1, 2, 3, 4, 5].map((n) => (
-          <button
-            key={n}
-            type="button"
-            role="radio"
-            aria-checked={rating === n}
-            aria-label={`${n} out of 5`}
-            onClick={() => setRating(n)}
-            className={`text-3xl leading-none ${n <= rating ? 'text-laterite-600' : 'text-paper-300 hover:text-laterite-400'}`}
-          >
-            ★
-          </button>
-        ))}
-      </div>
+      <StarPicker label="Rating" value={rating} onChange={setRating} />
+      <SubRatingFields value={subs} onChange={setSubs} />
+      <TagChips value={tags} onChange={setTags} />
       <TextAreaField label="A few words (optional)" name="review_body" maxLength={2000} rows={3} value={body}
         onChange={(e) => setBody(e.target.value)} error={errors.body}
         hint="Shown on your guide's page with your first name." />

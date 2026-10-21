@@ -1,5 +1,6 @@
 import { queryOptions } from '@tanstack/react-query'
 import { apiFetch } from './client'
+import type { PublicReview } from './reviews.ts'
 
 // Contract: docs/TRD.md §7.5 (public catalog).
 
@@ -193,14 +194,7 @@ export type TrekPage = {
   charity: { name: string; bps: number } | null
 }
 
-export type PublicReview = {
-  rating: number
-  body: string | null
-  author_name: string
-  trek_name: string
-  trek_start_date: string
-  created_at: string
-}
+export type { PublicReview } from './reviews.ts'
 
 export type GuideProfile = GuideCredentials & {
   id: string
