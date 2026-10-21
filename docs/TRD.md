@@ -209,6 +209,12 @@ NULL everywhere = not captured (rows made before V11, or nothing sent). Tracking
 - **`guide_certifications`** — `id UUID PK`, `guide_id → users ON DELETE CASCADE`, `type TEXT` (`BMC | AMC | SEARCH_RESCUE | MOI | WILDERNESS_FIRST_RESPONDER | FIRST_AID | POLICE_VERIFICATION | INSURANCE | OTHER`), `title TEXT NULL 1..120` (required for `OTHER`, CHECK), `issuer TEXT NULL 1..160`, `year INT NULL 1950..2100`, `valid_to DATE NULL`, `number TEXT NULL 1..60`, `document_key TEXT NULL` (private file `guide-certificates/<uuid>.pdf|.jpg`), `verified_at TIMESTAMPTZ NULL`, `verified_by → users ON DELETE SET NULL` (null when unverified, CHECK), `created_at`, `updated_at`. Index `(guide_id, created_at)`. At most 20 per guide (service). No tier column: tiers are worked out at read time (law 8).
 - V26 copies the §7.12 columns of `guide_profiles` into rows: a `BMC` row when `bmc_institute` or `bmc_certificate_number` is set, an `AMC` row likewise, an `OTHER` row (title = `certification`) when `certification` is set — all verified (`verified_at = now()`, `verified_by` null), since admins entered them. The old columns stay until a later migration drops them.
 
+### 6.22 Reviews v2 — `V28__review_upgrade.sql`
+- **`reviews`** gains `source TEXT NOT NULL DEFAULT 'BOOKING' IN ('BOOKING','OWN_TREKKER')`; `booking_id`, `user_id`, `departure_id`, `track_id` become nullable (`reviews_source_shape`: BOOKING has all four and no reviewer contact; OWN_TREKKER has no booking or departure and exactly one of `reviewer_email ≤ 254` (lowercased) / `reviewer_phone`). Partial unique indexes `(guide_id, reviewer_email)` and `(guide_id, reviewer_phone)`: one review per guide and identity. Also `trek_name 1..100` (OWN_TREKKER, as the reviewer typed it), optional sub-ratings `safety_rating`, `route_rating`, `communication_rating`, `care_rating` (1..5, NULL = not answered), the guide's one reply `reply_body 1..1000`, `reply_created_at`, `reply_updated_at` (all or none), and moderation `hidden_at` + `hidden_reason 1..500`, `reply_hidden_at` + `reply_hidden_reason 1..500` (each pair all or none).
+- **`review_tags`** — `(review_id → reviews ON DELETE CASCADE, tag)` PK; `tag IN ('FELT_SAFE','KNEW_THE_ROUTE','GOOD_PACE','GREAT_FOOD','KNEW_THE_VILLAGES','CALM_IN_BAD_WEATHER')`.
+- **`review_reports`** — `id`, `review_id → reviews ON DELETE CASCADE`, `reporter_id → users`, `reason 1..500`, `created_at`, `resolved_at`. Partial unique `(review_id, reporter_id) WHERE resolved_at IS NULL`.
+- `otp_challenges.purpose` also allows `REVIEW`.
+
 ## 7. Feature log
 Each feature appends: scope, endpoints, tables, screens, tests.
 
@@ -1018,6 +1024,7 @@ Gear rental and its payment, add-ons after booking (they're chosen at checkout, 
 | `GET /api/public/guides/{id}/reviews` | — | — | `200 { items: [{ rating, body, author_name, trek_name, trek_start_date, created_at }] }`, newest first (≤ 20) | — |
 
 - Frontend: "How was it with <guide>?" on a completed booking (`components/booking/ReviewSection.tsx`); reviews on the guide page; rating on the trek page's guide intro. No moderation yet.
+- **Reviews v2 (§7.21.5, V28):** the PUT also takes optional `safety_rating`, `route_rating`, `communication_rating`, `care_rating` (1..5) and `tags` (≤ 6 codes); the response returns them. `GET /api/public/guides/{key}/reviews` takes a key, `source`, `page`, `size` and adds paging. Every rating and review count (guide page, guides list, trek and departure pages, Insights) now counts only visible BOOKING reviews.
 - The local dev mock (`src/devMock.ts`, gitignored) seeds sample reviews, the Kedarkantha page and a snow report history.
 - Tests: `ReviewTests`.
 
@@ -1292,7 +1299,32 @@ Guides add up to 20 photos and short videos to their profile (table in §6.21). 
 - Tests: `GuideMediaTests`.
 
 #### 7.21.5 Reviews — `V28`
-_Not built yet._ Overall stars plus four optional 1–5 sub-ratings (Safety & decisions, Route knowledge, Communication, Care at altitude; a bar hides under five answers), a fixed tag list ("Mentioned often"), filters (All / Verified trek / Group verified), one public reply per review from the guide, "Report" to admin, admin hide with a stored reason. "Ask for review": a link `/r/{slug}` with WhatsApp text and a QR code; the guide picks an Empty Valley trek or "My own trekkers". Off-platform reviewers confirm by email or phone code, are badged "Group verified" and don't count in the headline rating or count.
+**Status:** backend and frontend implemented. Tables in §6.22.
+
+Sources: **BOOKING** ("Verified trek", §7.14) and **OWN_TREKKER** ("Group verified": someone who trekked with the guide off-platform and proved an email or phone with a one-time code). Group-verified reviews show on the profile under their own filter but never feed the headline rating or count, the category bars or "Mentioned often" — anywhere. Hidden reviews count nowhere. Everything goes live at once; admins can hide.
+
+| Method & path | Auth | Request | Success | Errors |
+|---|---|---|---|---|
+| `GET /api/public/guides/{key}/reviews-summary` | — | — | `200 { average, count, counts: { all, booking, own_trekker }, categories: [{ key: OVERALL\|SAFETY\|ROUTE\|COMMUNICATION\|CARE, average, answers }], mentioned_often: [{ tag, count }] }` | `404 GUIDE_NOT_FOUND` |
+| `GET /api/public/guides/{key}/reviews?source=&page=0&size=20` | — | `source` BOOKING / OWN_TREKKER / absent = all; `size` ≤ 50 | `200 { items: [PublicReview], total, page, size }`, newest first, visible only | `404` |
+| `POST /api/public/guides/{key}/reviews/code` | — | `{ channel: EMAIL\|PHONE, email?, phone? }` | `202 { expires_in, resend_after }` | `400 VALIDATION_FAILED`, `404`, `429 EMAIL_CODE_RATE_LIMITED` / `OTP_RATE_LIMITED` |
+| `POST /api/public/guides/{key}/reviews` | — | `{ rating 1..5, safety_rating?, route_rating?, communication_rating?, care_rating?, tags? ≤ 6, body? ≤ 2000, name 1..60, trek_name? ≤ 100, email? \| phone? (exactly one), code (6 digits) }` | `200 { review: PublicReview, created }` (same email/phone again rewrites it) | `400 VALIDATION_FAILED`, `400 EMAIL_CODE_INVALID` / `OTP_INVALID`, `410 EMAIL_CODE_EXPIRED` / `OTP_EXPIRED`, `429 …TOO_MANY_ATTEMPTS`, `404` |
+| `GET /api/trekker/guides/{key}/review-booking` | TREKKER | — | `200 { booking_id, reviewed }`: latest confirmed booking on a completed departure this guide led | `404 NO_REVIEWABLE_BOOKING` |
+| `GET /api/guide/reviews` | GUIDE | — | `200 { slug, full_name, average, count, own_trekker_count, replied_this_week, departures: [{ departure_id, trek_name, start_date }], items: [{ review: PublicReview (hidden reply included), hidden_reason, reply_hidden_reason, reported }] }` (≤ 200, newest first, hidden too) | `403` |
+| `PUT /api/guide/reviews/{id}/reply` | GUIDE (the review's guide) | `{ body 1..1000 }` | `200` item as above | `400`, `404 REVIEW_NOT_FOUND` |
+| `DELETE /api/guide/reviews/{id}/reply` | GUIDE (owner) | — | `204` (also clears an admin's reply hide) | `404` |
+| `POST /api/guide/reviews/{id}/report` | GUIDE (owner) | `{ reason 1..500 }` | `204` (reporting again while open updates the reason) | `400`, `404` |
+| `GET /api/admin/reviews?view=RECENT\|REPORTED\|HIDDEN` | ADMIN | — | `200 { items: [{ review, guide_id, guide_name, guide_slug, reviewer_contact, hidden_at, hidden_reason, reply_hidden_at, reply_hidden_reason, reports: [{ reason, reporter_name, created_at }] }] }` (≤ 100) | `403` |
+| `PUT /api/admin/reviews/{id}/hidden`, `/reply/hidden` | ADMIN | `{ reason 1..500 }` | `200` admin item | `400`, `404 REVIEW_NOT_FOUND`, `404 REPLY_NOT_FOUND` |
+| `DELETE /api/admin/reviews/{id}/hidden`, `/reply/hidden` | ADMIN | — | `200` admin item | `404` |
+| `POST /api/admin/reviews/{id}/reports/dismiss` | ADMIN | — | `200` admin item | `404` |
+
+- `PublicReview` = `{ id, source, rating, safety_rating, route_rating, communication_rating, care_rating, tags, body, author_name (first name), trek_name, trek_start_date (BOOKING only), created_at, reply: { body, created_at, updated_at } | null }`. The GuideProfile's `reviews` list uses it too.
+- Bars: OVERALL whenever there is a verified review; each sub-rating only with ≥ 5 answers, averaging those who answered. "Mentioned often": tags picked ≥ 2 times, top 6.
+- Codes: email reuses the checkout codes (§7.6, `booking_email_codes`, same limits; a correct code stays good until it expires, and proves the address for either form); phone reuses OTP challenges (§7.2) with purpose `REVIEW` (spent once). Phone is offered only with `VITE_PHONE_OTP`. Rate limits per IP: code 5/min, post 10/min.
+- Hide, unhide, reply hide/unhide and dismiss are audit-logged (`REVIEW_HIDDEN`, `REVIEW_UNHIDDEN`, `REVIEW_REPLY_HIDDEN`, `REVIEW_REPLY_UNHIDDEN`, `REVIEW_REPORTS_DISMISSED`; `entity_type REVIEW`) and close the review's open reports. Guides never delete or hide reviews.
+- Frontend: `components/guide/sections/ReviewsSection.tsx` (rating, bars, "Mentioned often", All / Verified trek / Group verified pills, cards with initials, badge and "<first> replied: …", "Show more", owner can reply/edit inline, "Trekked with <first>?" → "Write a review"); `AskForReviewButton.tsx` (owner bar → `/guide/reviews`); `/r/:slug` (`pages/ReviewLinkPage.tsx`: "How was your trek?", stars, optional sub-ratings, tag chips, words, name, optional trek (`?trek=` prefills), email or phone + code; a signed-in trekker with a completed booking with this guide is sent to that booking's review); Guide → Reviews (`pages/guide/GuideReviewsPage.tsx`: stats, "Who did you trek with?", "Which trek?", editable message, WhatsApp share, copy link, QR code drawn client-side with `qrcode-generator`, reviews with reply and Report); admin **Reviews** tab (`/admin/reviews`, `pages/admin/ReviewsAdminPage.tsx`). Shared pieces in `components/review/`; the booking review form gains the sub-ratings and tags.
+- Tests: `ReviewV2Tests` (bars and threshold, tags, own-trekker email and phone codes incl. wrong/expired/one-per-identity, exclusion from every headline rating, replies and ownership, reports, admin hide/unhide with audit, booker redirect).
 
 #### 7.21.6 Questions — `V29`
 _Not built yet._ "Ask <name> a question": signed-in trekkers or visitors with an email; the guide gets an email and answers in Guide → Questions; the answer reaches the trekker by email and in their account; admins can read threads. Reply time (median first reply, last 90 days) comes from here.

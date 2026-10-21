@@ -197,14 +197,16 @@ export function ReviewList({ reviews }: { reviews: PublicReview[] }) {
   return (
     <ul className="mt-3 grid gap-3 sm:grid-cols-2">
       {reviews.map((r, i) => (
-        <li key={i} className="rounded-xl bg-white p-4 ring-1 ring-paper-300">
+        <li key={r.id ?? i} className="rounded-xl bg-white p-4 ring-1 ring-paper-300">
           <p className="tracking-wider text-laterite-600" aria-label={`${r.rating} out of 5`}>
             {'★'.repeat(r.rating)}
             <span className="text-paper-300">{'★'.repeat(5 - r.rating)}</span>
           </p>
           {r.body && <p className="mt-2 text-stone-700">{r.body}</p>}
           <p className="mt-3 text-xs text-stone-500">
-            {r.author_name} · {r.trek_name}, {parseDate(r.trek_start_date).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}
+            {[r.author_name, r.trek_name, r.trek_start_date && parseDate(r.trek_start_date).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })]
+              .filter(Boolean)
+              .join(' · ')}
           </p>
         </li>
       ))}

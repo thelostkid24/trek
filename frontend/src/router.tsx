@@ -80,6 +80,7 @@ export const router = createBrowserRouter([
           { path: '/departures/:id', element: <DepartureDetailPage /> },
           { path: '/guides', element: <GuidesPage /> },
           { path: '/guides/:id', element: <GuidePage /> },
+          { path: '/r/:slug', lazy: page(() => import('./pages/ReviewLinkPage.tsx'), 'ReviewLinkPage') },
           { path: '/blog', lazy: page(() => import('./pages/BlogPages.tsx'), 'BlogPage') },
           { path: '/blog/:slug', lazy: page(() => import('./pages/BlogPages.tsx'), 'BlogSlugPage') },
           { path: '/blog/:category/:sub', lazy: page(() => import('./pages/BlogPages.tsx'), 'BlogSubCategoryPage') },
@@ -113,6 +114,7 @@ export const router = createBrowserRouter([
               { path: 'guides', lazy: page(() => import('./pages/admin/GuidesAdminPage.tsx'), 'GuidesAdminPage') },
               { path: 'blog', lazy: page(() => import('./pages/admin/BlogAdminPage.tsx'), 'BlogAdminPage') },
               { path: 'insights', lazy: page(() => import('./pages/admin/InsightsPage.tsx'), 'InsightsPage') },
+              { path: 'reviews', lazy: page(() => import('./pages/admin/ReviewsAdminPage.tsx'), 'ReviewsAdminPage') },
             ],
           },
           // The guide area shares the guide layout (name, then pill tabs); docs/TRD.md §7.21.
