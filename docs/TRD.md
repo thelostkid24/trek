@@ -202,6 +202,10 @@ NULL everywhere = not captured (rows made before V11, or nothing sent). Tracking
 - **`guide_milestones`** — `id UUID PK`, `guide_id → users ON DELETE CASCADE`, `year INT 1950..2100`, `text TEXT 1..140`, `position INT ≥ 0`, `created_at`. Index `(guide_id, position)`. At most 30 per guide (service).
 - V26–V30 are reserved for §7.21.3–§7.21.7: V26 certifications, V27 media, V28 reviews, V29 questions, V30 favourites and availability.
 
+### 6.20 Guide certifications — `V26__guide_certifications.sql`
+- **`guide_certifications`** — `id UUID PK`, `guide_id → users ON DELETE CASCADE`, `type TEXT` (`BMC | AMC | SEARCH_RESCUE | MOI | WILDERNESS_FIRST_RESPONDER | FIRST_AID | POLICE_VERIFICATION | INSURANCE | OTHER`), `title TEXT NULL 1..120` (required for `OTHER`, CHECK), `issuer TEXT NULL 1..160`, `year INT NULL 1950..2100`, `valid_to DATE NULL`, `number TEXT NULL 1..60`, `document_key TEXT NULL` (private file `guide-certificates/<uuid>.pdf|.jpg`), `verified_at TIMESTAMPTZ NULL`, `verified_by → users ON DELETE SET NULL` (null when unverified, CHECK), `created_at`, `updated_at`. Index `(guide_id, created_at)`. At most 20 per guide (service). No tier column: tiers are worked out at read time (law 8).
+- V26 copies the §7.12 columns of `guide_profiles` into rows: a `BMC` row when `bmc_institute` or `bmc_certificate_number` is set, an `AMC` row likewise, an `OTHER` row (title = `certification`) when `certification` is set — all verified (`verified_at = now()`, `verified_by` null), since admins entered them. The old columns stay until a later migration drops them.
+
 ## 7. Feature log
 Each feature appends: scope, endpoints, tables, screens, tests.
 
@@ -1236,7 +1240,29 @@ Each part of the public page is its own component in `components/guide/sections/
 - Tests: `GuidePageTests` (highest pass from prior treks, return rate at 10 trekkers and hidden at 9, route altitude and season; the card by slug, id and upper-case slug, with initials and a photo, its size and cache header, 404).
 
 #### 7.21.3 Certifications and tiers — `V26`
-_Not built yet._ `guide_certifications`: type (BMC, AMC, Search & Rescue, MOI, Wilderness First Responder/Aid, Police verification, Insurance, Other), issuer, year or valid-to, number, a private document (PDF/JPG ≤ 5 MB, admins only), verified by an admin (audit-logged; editing resets it), "Expired" past valid-to. The BMC/AMC/other columns of §7.12 move in and are dropped later. Tiers at read time from config (Empty Valley treks and reviews only): Trail Guide (verified BMC + 5 treks), Senior Guide (25 treks, ≥ 4.5 from ≥ 10 reviews), Summit Guide (verified AMC, 75 treks, ≥ 4.7 from ≥ 25 reviews).
+**Status:** backend and frontend implemented. Table `guide_certifications` in §6.20.
+
+| Method & path | Auth | Request | Success | Errors |
+|---|---|---|---|---|
+| `GET /api/guide/certifications` | GUIDE | — | `200 { items: Certification[] }` (BMC, AMC, … then OTHER; oldest first within a type) | `401`, `403 FORBIDDEN` |
+| `POST /api/guide/certifications` | GUIDE | `{ type (required), title ≤ 120 (required for OTHER), issuer ≤ 160, year (1950..this year), valid_to, number ≤ 60 }`, blank clears | `201 Certification` (`PENDING`) | `400 VALIDATION_FAILED`, `409 TOO_MANY_CERTIFICATIONS` (20) |
+| `PUT /api/guide/certifications/{id}` | GUIDE (owner) | as POST | `200 Certification`; any changed field drops verification | `400`, `404 CERTIFICATION_NOT_FOUND` (incl. another guide's) |
+| `DELETE /api/guide/certifications/{id}` | GUIDE (owner) | — | `204` (document deleted too) | `404 CERTIFICATION_NOT_FOUND` |
+| `PUT /api/guide/certifications/{id}/document` | GUIDE (owner) | multipart `file` (PDF, JPEG or PNG ≤ 5 MB; photos re-encoded to JPEG) | `200 Certification`; drops verification | `400 UNSUPPORTED_DOCUMENT`, `404`, `413 FILE_TOO_LARGE` |
+| `GET /api/guide/certifications/{id}/document` | GUIDE (owner) | — | `200` the file (`attachment`, `no-store`, `nosniff`) | `404 CERTIFICATION_NOT_FOUND`, `404 DOCUMENT_NOT_FOUND` |
+| `GET /api/admin/guides/{id}/certifications` | ADMIN | — | `200 { items: Certification[] }` with `document_url` pointing at the admin download | `404 GUIDE_NOT_FOUND` |
+| `POST /api/admin/guides/{id}/certifications/{certId}/verify`, `/unverify` | ADMIN | optional `{ note ≤ 500 }` | `200 Certification`; audit `CERTIFICATION_VERIFIED` / `CERTIFICATION_UNVERIFIED` (`GUIDE_CERTIFICATION`, data `guide_id`, `type`, `note`) | `404 GUIDE_NOT_FOUND`, `404 CERTIFICATION_NOT_FOUND` |
+| `GET /api/admin/guides/{id}/certifications/{certId}/document` | ADMIN | — | `200` the file | `404` |
+| `GET /api/public/guides/{key}/credentials` | — | `{key}`: id, slug or old slug | `200 { tier, verified, items: PublicCertification[] }` | `404 GUIDE_NOT_FOUND` |
+
+- `Certification` = `{ id, type, title, issuer, year, valid_to, number, status, document_url, verified_at, created_at, updated_at }`; `document_url` is an API path needing the caller's token, or null. `status`: `EXPIRED` when `valid_to` < today (IST), verified or not; else `VERIFIED` or `PENDING`.
+- `PublicCertification` = `{ id, type, title, issuer, year, valid_to, number, status }` — verified rows only (expired ones too, shown "Expired"); `number` only for BMC and AMC; never documents or pending rows. `verified`: any verified, unexpired certificate.
+- Documents are private: no public file route serves `guide-certificates/`; only the owning guide and admins download them.
+- **Tiers** (`GuideTierService`), worked out on every read (law 8) from `app.guide-tiers` (`GuideTierProperties`): Trail Guide = verified unexpired BMC + ≥ 5 treks; Senior Guide = ≥ 25 treks and rating ≥ 4.5 from ≥ 10 reviews; Summit Guide = verified unexpired AMC + ≥ 75 treks + rating ≥ 4.7 from ≥ 25 reviews. Treks are `COMPLETED` departures with us (not treks led before Sahyātri); the rating is the §7.14 average rounded to one decimal, as shown. The highest tier met wins; `tier` is null otherwise.
+- Frontend: `api/certifications.ts`. `components/guide/sections/TierBadge.tsx` shows the tier chip (mountain icon) and "Certifications verified by Empty Valley" (shield). `CertificationsSection.tsx` ("Certifications and safety", "Checked against original documents"): one row per certificate — shield, title, issuer, year or "valid to Mon YYYY" and BMC/AMC number in mono, a Verified / Expired / Pending pill. Visitors see verified rows only (the section hides with none); the owner sees all theirs, "+ Upload certificate" and Edit open a form in place (type, name, issuer, year, valid to, number, document; Remove). Admin → Guides → "Certificates" on each guide lists them with Document (opens the file) and Verify / Unverify plus an optional audit note.
+- The §7.12 course columns, the admin "Credentials" form, `GuideCard` and the departure page's "Certified" chip still read the old columns; edits there no longer reach this section. They go when the columns are dropped.
+- The WAF's `xss-body-except-uploads` rule must also exempt `/api/guide/certifications/*/document` (DEPLOY.md §10).
+- Tests: `GuideCertificationTests`.
 
 #### 7.21.4 Photos and videos — `V27`
 _Not built yet._ Guides upload photos (like trek photos) and videos (MP4/MOV H.264 ≤ 90 s, ≤ 100 MB) straight to S3 by presigned URL, reorder and remove them; the page shows a carousel. No transcoding.
