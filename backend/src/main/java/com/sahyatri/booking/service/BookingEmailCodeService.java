@@ -42,6 +42,37 @@ public class BookingEmailCodeService {
 
     @Transactional
     public EmailCodeResponse send(String rawEmail) {
+        return send(rawEmail, "%s is your The Empty Valley booking code", """
+                Hi,
+
+                Enter this code to confirm your email and book your trek with The Empty Valley:
+
+                %s
+
+                It works for 10 minutes. If you didn't ask for it, you can ignore this email.
+
+                — The Empty Valley team""");
+    }
+
+    /**
+     * The same code, proving the email of someone reviewing a guide they trekked with off-platform (§7.21.5). Shares
+     * the limits above; a code proves the address whichever form asked for it.
+     */
+    @Transactional
+    public EmailCodeResponse sendForReview(String rawEmail, String guideName) {
+        return send(rawEmail, "%s is your code to review " + guideName.replace("%", "%%"), """
+                Hi,
+
+                Enter this code to confirm your email and post your review of %s on The Empty Valley:
+
+                %%s
+
+                It works for 10 minutes. If you didn't ask for it, you can ignore this email.
+
+                — The Empty Valley team""".formatted(guideName.replace("%", "%%")));
+    }
+
+    private EmailCodeResponse send(String rawEmail, String subjectFormat, String bodyFormat) {
         String email = normalize(rawEmail);
         Instant now = Instant.now();
         codes.findFirstByEmailOrderByCreatedAtDesc(email).ifPresent(last -> {
@@ -59,16 +90,7 @@ public class BookingEmailCodeService {
 
         String code = HashingUtils.randomDigits(6);
         codes.save(new BookingEmailCode(email, hash(email, code), now.plus(TTL)));
-        mail.send(email, code + " is your The Empty Valley booking code", """
-                Hi,
-
-                Enter this code to confirm your email and book your trek with The Empty Valley:
-
-                %s
-
-                It works for 10 minutes. If you didn't ask for it, you can ignore this email.
-
-                — The Empty Valley team""".formatted(code));
+        mail.send(email, subjectFormat.formatted(code), bodyFormat.formatted(code));
         return new EmailCodeResponse(TTL.toSeconds(), RESEND_AFTER.toSeconds());
     }
 
