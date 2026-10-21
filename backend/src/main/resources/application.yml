@@ -67,6 +67,18 @@ app:
     guide-share-bps: ${GUIDE_SHARE_BPS:7000}
     booking-cutoff-days: 1
     zone: Asia/Kolkata
+  guide-tiers:
+    # Worked out on every read (law 8). Treks: departures completed with us; ratings: §7.14 reviews.
+    trail:
+      min-treks: 5
+    senior:
+      min-treks: 25
+      min-rating: 4.5
+      min-reviews: 10
+    summit:
+      min-treks: 75
+      min-rating: 4.7
+      min-reviews: 25
   charity:
     # Share of every booking given to charity. Comes out of the price; trekkers never pay extra. Blank name hides it.
     name: ${CHARITY_NAME:}

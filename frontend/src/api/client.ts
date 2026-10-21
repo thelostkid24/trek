@@ -57,3 +57,18 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
 export type Health = { status: string; database: string; server_time: string }
 
 export const getHealth = () => apiFetch<Health>('/api/public/health')
+
+/** A private file (e.g. a certificate document) fetched with the token, for saving or opening as a blob URL. */
+export async function apiFetchBlob(path: string, token: string): Promise<Blob> {
+  let response: Response
+  try {
+    response = await fetch(`${BASE_URL}${path}`, { headers: { Authorization: `Bearer ${token}` } })
+  } catch {
+    throw new ApiError(0, 'NETWORK_ERROR', 'Could not reach the server')
+  }
+  if (!response.ok) {
+    const data = await response.json().catch(() => null)
+    throw new ApiError(response.status, data?.code ?? 'UNKNOWN_ERROR', data?.message ?? response.statusText, data?.details ?? {})
+  }
+  return response.blob()
+}

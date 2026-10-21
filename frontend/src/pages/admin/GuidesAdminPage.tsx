@@ -21,6 +21,7 @@ import { AVATAR_TYPES } from '../../api/account.ts'
 import { fieldErrors } from '../../auth/errorMessages.ts'
 import { useAuth } from '../../auth/useAuth.ts'
 import { ErrorNote, Loading, Panel, Button } from '../../components/admin/AdminUi.tsx'
+import { GuideCertificatesPanel } from '../../components/admin/GuideCertificatesPanel.tsx'
 import { TextField } from '../../components/auth/TextField.tsx'
 import { Avatar } from '../../components/Avatar.tsx'
 import { SelectField, TextAreaField } from '../../components/profile/fields.tsx'
@@ -32,7 +33,7 @@ export function GuidesAdminPage() {
   const guides = useQuery({ queryKey: ['admin-guides'], queryFn: () => withAuth(listGuides) })
   const [email, setEmail] = useState('')
   /** Which guide's panel is open, and which: their profile or their credentials. */
-  const [open, setOpen] = useState<{ id: string; panel: 'profile' | 'credentials' } | null>(null)
+  const [open, setOpen] = useState<{ id: string; panel: 'profile' | 'credentials' | 'certificates' } | null>(null)
   const promote = useMutation({
     mutationFn: (value: string) => withAuth((token) => promoteGuide(token, value)),
     onSuccess: () => {
@@ -90,17 +91,18 @@ export function GuidesAdminPage() {
                     <p className="truncate font-medium">{g.full_name ?? 'No name yet'}</p>
                     <p className="truncate text-sm text-stone-500">{[g.email, g.phone].filter(Boolean).join(' · ')}</p>
                   </div>
-                  {(['profile', 'credentials'] as const).map((panel) => {
+                  {(['profile', 'credentials', 'certificates'] as const).map((panel) => {
                     const on = open?.id === g.id && open.panel === panel
                     return (
                       <Button key={panel} tone="secondary" onClick={() => setOpen(on ? null : { id: g.id, panel })}>
-                        {on ? 'Close' : panel === 'profile' ? 'Profile' : 'Credentials'}
+                        {on ? 'Close' : panel === 'profile' ? 'Profile' : panel === 'credentials' ? 'Credentials' : 'Certificates'}
                       </Button>
                     )
                   })}
                 </div>
                 {open?.id === g.id && open.panel === 'profile' && <ProfileForm guideId={g.id} onDone={() => setOpen(null)} />}
                 {open?.id === g.id && open.panel === 'credentials' && <DetailsForm guideId={g.id} onDone={() => setOpen(null)} />}
+                {open?.id === g.id && open.panel === 'certificates' && <GuideCertificatesPanel guideId={g.id} />}
               </li>
             ))}
           </ul>
