@@ -20,7 +20,8 @@ import java.util.Map;
 /**
  * Proves a booking's contact email at checkout (§7.6): a 6-digit code goes to the address and comes back with the
  * hold. A correct code stays good until it expires, so a hold that fails for other reasons (seats just went) can be
- * retried without a new one.
+ * retried without a new one. Questions to a guide prove a visitor's email the same way (§7.21.6); a code proves the
+ * address whichever wording it was sent with.
  */
 @Service
 public class BookingEmailCodeService {
@@ -40,8 +41,16 @@ public class BookingEmailCodeService {
         this.hmacKey = props.jwtSecret();
     }
 
+    /** What the code is for; only changes the email's wording. */
+    public enum Purpose { BOOKING, QUESTION }
+
     @Transactional
     public EmailCodeResponse send(String rawEmail) {
+        return send(rawEmail, Purpose.BOOKING);
+    }
+
+    @Transactional
+    public EmailCodeResponse send(String rawEmail, Purpose purpose) {
         String email = normalize(rawEmail);
         Instant now = Instant.now();
         codes.findFirstByEmailOrderByCreatedAtDesc(email).ifPresent(last -> {
@@ -59,16 +68,19 @@ public class BookingEmailCodeService {
 
         String code = HashingUtils.randomDigits(6);
         codes.save(new BookingEmailCode(email, hash(email, code), now.plus(TTL)));
-        mail.send(email, code + " is your The Empty Valley booking code", """
+        String what = purpose == Purpose.QUESTION ? "question" : "booking";
+        String action = purpose == Purpose.QUESTION
+                ? "send your question to a guide" : "book your trek";
+        mail.send(email, code + " is your The Empty Valley " + what + " code", """
                 Hi,
 
-                Enter this code to confirm your email and book your trek with The Empty Valley:
+                Enter this code to confirm your email and %s with The Empty Valley:
 
                 %s
 
                 It works for 10 minutes. If you didn't ask for it, you can ignore this email.
 
-                — The Empty Valley team""".formatted(code));
+                — The Empty Valley team""".formatted(action, code));
         return new EmailCodeResponse(TTL.toSeconds(), RESEND_AFTER.toSeconds());
     }
 
