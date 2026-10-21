@@ -1,5 +1,5 @@
 import { queryOptions } from '@tanstack/react-query'
-import { apiFetch } from './client'
+import { API_BASE_URL, apiFetch } from './client'
 
 // Contract: docs/TRD.md §7.5 (public catalog).
 
@@ -215,13 +215,17 @@ export type GuideProfile = GuideCredentials & {
   treks_led: number
   rating: number | null
   review_count: number
+  /** Highest top (metres) among the treks they've led, with us or before; null when unknown (§7.21.2). */
+  highest_altitude_m: number | null
+  /** % of trekkers from their completed departures who booked with them again; null under 10 trekkers. */
+  return_rate_pct: number | null
   reviews: PublicReview[]
   /** Picked by the guide, in their order. */
   specialties: string[]
   /** "Career in the mountains", oldest first. */
   milestones: { year: number; text: string }[]
-  /** Most led first; `note` is the guide's line about the route. */
-  treks: { track: TrackBrief; times: number; note: string | null }[]
+  /** Most led first; `note` is the guide's line about the route; altitude and season are the trek's. */
+  treks: { track: TrackBrief; times: number; max_altitude_m: number | null; season_label: string | null; note: string | null }[]
   upcoming: DepartureSummary[]
 }
 
@@ -278,6 +282,10 @@ export const listGuides = () => apiFetch<Items<GuideListItem>>('/api/public/guid
 
 /** A guide's public page: /guides/{slug}, or /guides/{id} for one without a slug yet. */
 export const guidePath = (g: { id: string; slug?: string | null }) => `/guides/${g.slug ?? g.id}`
+
+/** The guide page's link-preview image, drawn by the backend (§7.21.2). Absolute, on the API's host. */
+export const guideCardUrl = (g: { id: string; slug?: string | null }) =>
+  `${API_BASE_URL}/api/public/guides/${encodeURIComponent(g.slug ?? g.id)}/card.png`
 
 /** `key`: the guide's slug, a slug they used before, or their id. */
 export const getGuide = (key: string) => apiFetch<GuideProfile>(`/api/public/guides/${encodeURIComponent(key)}`)

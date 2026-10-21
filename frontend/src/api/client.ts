@@ -1,4 +1,6 @@
-const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8081'
+/** The API's origin; images it draws (a guide's link preview) are linked from here. */
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8081'
+const BASE_URL = API_BASE_URL
 
 /** Mirrors the backend error body: {code, message, details}. */
 export class ApiError extends Error {

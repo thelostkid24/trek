@@ -52,6 +52,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
@@ -215,20 +216,28 @@ public class CatalogService {
                 .stream().collect(Collectors.toMap(Track::getId, Function.identity()));
         GuidePageExtras extras = ownProfiles.pageExtras(id);
         List<GuideProfile.TrekLed> treks = ledByTrack.entrySet().stream()
-                .map(e -> new GuideProfile.TrekLed(TrackBrief.of(ledTracks.get(e.getKey())), e.getValue(),
-                        extras.routeNotes().get(e.getKey())))
+                .map(e -> {
+                    Track t = ledTracks.get(e.getKey());
+                    return new GuideProfile.TrekLed(TrackBrief.of(t), e.getValue(), t.getMaxAltitudeM(),
+                            t.getSeasonLabel(), extras.routeNotes().get(e.getKey()));
+                })
                 .sorted(Comparator.comparingLong(GuideProfile.TrekLed::times).reversed())
                 .toList();
         List<DepartureSummary> upcoming = departures.findListedForGuide(id, DepartureStatus.PUBLISHED, today())
                 .stream().map(this::toSummary).toList();
         RatingSummary rating = reviews.ratings(Set.of(id)).getOrDefault(id, RatingSummary.NONE);
+        Integer highest = ledTracks.values().stream().map(Track::getMaxAltitudeM).filter(Objects::nonNull)
+                .max(Integer::compare).orElse(null);
+        DepartureRepository.ReturnCount back = departures.countReturning(id);
+        Integer returnRate = back.getTrekkers() < GuideProfile.RETURN_RATE_MIN_TREKKERS ? null
+                : (int) Math.round(100.0 * back.getReturned() / back.getTrekkers());
 
         return new GuideProfile(guide.getId(), details.slug(), guide.getFullName(), avatars.url(guide.getAvatarKey()),
                 extras.coverUrl(), profile == null ? null : profile.getHomeCity(), profile == null ? null : profile.getBio(),
                 treks.stream().mapToLong(GuideProfile.TrekLed::times).sum(), details.yearsLeading(),
                 details.languages(), details.certification(), details.certificationNumber(), details.bmcInstitute(),
                 details.bmcCertificateNumber(), details.amcInstitute(), details.amcCertificateNumber(), details.quote(),
-                rating.average(), rating.count(), reviews.forGuide(id), extras.specialties(), extras.milestones(), treks,
+                rating.average(), rating.count(), highest, returnRate, reviews.forGuide(id), extras.specialties(), extras.milestones(), treks,
                 upcoming);
     }
 
