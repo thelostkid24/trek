@@ -215,6 +215,8 @@ export const updateGuideDetails = (token: string, guideId: string, body: GuideDe
 
 export type GuideProfile = {
   guide_id: string
+  /** The public profile is /guides/{slug} (docs/TRD.md §7.21). */
+  slug: string
   full_name: string | null
   avatar_url: string | null
   home_city: string | null
@@ -237,6 +239,23 @@ export function uploadGuidePhoto(token: string, guideId: string, file: Blob) {
 
 export const removeGuidePhoto = (token: string, guideId: string) =>
   apiFetch<GuideProfile>(`/api/admin/guides/${guideId}/avatar`, { method: 'DELETE', token })
+
+/** A new profile address; the old one keeps working (docs/TRD.md §7.21). */
+export const changeGuideSlug = (token: string, guideId: string, slug: string) =>
+  apiFetch<GuideProfile>(`/api/admin/guides/${guideId}/slug`, { method: 'PUT', token, body: { slug } })
+
+// The specialties guides pick from (docs/TRD.md §7.21).
+
+export type GuideSpecialty = { id: string; name: string }
+
+export const listGuideSpecialties = (token: string) =>
+  apiFetch<Items<GuideSpecialty>>('/api/admin/guide-specialties', { token })
+
+export const createGuideSpecialty = (token: string, name: string) =>
+  apiFetch<GuideSpecialty>('/api/admin/guide-specialties', { method: 'POST', token, body: { name } })
+
+export const deleteGuideSpecialty = (token: string, id: string) =>
+  apiFetch<void>(`/api/admin/guide-specialties/${id}`, { method: 'DELETE', token })
 
 // Snow reports (docs/TRD.md §7.13). Admins use /api/admin, guides /api/guide (see api/guide.ts).
 

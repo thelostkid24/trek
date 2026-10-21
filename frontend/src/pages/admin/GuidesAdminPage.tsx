@@ -1,9 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
 import {
+  changeGuideSlug,
+  createGuideSpecialty,
+  deleteGuideSpecialty,
   getGuideDetails,
   getGuideProfile,
   listGuides,
+  listGuideSpecialties,
   listTracks,
   promoteGuide,
   removeGuidePhoto,
@@ -17,6 +21,7 @@ import { AVATAR_TYPES } from '../../api/account.ts'
 import { fieldErrors } from '../../auth/errorMessages.ts'
 import { useAuth } from '../../auth/useAuth.ts'
 import { ErrorNote, Loading, Panel, Button } from '../../components/admin/AdminUi.tsx'
+import { GuideCertificatesPanel } from '../../components/admin/GuideCertificatesPanel.tsx'
 import { TextField } from '../../components/auth/TextField.tsx'
 import { Avatar } from '../../components/Avatar.tsx'
 import { SelectField, TextAreaField } from '../../components/profile/fields.tsx'
@@ -28,7 +33,7 @@ export function GuidesAdminPage() {
   const guides = useQuery({ queryKey: ['admin-guides'], queryFn: () => withAuth(listGuides) })
   const [email, setEmail] = useState('')
   /** Which guide's panel is open, and which: their profile or their credentials. */
-  const [open, setOpen] = useState<{ id: string; panel: 'profile' | 'credentials' } | null>(null)
+  const [open, setOpen] = useState<{ id: string; panel: 'profile' | 'credentials' | 'certificates' } | null>(null)
   const promote = useMutation({
     mutationFn: (value: string) => withAuth((token) => promoteGuide(token, value)),
     onSuccess: () => {
@@ -86,29 +91,96 @@ export function GuidesAdminPage() {
                     <p className="truncate font-medium">{g.full_name ?? 'No name yet'}</p>
                     <p className="truncate text-sm text-stone-500">{[g.email, g.phone].filter(Boolean).join(' · ')}</p>
                   </div>
-                  {(['profile', 'credentials'] as const).map((panel) => {
+                  {(['profile', 'credentials', 'certificates'] as const).map((panel) => {
                     const on = open?.id === g.id && open.panel === panel
                     return (
                       <Button key={panel} tone="secondary" onClick={() => setOpen(on ? null : { id: g.id, panel })}>
-                        {on ? 'Close' : panel === 'profile' ? 'Profile' : 'Credentials'}
+                        {on ? 'Close' : panel === 'profile' ? 'Profile' : panel === 'credentials' ? 'Credentials' : 'Certificates'}
                       </Button>
                     )
                   })}
                 </div>
                 {open?.id === g.id && open.panel === 'profile' && <ProfileForm guideId={g.id} onDone={() => setOpen(null)} />}
                 {open?.id === g.id && open.panel === 'credentials' && <DetailsForm guideId={g.id} onDone={() => setOpen(null)} />}
+                {open?.id === g.id && open.panel === 'certificates' && <GuideCertificatesPanel guideId={g.id} />}
               </li>
             ))}
           </ul>
         )}
       </Panel>
+
+      <SpecialtiesPanel />
     </>
   )
 }
 
+/** The specialties guides pick up to eight of on their profile (docs/TRD.md §7.21). Removing one drops it everywhere. */
+function SpecialtiesPanel() {
+  const { withAuth } = useAuth()
+  const queryClient = useQueryClient()
+  const list = useQuery({ queryKey: ['admin-guide-specialties'], queryFn: () => withAuth(listGuideSpecialties) })
+  const [name, setName] = useState('')
+  const refresh = () => void queryClient.invalidateQueries({ queryKey: ['admin-guide-specialties'] })
+  const add = useMutation({
+    mutationFn: () => withAuth((token) => createGuideSpecialty(token, name.trim())),
+    onSuccess: () => {
+      setName('')
+      refresh()
+    },
+  })
+  const remove = useMutation({
+    mutationFn: (id: string) => withAuth((token) => deleteGuideSpecialty(token, id)),
+    onSuccess: refresh,
+  })
+
+  return (
+    <Panel title="Guide specialties">
+      {list.isPending ? (
+        <Loading />
+      ) : list.isError ? (
+        <ErrorNote error={list.error} />
+      ) : (
+        <ul className="mt-3 flex flex-wrap gap-2">
+          {list.data.items.map((s) => (
+            <li key={s.id} className="flex items-center gap-2 rounded-full bg-white py-1 pr-2 pl-4 text-sm ring-1 ring-stone-300">
+              {s.name}
+              <button
+                type="button"
+                aria-label={`Remove ${s.name}`}
+                disabled={remove.isPending}
+                onClick={() => {
+                  if (window.confirm(`Remove “${s.name}”? Guides who picked it lose it.`)) remove.mutate(s.id)
+                }}
+                className="rounded-full px-1.5 text-stone-500 hover:text-stone-900"
+              >
+                ✕
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          add.mutate()
+        }}
+        className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end"
+      >
+        <div className="flex-1">
+          <TextField label="New specialty" name="specialty" required maxLength={40} value={name} onChange={(e) => setName(e.target.value)} error={fieldErrors(add.error).name} />
+        </div>
+        <Button type="submit" disabled={add.isPending} className="sm:mb-6">
+          {add.isPending ? 'Adding…' : 'Add'}
+        </Button>
+      </form>
+      {(add.error || remove.error) && !fieldErrors(add.error).name && <ErrorNote error={add.error ?? remove.error} />}
+    </Panel>
+  )
+}
+
 /**
- * The guide's name, photo, home town and bio as the trek, departure and guide pages show them (docs/TRD.md §7.12).
- * A guide has no profile screen of their own, so an admin sets these.
+ * The guide's name, photo, home town and bio as the trek, departure and guide pages show them (docs/TRD.md §7.12),
+ * and their profile address (§7.21). The guide edits the same fields from /guide/profile.
  */
 function ProfileForm({ guideId, onDone }: { guideId: string; onDone: () => void }) {
   const { withAuth } = useAuth()
@@ -126,6 +198,7 @@ function ProfileFields({ guideId, initial, onDone }: { guideId: string; initial:
   const queryClient = useQueryClient()
   const [form, setForm] = useState({ full_name: initial.full_name ?? '', home_city: initial.home_city ?? '', bio: initial.bio ?? '' })
   const [photo, setPhoto] = useState(initial.avatar_url)
+  const [slug, setSlug] = useState(initial.slug)
   const saved = (data: GuideProfile) => {
     queryClient.setQueryData(['admin-guide-profile', guideId], data)
     void queryClient.invalidateQueries({ queryKey: ['admin-guides'] })
@@ -152,6 +225,13 @@ function ProfileFields({ guideId, initial, onDone }: { guideId: string; initial:
     mutationFn: () => withAuth((token) => removeGuidePhoto(token, guideId)),
     onSuccess: (data) => {
       setPhoto(null)
+      saved(data)
+    },
+  })
+  const moveTo = useMutation({
+    mutationFn: () => withAuth((token) => changeGuideSlug(token, guideId, slug.trim())),
+    onSuccess: (data) => {
+      setSlug(data.slug)
       saved(data)
     },
   })
@@ -190,6 +270,21 @@ function ProfileFields({ guideId, initial, onDone }: { guideId: string; initial:
       {(upload.error || remove.error) && (
         <div className="sm:col-span-2">
           <ErrorNote error={upload.error ?? remove.error} />
+        </div>
+      )}
+      <div className="flex flex-col gap-2 sm:col-span-2 sm:flex-row sm:items-end">
+        <div className="flex-1">
+          <TextField label="Profile address" name="slug" prefix="theemptyvalley.com/guides/" maxLength={60} value={slug}
+            onChange={(e) => setSlug(e.target.value)} error={fieldErrors(moveTo.error).slug}
+            hint="Lower-case letters, digits and hyphens. The old address keeps working." />
+        </div>
+        <Button tone="secondary" disabled={moveTo.isPending || slug.trim() === initial.slug} onClick={() => moveTo.mutate()} className="sm:mb-6">
+          {moveTo.isPending ? 'Changing…' : 'Change address'}
+        </Button>
+      </div>
+      {moveTo.error && !fieldErrors(moveTo.error).slug && (
+        <div className="sm:col-span-2">
+          <ErrorNote error={moveTo.error} />
         </div>
       )}
       <TextField label="Name as trekkers see it" name="full_name" required maxLength={100} value={form.full_name}

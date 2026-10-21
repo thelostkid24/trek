@@ -193,6 +193,35 @@ NULL everywhere = not captured (rows made before V11, or nothing sent). Tracking
 ### 6.18 Checkout email codes — `V23__booking_email_codes.sql`
 - **`booking_email_codes`** — `id UUID PK`, `email TEXT NOT NULL` (lowercased), `code_hash TEXT NOT NULL` (HMAC-SHA256 keyed by `JWT_SECRET`), `expires_at`, `attempts INT NOT NULL DEFAULT 0`, `created_at`. Index `(email, created_at)`. Proves a booking's contact email (§7.6); no `consumed_at`, since a correct code stays good until it expires.
 
+### 6.19 Guide profile — `V25__guide_profile.sql`
+- **`guide_profiles`** — adds `slug TEXT UNIQUE` (`^[a-z0-9]+(-[a-z0-9]+)*$`, ≤ 60; the profile is `/guides/{slug}`) and `cover_key TEXT` (cover photo at `guide-covers/<key>.jpg`, 1800×600). V25 creates a row for every guide and backfills slugs from `full_name` (`shrey-rai`, namesakes `-2`, `-3` in sign-up order; `guide` when the name is empty). Rows for new guides are made when an admin promotes them; `quote` doubles as the intro line under the name.
+- **`guide_slug_history`** — `slug TEXT PK`, `guide_id → users ON DELETE CASCADE`, `created_at`. Slugs a guide used before; they keep resolving to that guide and no other guide may take them.
+- **`guide_specialties`** — `id UUID PK`, `name TEXT UNIQUE 1..40`, `position INT ≥ 0`, `created_at`. Seeded with ten (Winter & snow craft, High passes, First-time trekkers, Women-only groups, Families with children, Local culture, Birding, Wildflowers, Photography stops, Summit pushes); admins add and remove.
+- **`guide_profile_specialties`** — `guide_id → users`, `specialty_id → guide_specialties` (both `ON DELETE CASCADE`), `position INT 0..7`. `PK (guide_id, specialty_id)`. At most eight per guide.
+- **`guide_route_notes`** — `guide_id → users`, `track_id → tracks` (both cascade), `note TEXT 1..200`, `updated_at`. `PK (guide_id, track_id)`.
+- **`guide_milestones`** — `id UUID PK`, `guide_id → users ON DELETE CASCADE`, `year INT 1950..2100`, `text TEXT 1..140`, `position INT ≥ 0`, `created_at`. Index `(guide_id, position)`. At most 30 per guide (service).
+
+### 6.20 Guide certifications — `V26__guide_certifications.sql`
+- **`guide_certifications`** — `id UUID PK`, `guide_id → users ON DELETE CASCADE`, `type TEXT` (`BMC | AMC | SEARCH_RESCUE | MOI | WILDERNESS_FIRST_RESPONDER | FIRST_AID | POLICE_VERIFICATION | INSURANCE | OTHER`), `title TEXT NULL 1..120` (required for `OTHER`, CHECK), `issuer TEXT NULL 1..160`, `year INT NULL 1950..2100`, `valid_to DATE NULL`, `number TEXT NULL 1..60`, `document_key TEXT NULL` (private file `guide-certificates/<uuid>.pdf|.jpg`), `verified_at TIMESTAMPTZ NULL`, `verified_by → users ON DELETE SET NULL` (null when unverified, CHECK), `created_at`, `updated_at`. Index `(guide_id, created_at)`. At most 20 per guide (service). No tier column: tiers are worked out at read time (law 8).
+- V26 copies the §7.12 columns of `guide_profiles` into rows: a `BMC` row when `bmc_institute` or `bmc_certificate_number` is set, an `AMC` row likewise, an `OTHER` row (title = `certification`) when `certification` is set — all verified (`verified_at = now()`, `verified_by` null), since admins entered them. The old columns stay until a later migration drops them.
+
+### 6.21 Guide media — `V27__guide_media.sql`
+- **`guide_media`** — `id UUID PK`, `guide_id → users ON DELETE CASCADE`, `kind TEXT IN ('PHOTO','VIDEO')`, `caption TEXT NULL 1..120`, `position INT ≥ 0` (the guide's order), `youtube_id TEXT NULL` (`^[A-Za-z0-9_-]{11}$`; set exactly when `kind = 'VIDEO'`, CHECK), `created_at`. Photo files at `guide-media/<id>.jpg`; no video files. Index `(guide_id, position)`; partial unique `(guide_id, youtube_id)`. At most 20 rows per guide (service).
+
+### 6.22 Reviews v2 — `V28__review_upgrade.sql`
+- **`reviews`** gains `source TEXT NOT NULL DEFAULT 'BOOKING' IN ('BOOKING','OWN_TREKKER')`; `booking_id`, `user_id`, `departure_id`, `track_id` become nullable (`reviews_source_shape`: BOOKING has all four and no reviewer contact; OWN_TREKKER has no booking or departure and exactly one of `reviewer_email ≤ 254` (lowercased) / `reviewer_phone`). Partial unique indexes `(guide_id, reviewer_email)` and `(guide_id, reviewer_phone)`: one review per guide and identity. Also `trek_name 1..100` (OWN_TREKKER, as the reviewer typed it), optional sub-ratings `safety_rating`, `route_rating`, `communication_rating`, `care_rating` (1..5, NULL = not answered), the guide's one reply `reply_body 1..1000`, `reply_created_at`, `reply_updated_at` (all or none), and moderation `hidden_at` + `hidden_reason 1..500`, `reply_hidden_at` + `reply_hidden_reason 1..500` (each pair all or none).
+- **`review_tags`** — `(review_id → reviews ON DELETE CASCADE, tag)` PK; `tag IN ('FELT_SAFE','KNEW_THE_ROUTE','GOOD_PACE','GREAT_FOOD','KNEW_THE_VILLAGES','CALM_IN_BAD_WEATHER')`.
+- **`review_reports`** — `id`, `review_id → reviews ON DELETE CASCADE`, `reporter_id → users`, `reason 1..500`, `created_at`, `resolved_at`. Partial unique `(review_id, reporter_id) WHERE resolved_at IS NULL`.
+- `otp_challenges.purpose` also allows `REVIEW`.
+
+### 6.23 Guide questions — `V29__guide_questions.sql`
+- **`question_threads`** — `id UUID PK`, `guide_id → users ON DELETE CASCADE`, `asker_id → users ON DELETE CASCADE NULL` (a signed-in trekker), `visitor_email TEXT NULL ≤ 254` (lowercased, proven by a code), exactly one of the two set; `asker_name TEXT 1..100` (the account name, or what the visitor typed; "Removed" after account deletion), `status TEXT OPEN | ANSWERED | CLOSED`, `created_at`, `last_message_at`, `first_reply_at NULL` (the guide's first message; ≥ `created_at`), `closed_at` (set exactly when CLOSED), `closed_by → users ON DELETE SET NULL`. Indexes `(guide_id, last_message_at DESC)`, `(asker_id, last_message_at DESC)`, `(visitor_email, created_at)`, `(last_message_at DESC)`.
+- **`question_messages`** — `id UUID PK`, `thread_id → question_threads ON DELETE CASCADE`, `author_role TEXT TREKKER | GUIDE | ADMIN` (TREKKER covers visitors), `author_id → users ON DELETE SET NULL NULL` (null for a visitor), `body TEXT 1..2000` (stored with email addresses and phone numbers already replaced), `created_at`. Index `(thread_id, created_at)`. Never edited.
+
+### 6.24 Saved guides and guide availability — `V30__guide_favourites_availability.sql`
+- **`saved_guides`** — `user_id → users`, `guide_id → users` (both `ON DELETE CASCADE`), `created_at`. `PK (user_id, guide_id)`, CHECK `user_id <> guide_id`, index `(user_id, created_at DESC)`. A trekker's private "My Fav" list; account deletion (§7.18) deletes the trekker's rows (the user row stays, so the cascade doesn't fire).
+- **`guide_availability`** — `id UUID PK`, `guide_id → users ON DELETE CASCADE`, `start_date DATE`, `end_date DATE` (CHECK `end_date >= start_date`, both days included), `note TEXT NULL 1..120`, `created_at`. Indexes `(guide_id, start_date)`, `(end_date)`. A guide's ranges never overlap (service, under a `FOR UPDATE` lock on the guide's user row). Past ranges are kept.
+
 ## 7. Feature log
 Each feature appends: scope, endpoints, tables, screens, tests.
 
@@ -969,7 +998,7 @@ Gear rental and its payment, add-ons after booking (they're chosen at checkout, 
 
 - **Treks led before Sahyātri:** a guide new to the site has completed nothing with us, so the pages read "First time leading it" even for someone who has led the trek for years. An admin records how often they led each trek elsewhere (`guide_prior_treks`, §6.13); `led_this_trek` on `GuideCard` and `treks_led` / `treks[].times` on the guide page are completed departures plus these, still worked out at read time. Frontend: "Treks led before Sahyātri" rows (trek, times) at the end of the Credentials form. Tests: `TrekContentTests`.
 
-- **Guide profile (admin-set):** a guide has no profile screen, so an admin sets what the pages show: the name and photo on the account, and home city and bio on the guide's `trekker_profiles` row (created if missing), the same fields §7.7 reads. A guide's bio may run to 2000 characters (a trekker's to 500), in paragraphs separated by blank lines. `guide.service.GuideProfileService` reuses `AvatarService.replace/clear`. Frontend: Admin → Guides → "Profile" on each guide (photo, name, home town, bio), beside "Credentials". The WAF's `xss-body-except-uploads` rule must include `/api/admin/guides/*/avatar`. Tests: `GuideProfileTests`.
+- **Guide profile (admin-set):** an admin sets what the pages show (the guide edits the same fields from `/guide/profile`, §7.21): the name and photo on the account, and home city and bio on the guide's `trekker_profiles` row (created if missing), the same fields §7.7 reads. A guide's bio may run to 2000 characters (a trekker's to 500), in paragraphs separated by blank lines. `guide.service.GuideProfileService` reuses `AvatarService.replace/clear`. Frontend: Admin → Guides → "Profile" on each guide (photo, name, home town, bio), beside "Credentials". The WAF's `xss-body-except-uploads` rule must include `/api/admin/guides/*/avatar`. Tests: `GuideProfileTests`.
 
 - The departure page's "Your guide" card shows only the "Certified" chip; the course details are on the guide page. Shown on `GuideCard` (§7.7) and on the guide page as the highlighted "Mountaineering credentials" card (dark header with a shield and the IMF note, green border) holding a table: one row per course (BMC, AMC) with institute and certificate number, a note that the courses are IMF-recognised, then any other certificate, leading since and languages. "Certified" shows once any course or certificate has both institute/name and number. Frontend: Admin → Guides → "Credentials" on each guide (BMC/AMC institute fields suggest NIM, ABVIMAS, HMI and JIM&WS). Tests: `TrekContentTests`.
 
@@ -1002,6 +1031,7 @@ Gear rental and its payment, add-ons after booking (they're chosen at checkout, 
 | `GET /api/public/guides/{id}/reviews` | — | — | `200 { items: [{ rating, body, author_name, trek_name, trek_start_date, created_at }] }`, newest first (≤ 20) | — |
 
 - Frontend: "How was it with <guide>?" on a completed booking (`components/booking/ReviewSection.tsx`); reviews on the guide page; rating on the trek page's guide intro. No moderation yet.
+- **Reviews v2 (§7.21.5, V28):** the PUT also takes optional `safety_rating`, `route_rating`, `communication_rating`, `care_rating` (1..5) and `tags` (≤ 6 codes); the response returns them. `GET /api/public/guides/{key}/reviews` takes a key, `source`, `page`, `size` and adds paging. Every rating and review count (guide page, guides list, trek and departure pages, Insights) now counts only visible BOOKING reviews.
 - The local dev mock (`src/devMock.ts`, gitignored) seeds sample reviews, the Kedarkantha page and a snow report history.
 - Tests: `ReviewTests`.
 
@@ -1189,6 +1219,161 @@ From Notion "14 oct changes": the season's Kedarkantha dates are fixed, but most
 
 ### Charity share
 `app.charity` (`CHARITY_NAME`, `CHARITY_BPS`, default 100 = 1%) is part of the price, never added on top. It only shows as a line on the trek page ("1% goes to …, and the rest runs the company"); no money is split or recorded per booking yet.
+
+### 7.21 Shareable guide profile
+**Status:** backend and frontend implemented (§7.21.1–§7.21.7). Tables in §6.19–§6.24.
+
+**Scope:** the guide page becomes a LinkedIn-style profile a guide shares anywhere to fill their dates, following the "Guide Profile Mockup" design: cover, headline, stats, specialties, media, about, certifications, routes, career, reviews, questions, upcoming departures. The guide edits it themselves; admins verify certificates. Decisions (2026-10-21): guide self-edit with admin-verified certificates; open seat counts stay hidden (no seat dots); reviews from a guide's own (off-platform) trekkers are allowed, confirmed by an email or phone code (phone behind `VITE_PHONE_OTP` until SMS works), badged "Group verified" and never counted in the headline rating or count; questions go through an in-site inbox with email alerts; guides upload photos and add videos as YouTube links, played embedded on the page (no video files stored; changed 2026-10-22 from S3 uploads); tiers are worked out at read time from config thresholds (law 8); reviews add four optional sub-ratings and a fixed tag list; reviews and guide replies go live at once and an admin can hide them (audit-logged); the profile URL is `/guides/{slug}`; the link-preview image is drawn by the backend; specialties come from an admin list; availability is private to admins; favourites are a signed-in trekker's private list; the route map waits.
+
+Each part of the public page is its own component in `components/guide/sections/` taking `{ guide, owner }` (`owner`: the signed-in user is this guide), so the parts below are built side by side: `CertificationsSection`, `TierBadge` (§7.21.3), `MediaSection` (§7.21.4), `ReviewsSection`, `AskForReviewButton` (§7.21.5), `AskQuestionCard`, `ReplyTimeStat` (§7.21.6), `FavouriteButton`, `AvailabilityLink` (§7.21.7). The guide area's tabs are their own pages in `pages/guide/`. Each part reads its own data from its own endpoint rather than adding to `GuideProfile`.
+
+#### 7.21.1 Foundation: slug, guide self-edit, guide area
+| Method & path | Auth | Request | Success | Errors |
+|---|---|---|---|---|
+| `GET /api/guide/profile` | GUIDE | — | `200 OwnGuideProfile` (creates the profile row and slug if missing) | `401`, `403 FORBIDDEN` |
+| `PUT /api/guide/profile` | GUIDE | `{ full_name (1..100, required), home_city ≤ 100, quote ≤ 240, languages ≤ 120, bio ≤ 2000, leading_since (1950..this year), specialty_ids ≤ 8, milestones: [{ year (1950..this year), text 1..140 }] ≤ 30, route_notes: [{ track_id, note 1..200 }] ≤ 50 }` — replaces everything; blank text and null lists clear | `200 OwnGuideProfile` | `400 VALIDATION_FAILED` (`specialty_ids` repeated or unknown; `route_notes[i].track_id` repeated or not a trek they lead; `milestones[i].year` in the future) |
+| `PUT /api/guide/profile/avatar`, `/cover` | GUIDE | multipart `file` (JPEG/PNG ≤ 5 MB); the cover is a 3:1 centre crop at 1800×600 | `200 OwnGuideProfile` | `400 UNSUPPORTED_IMAGE`, `413 FILE_TOO_LARGE` |
+| `DELETE /api/guide/profile/avatar`, `/cover` | GUIDE | — | `200 OwnGuideProfile` | — |
+| `PUT /api/admin/guides/{id}/slug` | ADMIN | `{ slug }` (`^[a-z0-9]+(-[a-z0-9]+)*$`, ≤ 60) | `200` admin GuideProfile (§7.12, now with `slug`); the old slug goes to history (audit `GUIDE_SLUG_CHANGED`) | `400`, `404 GUIDE_NOT_FOUND`, `409 SLUG_TAKEN` (another guide has or had it) |
+| `GET /api/admin/guide-specialties` | ADMIN | — | `200 { items: [{ id, name }] }` | — |
+| `POST /api/admin/guide-specialties` | ADMIN | `{ name 1..40 }` | `201 { id, name }` (added last) | `400`, `409 SPECIALTY_EXISTS` (case-insensitive) |
+| `DELETE /api/admin/guide-specialties/{id}` | ADMIN | — | `204` (dropped from every guide) | `404 SPECIALTY_NOT_FOUND` |
+
+- `OwnGuideProfile` = `{ guide_id, slug, full_name, avatar_url, cover_url, home_city, bio, quote, languages, leading_since, specialty_ids, milestones: [{ year, text }], route_notes: [{ track_id, note }], specialty_options: [{ id, name }], routes: [{ track_id, name }] }`. `routes`: treks the guide completed with us, led before Sahyātri or leads on an upcoming published date. Course credentials, the slug and prior treks stay admin-set (§7.12).
+- `GET /api/public/guides/{key}` takes the id, the slug or a slug used before, and adds `slug`, `cover_url`, `specialties` (names, the guide's order), `milestones` and `treks[].note`. `GuideCard` and `GuideListItem` add `slug`. The sitemap lists every active guide at `/guides/{slug}`.
+- Frontend: `/guides/:id` swaps an id or old slug in the address for the current slug (keeping `?departure=`); links use `guidePath` (`api/catalog.ts`). The owner sees "Edit profile". The guide area `/guide` (`pages/guide/GuideLayout.tsx`, like the account area) has tabs Profile (`/guide/profile`, `GuideProfileEditPage.tsx`: photo and cover save at once; about, intro, languages, year started, bio, specialties, a note per route and career milestones save with one button), Reviews, Questions, Availability (placeholders until §7.21.5–7) and Snow reports (`/guide/reports`, §7.13). The header shows "Guide" for guides and their profile menu has "My profile". Admin → Guides → Profile gains "Profile address"; a "Guide specialties" panel keeps the list. `prerender.mjs` writes `dist/guides/<slug>.html` and a copy at `<id>.html` (canonical to the slug); old slugs get the site-wide head until a deploy.
+- The WAF's `xss-body-except-uploads` rule must also exempt `/api/guide/profile/avatar` and `/api/guide/profile/cover` (DEPLOY.md §10).
+- Tests: `OwnGuideProfileTests`.
+
+#### 7.21.2 Page layout and link preview
+| Method & path | Auth | Request | Success | Errors |
+|---|---|---|---|---|
+| `GET /api/public/guides/{key}` | — | `key`: id, slug or old slug | `200 GuideProfile` (§7.21.1) plus `highest_altitude_m`, `return_rate_pct` and `treks[].max_altitude_m`, `treks[].season_label` | `404 GUIDE_NOT_FOUND` |
+| `GET /api/public/guides/{key}/card.png` | — | `key`: id, slug or old slug (`GuideSlugService.resolve`) | `200 image/png` 1200×630, `Cache-Control: public, max-age=3600` | `404 GUIDE_NOT_FOUND` |
+
+- New `GuideProfile` numbers, worked out on each read (law 8): `highest_altitude_m` is the highest `tracks.max_altitude_m` among the treks in `treks` (completed with us plus prior treks), null when none is known. `return_rate_pct` is the share (rounded %) of distinct trekkers with a `CONFIRMED` booking on one of the guide's `COMPLETED` departures who have two or more `CONFIRMED` bookings with this guide on any departure; null under 10 such trekkers (`GuideProfile.RETURN_RATE_MIN_TREKKERS`). Query: `DepartureRepository.countReturning`.
+- `catalog.service.GuideCardService` draws the card with Java2D (logical fonts, so the runtime image needs fontconfig, which `eclipse-temurin:21-jre` has): dark green with two ridgelines; the square photo (centre-cropped) or initials; "MOUNTAIN GUIDE · <HOME CITY>"; the name (shrunk to fit, then cut with "…"); a mono line "<rating> · <n> reviews · <n> treks" leaving out empty parts; "Verified by Empty Valley" when a certificate and its number are on record (§7.12, the same rule as `isCertified` in `lib/trek.ts`); and `<FRONTEND_BASE_URL host>/guides/<slug>` bottom right. It's under `/api/public/**`, so security and the WAF already allow it.
+- Frontend (`pages/GuidePage.tsx`, mobile-first, two columns from `lg`): the owner bar ("This is your public profile, <first name>", `AskForReviewButton`, Share profile, Edit profile → `/guide/profile`); the cover (`cover_url`, else layered ridges in the brand greens; the owner gets "Change cover photo"); the header (square photo or initials over the cover's edge, "MOUNTAIN GUIDE · <HOME CITY>", the name, `TierBadge` and each language as a chip, `quote` as the intro, `FavouriteButton` and Share profile: the native share sheet, else copy the link); the stats row in mono (rating ★ and reviews, treks led, years guiding, highest pass led in feet, "trekkers come back", then `ReplyTimeStat`; a number with nothing behind it is hidden; the owner sees "These numbers update automatically…"); specialties (hidden when empty, owner "Edit"). Main column: "Know your guide: <first name>", `MediaSection`, About (bio paragraphs, "Written by <first name>", owner "Edit"), `CertificationsSection`, "Routes <first name> leads" (each trek with its `N×`; the picked one shows Top, Led, Season, the guide's note and a link to the trek page; no map, and per-route reviews wait for §7.21.5), "Career in the mountains" (year and text; owner "+ Add milestone"; hidden for visitors when empty), `ReviewsSection`. Sticky sidebar: the `?departure=` card (above the main column on phones), Upcoming departures (`AvailabilityLink` first; trek, price, dates, Book, or "Batch full"/"Bookings closed"; never open seats; "Join <dates>" for the first bookable one), `AskQuestionCard`, Profile link (`theemptyvalley.com/guides/<slug>` with Share). `<Seo image>` and `prerender.mjs` both point `og:image` at the card on the API's host (`guideCardUrl` in `api/catalog.ts`); `prerender.mjs` adds `og:image:width`/`height`.
+- Tests: `GuidePageTests` (highest pass from prior treks, return rate at 10 trekkers and hidden at 9, route altitude and season; the card by slug, id and upper-case slug, with initials and a photo, its size and cache header, 404).
+
+#### 7.21.3 Certifications and tiers — `V26`
+**Status:** backend and frontend implemented. Table `guide_certifications` in §6.20.
+
+| Method & path | Auth | Request | Success | Errors |
+|---|---|---|---|---|
+| `GET /api/guide/certifications` | GUIDE | — | `200 { items: Certification[] }` (BMC, AMC, … then OTHER; oldest first within a type) | `401`, `403 FORBIDDEN` |
+| `POST /api/guide/certifications` | GUIDE | `{ type (required), title ≤ 120 (required for OTHER), issuer ≤ 160, year (1950..this year), valid_to, number ≤ 60 }`, blank clears | `201 Certification` (`PENDING`) | `400 VALIDATION_FAILED`, `409 TOO_MANY_CERTIFICATIONS` (20) |
+| `PUT /api/guide/certifications/{id}` | GUIDE (owner) | as POST | `200 Certification`; any changed field drops verification | `400`, `404 CERTIFICATION_NOT_FOUND` (incl. another guide's) |
+| `DELETE /api/guide/certifications/{id}` | GUIDE (owner) | — | `204` (document deleted too) | `404 CERTIFICATION_NOT_FOUND` |
+| `PUT /api/guide/certifications/{id}/document` | GUIDE (owner) | multipart `file` (PDF, JPEG or PNG ≤ 5 MB; photos re-encoded to JPEG) | `200 Certification`; drops verification | `400 UNSUPPORTED_DOCUMENT`, `404`, `413 FILE_TOO_LARGE` |
+| `GET /api/guide/certifications/{id}/document` | GUIDE (owner) | — | `200` the file (`attachment`, `no-store`, `nosniff`) | `404 CERTIFICATION_NOT_FOUND`, `404 DOCUMENT_NOT_FOUND` |
+| `GET /api/admin/guides/{id}/certifications` | ADMIN | — | `200 { items: Certification[] }` with `document_url` pointing at the admin download | `404 GUIDE_NOT_FOUND` |
+| `POST /api/admin/guides/{id}/certifications/{certId}/verify`, `/unverify` | ADMIN | optional `{ note ≤ 500 }` | `200 Certification`; audit `CERTIFICATION_VERIFIED` / `CERTIFICATION_UNVERIFIED` (`GUIDE_CERTIFICATION`, data `guide_id`, `type`, `note`) | `404 GUIDE_NOT_FOUND`, `404 CERTIFICATION_NOT_FOUND` |
+| `GET /api/admin/guides/{id}/certifications/{certId}/document` | ADMIN | — | `200` the file | `404` |
+| `GET /api/public/guides/{key}/credentials` | — | `{key}`: id, slug or old slug | `200 { tier, verified, items: PublicCertification[] }` | `404 GUIDE_NOT_FOUND` |
+
+- `Certification` = `{ id, type, title, issuer, year, valid_to, number, status, document_url, verified_at, created_at, updated_at }`; `document_url` is an API path needing the caller's token, or null. `status`: `EXPIRED` when `valid_to` < today (IST), verified or not; else `VERIFIED` or `PENDING`.
+- `PublicCertification` = `{ id, type, title, issuer, year, valid_to, number, status }` — verified rows only (expired ones too, shown "Expired"); `number` only for BMC and AMC; never documents or pending rows. `verified`: any verified, unexpired certificate.
+- Documents are private: no public file route serves `guide-certificates/`; only the owning guide and admins download them.
+- **Tiers** (`GuideTierService`), worked out on every read (law 8) from `app.guide-tiers` (`GuideTierProperties`): Trail Guide = verified unexpired BMC + ≥ 5 treks; Senior Guide = ≥ 25 treks and rating ≥ 4.5 from ≥ 10 reviews; Summit Guide = verified unexpired AMC + ≥ 75 treks + rating ≥ 4.7 from ≥ 25 reviews. Treks are `COMPLETED` departures with us (not treks led before Sahyātri); the rating is the §7.14 average rounded to one decimal, as shown. The highest tier met wins; `tier` is null otherwise.
+- Frontend: `api/certifications.ts`. `components/guide/sections/TierBadge.tsx` shows the tier chip (mountain icon) and "Certifications verified by Empty Valley" (shield). `CertificationsSection.tsx` ("Certifications and safety", "Checked against original documents"): one row per certificate — shield, title, issuer, year or "valid to Mon YYYY" and BMC/AMC number in mono, a Verified / Expired / Pending pill. Visitors see verified rows only (the section hides with none); the owner sees all theirs, "+ Upload certificate" and Edit open a form in place (type, name, issuer, year, valid to, number, document; Remove). Admin → Guides → "Certificates" on each guide lists them with Document (opens the file) and Verify / Unverify plus an optional audit note.
+- The §7.12 course columns, the admin "Credentials" form, `GuideCard` and the departure page's "Certified" chip still read the old columns; edits there no longer reach this section. They go when the columns are dropped.
+- The WAF's `xss-body-except-uploads` rule must also exempt `/api/guide/certifications/*/document` (DEPLOY.md §10).
+- Tests: `GuideCertificationTests`.
+
+#### 7.21.4 Photos and YouTube videos — `V27`
+Guides add up to 20 photos and YouTube videos to their profile (table in §6.21). Photos come through the backend and are re-encoded like trek photos (JPEG/PNG ≤ 5 MB, long edge ≤ 2000). Videos are YouTube links only (decision 2026-10-22, replacing uploads to S3): we store the video id, never video bytes, and the page plays the video embedded so trekkers stay on our site.
+
+| Method & path | Auth | Request | Success | Errors |
+|---|---|---|---|---|
+| `GET /api/guide/media` | GUIDE | — | `200 { items: [GuideMediaItem] }` in order | — |
+| `POST /api/guide/media/photos` | GUIDE | multipart `file`, optional `caption` ≤ 120 | `201 GuideMediaItem` (last) | `400 UNSUPPORTED_IMAGE`, `400 VALIDATION_FAILED`, `413 FILE_TOO_LARGE`, `409 TOO_MANY_MEDIA` |
+| `POST /api/guide/media/videos` | GUIDE | `{ url (required, ≤ 500), caption? ≤ 120 }` — a YouTube link: `youtube.com/watch?v=`, `youtu.be/`, `/shorts/`, `/embed/`, `/live/` on `www.`, `m.`, `music.` and `youtube-nocookie.com`; scheme optional | `201 GuideMediaItem` (last) | `400 UNSUPPORTED_VIDEO_LINK` (anything else, incl. other sites and channel links), `409 VIDEO_ALREADY_ADDED` (same video id), `409 TOO_MANY_MEDIA`, `400 VALIDATION_FAILED` |
+| `PUT /api/guide/media/{id}` | GUIDE | `{ caption }` (blank clears) | `200 GuideMediaItem` | `400`, `404 MEDIA_NOT_FOUND` |
+| `PUT /api/guide/media/order` | GUIDE | `{ ids }` — every one of the guide's items once, in the new order | `200 { items }` | `400 VALIDATION_FAILED` (`ids`) |
+| `DELETE /api/guide/media/{id}` | GUIDE | — | `204`; a photo's file goes too | `404 MEDIA_NOT_FOUND` |
+| `GET /api/public/guides/{key}/media` | public | `key`: id, slug or old slug | `200 { items }` in order | `404 GUIDE_NOT_FOUND` |
+| `GET /api/public/files/guide-media/{id}.jpg` | public | — | `200` JPEG, cached a year | `404` |
+
+- `GuideMediaItem` = `{ id, kind PHOTO|VIDEO, caption, position, url (photo; null for a video), youtube_id (video), thumbnail_url (video: `https://i.ytimg.com/vi/<id>/hqdefault.jpg`), created_at }`. Another guide's id answers `404 MEDIA_NOT_FOUND`; the guide is always the token's subject. We don't check with YouTube that the video exists or is public; a private or deleted video shows YouTube's own message in the player.
+- Frontend: `components/guide/sections/MediaSection.tsx`, API in `api/guideMedia.ts`. A large stage shows the picked item; a video shows its YouTube still with a ▶ button and only then loads the player, an iframe from `https://www.youtube-nocookie.com/embed/<id>?autoplay=1&rel=0` (privacy-enhanced: no YouTube cookies before play; `youTubeEmbedUrl` re-checks the id is 11 safe characters). Thumbnails below are labelled "▶ Video" / "Photo"; "1 / 5". Visitors don't see the section when there is no media. The owner gets "+ Add photo" and "+ Add YouTube video" (paste a link) and "Reorder or remove" (move left/right, caption, remove with a confirm). The CSP's `frame-src` allows `https://www.youtube-nocookie.com`; `img-src https:` already covers `i.ytimg.com`.
+- The WAF's `xss-body-except-uploads` rule must also exempt `/api/guide/media/photos` (DEPLOY.md §10).
+- Tests: `GuideMediaTests`.
+
+#### 7.21.5 Reviews — `V28`
+**Status:** backend and frontend implemented. Tables in §6.22.
+
+Sources: **BOOKING** ("Verified trek", §7.14) and **OWN_TREKKER** ("Group verified": someone who trekked with the guide off-platform and proved an email or phone with a one-time code). Group-verified reviews show on the profile under their own filter but never feed the headline rating or count, the category bars or "Mentioned often" — anywhere. Hidden reviews count nowhere. Everything goes live at once; admins can hide.
+
+| Method & path | Auth | Request | Success | Errors |
+|---|---|---|---|---|
+| `GET /api/public/guides/{key}/reviews-summary` | — | — | `200 { average, count, counts: { all, booking, own_trekker }, categories: [{ key: OVERALL\|SAFETY\|ROUTE\|COMMUNICATION\|CARE, average, answers }], mentioned_often: [{ tag, count }] }` | `404 GUIDE_NOT_FOUND` |
+| `GET /api/public/guides/{key}/reviews?source=&page=0&size=20` | — | `source` BOOKING / OWN_TREKKER / absent = all; `size` ≤ 50 | `200 { items: [PublicReview], total, page, size }`, newest first, visible only | `404` |
+| `POST /api/public/guides/{key}/reviews/code` | — | `{ channel: EMAIL\|PHONE, email?, phone? }` | `202 { expires_in, resend_after }` | `400 VALIDATION_FAILED`, `404`, `429 EMAIL_CODE_RATE_LIMITED` / `OTP_RATE_LIMITED` |
+| `POST /api/public/guides/{key}/reviews` | — | `{ rating 1..5, safety_rating?, route_rating?, communication_rating?, care_rating?, tags? ≤ 6, body? ≤ 2000, name 1..60, trek_name? ≤ 100, email? \| phone? (exactly one), code (6 digits) }` | `200 { review: PublicReview, created }` (same email/phone again rewrites it) | `400 VALIDATION_FAILED`, `400 EMAIL_CODE_INVALID` / `OTP_INVALID`, `410 EMAIL_CODE_EXPIRED` / `OTP_EXPIRED`, `429 …TOO_MANY_ATTEMPTS`, `404` |
+| `GET /api/trekker/guides/{key}/review-booking` | TREKKER | — | `200 { booking_id, reviewed }`: latest confirmed booking on a completed departure this guide led | `404 NO_REVIEWABLE_BOOKING` |
+| `GET /api/guide/reviews` | GUIDE | — | `200 { slug, full_name, average, count, own_trekker_count, replied_this_week, departures: [{ departure_id, trek_name, start_date }], items: [{ review: PublicReview (hidden reply included), hidden_reason, reply_hidden_reason, reported }] }` (≤ 200, newest first, hidden too) | `403` |
+| `PUT /api/guide/reviews/{id}/reply` | GUIDE (the review's guide) | `{ body 1..1000 }` | `200` item as above | `400`, `404 REVIEW_NOT_FOUND` |
+| `DELETE /api/guide/reviews/{id}/reply` | GUIDE (owner) | — | `204` (also clears an admin's reply hide) | `404` |
+| `POST /api/guide/reviews/{id}/report` | GUIDE (owner) | `{ reason 1..500 }` | `204` (reporting again while open updates the reason) | `400`, `404` |
+| `GET /api/admin/reviews?view=RECENT\|REPORTED\|HIDDEN` | ADMIN | — | `200 { items: [{ review, guide_id, guide_name, guide_slug, reviewer_contact, hidden_at, hidden_reason, reply_hidden_at, reply_hidden_reason, reports: [{ reason, reporter_name, created_at }] }] }` (≤ 100) | `403` |
+| `PUT /api/admin/reviews/{id}/hidden`, `/reply/hidden` | ADMIN | `{ reason 1..500 }` | `200` admin item | `400`, `404 REVIEW_NOT_FOUND`, `404 REPLY_NOT_FOUND` |
+| `DELETE /api/admin/reviews/{id}/hidden`, `/reply/hidden` | ADMIN | — | `200` admin item | `404` |
+| `POST /api/admin/reviews/{id}/reports/dismiss` | ADMIN | — | `200` admin item | `404` |
+
+- `PublicReview` = `{ id, source, rating, safety_rating, route_rating, communication_rating, care_rating, tags, body, author_name (first name), trek_name, trek_start_date (BOOKING only), created_at, reply: { body, created_at, updated_at } | null }`. The GuideProfile's `reviews` list uses it too.
+- Bars: OVERALL whenever there is a verified review; each sub-rating only with ≥ 5 answers, averaging those who answered. "Mentioned often": tags picked ≥ 2 times, top 6.
+- Codes: email reuses the checkout codes (§7.6, `booking_email_codes`, same limits; a correct code stays good until it expires, and proves the address for either form); phone reuses OTP challenges (§7.2) with purpose `REVIEW` (spent once). Phone is offered only with `VITE_PHONE_OTP`. Rate limits per IP: code 5/min, post 10/min.
+- Hide, unhide, reply hide/unhide and dismiss are audit-logged (`REVIEW_HIDDEN`, `REVIEW_UNHIDDEN`, `REVIEW_REPLY_HIDDEN`, `REVIEW_REPLY_UNHIDDEN`, `REVIEW_REPORTS_DISMISSED`; `entity_type REVIEW`) and close the review's open reports. Guides never delete or hide reviews.
+- Frontend: `components/guide/sections/ReviewsSection.tsx` (rating, bars, "Mentioned often", All / Verified trek / Group verified pills, cards with initials, badge and "<first> replied: …", "Show more", owner can reply/edit inline, "Trekked with <first>?" → "Write a review"); `AskForReviewButton.tsx` (owner bar → `/guide/reviews`); `/r/:slug` (`pages/ReviewLinkPage.tsx`: "How was your trek?", stars, optional sub-ratings, tag chips, words, name, optional trek (`?trek=` prefills), email or phone + code; a signed-in trekker with a completed booking with this guide is sent to that booking's review); Guide → Reviews (`pages/guide/GuideReviewsPage.tsx`: stats, "Who did you trek with?", "Which trek?", editable message, WhatsApp share, copy link, QR code drawn client-side with `qrcode-generator`, reviews with reply and Report); admin **Reviews** tab (`/admin/reviews`, `pages/admin/ReviewsAdminPage.tsx`). Shared pieces in `components/review/`; the booking review form gains the sub-ratings and tags.
+- Tests: `ReviewV2Tests` (bars and threshold, tags, own-trekker email and phone codes incl. wrong/expired/one-per-identity, exclusion from every headline rating, replies and ownership, reports, admin hide/unhide with audit, booker redirect).
+
+#### 7.21.6 Questions — `V29`
+**Status:** implemented. Tables in §6.23.
+
+| Method & path | Auth | Request | Success | Errors |
+|---|---|---|---|---|
+| `POST /api/public/questions/email-code` | — | `{ email }` | `202 { expires_in, resend_after }` (a 6-digit code; the §7.6 mechanism and limits, question wording) | `400`, `429 EMAIL_CODE_RATE_LIMITED` |
+| `POST /api/public/guides/{key}/questions` | — | `{ name 1..100, email, email_code, body 1..2000 }` | `201 { id }`; the guide is emailed, and the visitor gets a confirmation with their link | `400 VALIDATION_FAILED`, `400 EMAIL_CODE_INVALID`, `410 EMAIL_CODE_EXPIRED`, `429 EMAIL_CODE_TOO_MANY_ATTEMPTS`, `404 GUIDE_NOT_FOUND`, `429 QUESTION_RATE_LIMITED` |
+| `GET /api/public/guides/{key}/reply-time` | — | — | `200 { median_minutes \| null }` | `404 GUIDE_NOT_FOUND` |
+| `GET /api/public/questions/{token}` | — (signed link) | — | `200 QuestionThread` | `403 QUESTION_LINK_INVALID`, `410 QUESTION_LINK_EXPIRED`, `404 QUESTION_NOT_FOUND` |
+| `POST /api/public/questions/{token}/messages` | — (signed link) | `{ body 1..2000 }` | `200 QuestionThread`; the guide is emailed | as above, `409 QUESTION_CLOSED` |
+| `POST /api/trekker/guides/{key}/questions` | TREKKER | `{ body 1..2000 }` | `201 QuestionThread`; the guide is emailed | `400`, `404 GUIDE_NOT_FOUND`, `429 QUESTION_RATE_LIMITED` |
+| `GET /api/trekker/questions` · `GET /{id}` | TREKKER | — | `200 { items: QuestionThreadSummary[] }` · `200 QuestionThread` (their own only) | `404 QUESTION_NOT_FOUND` |
+| `POST /api/trekker/questions/{id}/messages` | TREKKER | `{ body }` | `200 QuestionThread`; the guide is emailed | `404`, `409 QUESTION_CLOSED` |
+| `GET /api/guide/questions` · `GET /{id}` | GUIDE | — | `200 { items }` (OPEN first, then newest activity) · `200 QuestionThread` (asked of them only) | `404 QUESTION_NOT_FOUND` |
+| `POST /api/guide/questions/{id}/messages` | GUIDE | `{ body }` | `200 QuestionThread`; the asker is emailed | `404`, `409 QUESTION_CLOSED` |
+| `GET /api/admin/questions?status=` · `GET /{id}` | ADMIN | optional `OPEN \| ANSWERED \| CLOSED` | `200 { items }` (latest 200) · `200 QuestionThread`, both with `asker_email` | `404` |
+| `POST /api/admin/questions/{id}/close` | ADMIN | `{ note? ≤ 2000 }` (body optional) | `200 QuestionThread`; a note is added as a message from "The Empty Valley"; audit `QUESTION_THREAD_CLOSED` | `404`, `409 QUESTION_CLOSED` |
+
+- `QuestionThreadSummary` = `{ id, status, guide_id, guide_name, guide_slug, asker_name, asker_email (admins only, else null), visitor, created_at, last_message_at, last_author_role, preview (≤ 140) }`. `QuestionThread` = `{ id, status, guide_id, guide_name, guide_slug, asker_name, asker_email, visitor, created_at, first_reply_at, closed_at, can_reply, messages: [{ id, author_role, author_name, body, created_at }] }`. OPEN waits on the guide, ANSWERED means the guide wrote last, and nobody can write once it's CLOSED.
+- Who may ask: a signed-in trekker (name from the account), or anyone else with a name and an email proven by the code. A code from checkout proves the email as well; a correct code stays good until it expires. `{key}` is the guide's id, slug or a slug they used before (`GuideSlugService.resolve`); it must be an active guide. Each asker (account or email) opens at most 5 threads a day; the IP rule allows 5 POSTs a minute on the public question routes.
+- Thread ownership is checked in `QuestionService`: a thread that isn't yours is a 404, never a 403, so ids can't be probed.
+- **No contact details:** email addresses and phone-like runs of 10+ digits in a message are replaced with "[contact removed]" before it's stored. Emails go from `MAIL_FROM` with no Reply-To, never name the other side's email or phone, and say that replies happen on the site. Guide alert → `/guide/questions/{id}`; reply to a trekker → `/account/questions/{id}`; to a visitor → `/questions/{token}`. A mail failure is logged after commit and never loses a message.
+- **Visitor links:** `token` = `<thread id>.<expiry epoch seconds>.<HMAC-SHA256 hex>`, keyed by `JWT_SECRET` under the `question-link:` prefix. Nothing is stored; every email carries a fresh link valid for 30 days. The signature is checked before the expiry (an edited expiry is invalid, not expired), and a link only opens a visitor's thread.
+- **Reply time** (law 8, worked out on every read): the median minutes from question to the guide's first reply over threads asked in the last 90 days. A thread still unanswered after 24 hours counts with the time it has waited so far, so ignored questions don't flatter it; one an admin closed without a reply doesn't count. `null` below 5 such threads.
+- Deleting a trekker account renames their threads' `asker_name` to "Removed"; the guide keeps the thread.
+- Frontend: `AskQuestionCard` ("Ask <first name> a question", "YOUR QUESTION", "Send through Empty Valley"; visitors give name and email, then the emailed code; hidden for the owner) and `ReplyTimeStat` ("~2 h" over "Reply time"; nothing when null) on the guide page. Guide → Questions (`/guide/questions/:id?`, `GuideQuestionsPage.tsx`), account → Questions (`/account/questions/:id?`, `pages/trekker/QuestionsPage.tsx`) and Admin → Questions (`/admin/questions/:id?`, `QuestionsAdminPage.tsx`, with Close) share `components/questions/QuestionInbox.tsx`; the visitor's link opens `/questions/:token` (`QuestionThreadPage.tsx`, noindex). Calls in `api/questions.ts`.
+- Tests: `GuideQuestionTests`.
+
+#### 7.21.7 Favourites and availability — `V30`
+Tables in §6.24.
+
+| Method & path | Auth | Request | Success | Errors |
+|---|---|---|---|---|
+| `GET /api/trekker/saved-guides` | TREKKER | — | `200 { items: [{ guide_id, slug, full_name, avatar_url, home_city, rating, review_count, saved_at }] }`, newest first; disabled guides are left out (their rows stay) | `401`, `403` |
+| `PUT /api/trekker/saved-guides/{guideId}` | TREKKER | — | `204` (idempotent; a second save keeps the first `saved_at`) | `404 GUIDE_NOT_FOUND` (not an active guide) |
+| `DELETE /api/trekker/saved-guides/{guideId}` | TREKKER | — | `204` (idempotent) | — |
+| `GET /api/guide/availability` | GUIDE | — | `200 { items: [AvailabilityRange] }`: ranges not yet ended, soonest first | `401`, `403` |
+| `POST /api/guide/availability` | GUIDE | `{ start_date, end_date, note ≤ 120 }` (blank note = none) | `201 AvailabilityRange` | `400 VALIDATION_FAILED` (`end_date` before `start_date` or in the past; `note` too long), `409 AVAILABILITY_OVERLAP` (`details: { id, start_date, end_date }` of the range it shares a day with) |
+| `PUT /api/guide/availability/{id}` | GUIDE | same | `200 AvailabilityRange` | as POST, `404 AVAILABILITY_NOT_FOUND` (not theirs) |
+| `DELETE /api/guide/availability/{id}` | GUIDE | — | `204` | `404 AVAILABILITY_NOT_FOUND` |
+| `GET /api/admin/guides/availability?from&to` | ADMIN | both required, `to ≥ from`, < 400 days apart | `200 { items: [{ id, guide_id, guide_name, slug, start_date, end_date, note }] }`: active guides' ranges sharing a day with the window | `400 VALIDATION_FAILED` |
+
+- `AvailabilityRange` = `{ id, start_date, end_date, note }`. Overlap rule: ranges sharing even one day are **rejected**, not merged (the guide edits the existing range); touching ranges are fine. No public endpoint exposes availability; the public guide page never includes it.
+- Favourites: no public count, the guide isn't told. Guides and admins can't save (`/api/trekker/**`).
+- Frontend: `FavouriteButton` (outline heart, "My Fav" / "Saved"; visitors go to `/login` with `state.from` back to the page; hidden for the owner and for guides and admins). Account tab "Saved guides" (`/account/saved-guides`, `SavedGuidesPage.tsx`: cards linking to `guidePath`, Remove). Guide → Availability (`GuideAvailabilityPage.tsx`): add/edit form, ranges listed by month, edit and remove, "Dates and prices are set with the Empty Valley team." `AvailabilityLink` shows the owner that line and "Mark my availability →" (`/guide/availability`); visitors see nothing. Admins see "Free guides on these dates" (`components/admin/FreeGuidesHint.tsx`) under the departure form's start date (window = the trek's days; a name picks that guide) and under each planned date (§7.20).
+- Tests: `SavedGuideTests`, `GuideAvailabilityTests`.
 
 ## 8. Running locally
 

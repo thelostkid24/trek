@@ -1,6 +1,7 @@
 import { acquisition, type SignupChoices } from '../analytics/attribution.ts'
 import type { AuthResponse } from './auth'
 import type { DepartureStatus, GuideBrief, Items, RefundTier, TrackBrief } from './catalog'
+import type { ReviewTag, SubRatings } from './reviews.ts'
 import { apiFetch } from './client'
 import type { Payment } from './payments'
 import type { Gender } from './profile'
@@ -169,11 +170,12 @@ export const cancelBooking = (token: string, id: string) =>
   apiFetch<Booking>(`/api/trekker/bookings/${id}/cancel`, { method: 'POST', token })
 
 /** The trekker's review of a completed booking (docs/TRD.md §7.14). */
-export type Review = {
+export type Review = SubRatings & {
   id: string
   booking_id: string
   rating: number
   body: string | null
+  tags: ReviewTag[]
   created_at: string
   updated_at: string
 }
@@ -183,5 +185,9 @@ export const getReview = (token: string, bookingId: string) =>
   apiFetch<Review>(`/api/trekker/bookings/${bookingId}/review`, { token })
 
 /** Writes or rewrites it; 409 REVIEW_NOT_ALLOWED before the departure is completed. */
-export const writeReview = (token: string, bookingId: string, body: { rating: number; body: string | null }) =>
+export const writeReview = (
+  token: string,
+  bookingId: string,
+  body: SubRatings & { rating: number; body: string | null; tags: ReviewTag[] },
+) =>
   apiFetch<Review>(`/api/trekker/bookings/${bookingId}/review`, { method: 'PUT', token, body })

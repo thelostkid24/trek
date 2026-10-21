@@ -41,6 +41,16 @@ public class PublicFileController {
         return serve(BlogPhotoFiles.storageKey(parse(id)));
     }
 
+    @GetMapping(GuideCoverFiles.URL_PATH + "{id:[0-9a-fA-F-]{36}}.jpg")
+    public ResponseEntity<byte[]> guideCover(@PathVariable String id) {
+        return serve(GuideCoverFiles.storageKey(parse(id)));
+    }
+
+    @GetMapping(GuideMediaFiles.PHOTO_PATH + "{id:[0-9a-fA-F-]{36}}.jpg")
+    public ResponseEntity<byte[]> guideMedia(@PathVariable String id) {
+        return serve(GuideMediaFiles.photoKey(parse(id)));
+    }
+
     private ResponseEntity<byte[]> serve(String key) {
         byte[] content = storage.get(key).orElseThrow(() -> ApiException.notFound("File not found"));
         return ResponseEntity.ok()

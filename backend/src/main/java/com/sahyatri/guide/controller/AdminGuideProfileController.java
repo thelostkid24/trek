@@ -2,9 +2,12 @@ package com.sahyatri.guide.controller;
 
 import com.sahyatri.guide.dto.GuideProfileRequest;
 import com.sahyatri.guide.dto.GuideProfileResponse;
+import com.sahyatri.guide.dto.SlugRequest;
 import com.sahyatri.guide.service.GuideProfileService;
 import jakarta.validation.Valid;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -36,6 +39,12 @@ public class AdminGuideProfileController {
     @PutMapping("/profile")
     public GuideProfileResponse update(@PathVariable UUID id, @Valid @RequestBody GuideProfileRequest req) {
         return profiles.update(id, req);
+    }
+
+    @PutMapping("/slug")
+    public GuideProfileResponse changeSlug(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id,
+                                           @Valid @RequestBody SlugRequest req) {
+        return profiles.changeSlug(UUID.fromString(jwt.getSubject()), id, req.slug());
     }
 
     @PutMapping(path = "/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

@@ -192,7 +192,7 @@ The Dockerfile's build stage runs on `--platform=$BUILDPLATFORM`. Emulating amd6
 | Priority | Rule | Action |
 |---|---|---|
 | 0 | `common`: `AWSManagedRulesCommonRuleSet`. `SizeRestrictions_BODY` → Count (uploads are up to 5 MB). `CrossSiteScripting_BODY` → Count (it mistakes bytes inside JPEGs for script) | Block |
-| 1 | `xss-body-except-uploads`: blocks requests carrying the `CrossSiteScripting_BODY` label, **except** multipart uploads to track photos, snow-report photos (admin and guide) and `/api/account/avatar` | Block |
+| 1 | `xss-body-except-uploads`: blocks requests carrying the `CrossSiteScripting_BODY` label, **except** multipart uploads to track photos, snow-report photos (admin and guide), `/api/account/avatar`, `/api/admin/guides/*/avatar` and the guide's own `/api/guide/profile/avatar`, `/api/guide/profile/cover`, `/api/guide/certifications/*/document` and `/api/guide/media/photos` (TRD §7.21) | Block |
 | 2 | `bad-inputs`: `AWSManagedRulesKnownBadInputsRuleSet` | Block |
 | 3 | `api-rate`: 1000 requests / 5 min per IP on `/api/*`. Looser than usual because Indian mobile carriers put many users behind one IP (CGNAT) | Block |
 

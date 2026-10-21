@@ -30,7 +30,9 @@ import com.sahyatri.common.exception.ApiException;
 import com.sahyatri.common.storage.AvatarFiles;
 import com.sahyatri.common.storage.TrackPhotoFiles;
 import com.sahyatri.guide.dto.GuideDetailsResponse;
+import com.sahyatri.guide.dto.GuidePageExtras;
 import com.sahyatri.guide.service.GuideDetailsService;
+import com.sahyatri.guide.service.OwnGuideProfileService;
 import com.sahyatri.profile.entity.TrekkerProfile;
 import com.sahyatri.profile.repository.TrekkerProfileRepository;
 import com.sahyatri.review.dto.RatingSummary;
@@ -50,6 +52,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
@@ -76,12 +79,14 @@ public class CatalogService {
     private final BookingProperties bookingProps;
     private final CharityProperties charity;
     private final PlannedDateService plannedDates;
+    private final OwnGuideProfileService ownProfiles;
 
     public CatalogService(DepartureRepository departures, TrackRepository tracks, TrackPhotoRepository photos,
                           UserRepository users, TrekkerProfileRepository profiles, CatalogProperties props,
                           AvatarFiles avatars, TrackPhotoFiles photoFiles, GuideDetailsService guideDetails,
                           ReviewService reviews, TrekContentService content, SnowReportService snowReports,
-                          BookingProperties bookingProps, CharityProperties charity, PlannedDateService plannedDates) {
+                          BookingProperties bookingProps, CharityProperties charity, PlannedDateService plannedDates,
+                          OwnGuideProfileService ownProfiles) {
         this.departures = departures;
         this.tracks = tracks;
         this.photos = photos;
@@ -97,6 +102,7 @@ public class CatalogService {
         this.bookingProps = bookingProps;
         this.charity = charity;
         this.plannedDates = plannedDates;
+        this.ownProfiles = ownProfiles;
     }
 
     public LocalDate today() {
@@ -208,20 +214,31 @@ public class CatalogService {
         details.priorTreks().forEach(p -> ledByTrack.merge(p.trackId(), (long) p.times(), Long::sum));
         Map<UUID, Track> ledTracks = tracks.findAllById(ledByTrack.keySet())
                 .stream().collect(Collectors.toMap(Track::getId, Function.identity()));
+        GuidePageExtras extras = ownProfiles.pageExtras(id);
         List<GuideProfile.TrekLed> treks = ledByTrack.entrySet().stream()
-                .map(e -> new GuideProfile.TrekLed(TrackBrief.of(ledTracks.get(e.getKey())), e.getValue()))
+                .map(e -> {
+                    Track t = ledTracks.get(e.getKey());
+                    return new GuideProfile.TrekLed(TrackBrief.of(t), e.getValue(), t.getMaxAltitudeM(),
+                            t.getSeasonLabel(), extras.routeNotes().get(e.getKey()));
+                })
                 .sorted(Comparator.comparingLong(GuideProfile.TrekLed::times).reversed())
                 .toList();
         List<DepartureSummary> upcoming = departures.findListedForGuide(id, DepartureStatus.PUBLISHED, today())
                 .stream().map(this::toSummary).toList();
         RatingSummary rating = reviews.ratings(Set.of(id)).getOrDefault(id, RatingSummary.NONE);
+        Integer highest = ledTracks.values().stream().map(Track::getMaxAltitudeM).filter(Objects::nonNull)
+                .max(Integer::compare).orElse(null);
+        DepartureRepository.ReturnCount back = departures.countReturning(id);
+        Integer returnRate = back.getTrekkers() < GuideProfile.RETURN_RATE_MIN_TREKKERS ? null
+                : (int) Math.round(100.0 * back.getReturned() / back.getTrekkers());
 
-        return new GuideProfile(guide.getId(), guide.getFullName(), avatars.url(guide.getAvatarKey()),
-                profile == null ? null : profile.getHomeCity(), profile == null ? null : profile.getBio(),
+        return new GuideProfile(guide.getId(), details.slug(), guide.getFullName(), avatars.url(guide.getAvatarKey()),
+                extras.coverUrl(), profile == null ? null : profile.getHomeCity(), profile == null ? null : profile.getBio(),
                 treks.stream().mapToLong(GuideProfile.TrekLed::times).sum(), details.yearsLeading(),
                 details.languages(), details.certification(), details.certificationNumber(), details.bmcInstitute(),
                 details.bmcCertificateNumber(), details.amcInstitute(), details.amcCertificateNumber(), details.quote(),
-                rating.average(), rating.count(), reviews.forGuide(id), treks, upcoming);
+                rating.average(), rating.count(), highest, returnRate, reviews.forGuide(id), extras.specialties(), extras.milestones(), treks,
+                upcoming);
     }
 
     /**
@@ -259,7 +276,7 @@ public class CatalogService {
                     GuideDetailsResponse gd = details.get(g.getId());
                     RatingSummary rating = ratings.getOrDefault(g.getId(), RatingSummary.NONE);
                     TrekkerProfile home = homes.get(g.getId());
-                    return new GuideListItem(g.getId(), g.getFullName(), avatars.url(g.getAvatarKey()),
+                    return new GuideListItem(g.getId(), gd.slug(), g.getFullName(), avatars.url(g.getAvatarKey()),
                             home == null ? null : home.getHomeCity(), gd.yearsLeading(), gd.languages(),
                             gd.certification(), gd.certificationNumber(), gd.bmcInstitute(), gd.bmcCertificateNumber(),
                             gd.amcInstitute(), gd.amcCertificateNumber(), gd.quote(),
@@ -298,7 +315,7 @@ public class CatalogService {
             GuideDetailsResponse gd = details.get(g.getId());
             RatingSummary rating = ratings.getOrDefault(g.getId(), RatingSummary.NONE);
             TrekkerProfile home = guideProfiles.get(g.getId());
-            cards.putIfAbsent(g.getId(), new GuideCard(g.getId(), g.getFullName(), avatars.url(g.getAvatarKey()),
+            cards.putIfAbsent(g.getId(), new GuideCard(g.getId(), gd.slug(), g.getFullName(), avatars.url(g.getAvatarKey()),
                     home == null ? null : home.getHomeCity(), home == null ? null : home.getBio(), led.getOrDefault(g.getId() + "/" + d.getTrack().getId(), 0L),
                     gd.yearsLeading(), gd.languages(), gd.certification(), gd.certificationNumber(), gd.bmcInstitute(),
                     gd.bmcCertificateNumber(), gd.amcInstitute(), gd.amcCertificateNumber(), gd.quote(),

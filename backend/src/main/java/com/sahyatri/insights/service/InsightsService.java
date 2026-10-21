@@ -126,7 +126,8 @@ public class InsightsService {
                        (SELECT count(DISTINCT b.user_id) FROM bookings b JOIN cohort c ON c.id = b.user_id
                           JOIN departures d ON d.id = b.departure_id
                           WHERE b.status = 'CONFIRMED' AND d.status = 'COMPLETED') AS trekked,
-                       (SELECT count(DISTINCT r.user_id) FROM reviews r JOIN cohort c ON c.id = r.user_id) AS reviewed""",
+                       (SELECT count(DISTINCT r.user_id) FROM reviews r JOIN cohort c ON c.id = r.user_id
+                          WHERE r.source = 'BOOKING') AS reviewed""",
                 p, (rs, i) -> List.of(
                         new FunnelStep("ACCOUNT", "Signed up", rs.getLong("accounts")),
                         new FunnelStep("HELD", "Held seats", rs.getLong("held")),
@@ -182,7 +183,7 @@ public class InsightsService {
                               FROM bookings b JOIN departures d ON d.id = b.departure_id
                               WHERE b.confirmed_at >= :from GROUP BY 1),
                      rated AS (SELECT track_id, avg(rating) AS avg_rating, count(*) AS reviews
-                               FROM reviews GROUP BY 1)
+                               FROM reviews WHERE source = 'BOOKING' AND hidden_at IS NULL GROUP BY 1)
                 SELECT t.id, t.name, t.slug, sold.confirmed, sold.seats, sold.gross, rated.avg_rating,
                        COALESCE(rated.reviews, 0) AS reviews
                 FROM sold JOIN tracks t ON t.id = sold.track_id LEFT JOIN rated ON rated.track_id = t.id
@@ -210,7 +211,7 @@ public class InsightsService {
                                     avg(seats_taken * 10000.0 / max_group_size) AS fill_bps
                              FROM departures WHERE status = 'COMPLETED' GROUP BY 1),
                      rated AS (SELECT guide_id, avg(rating) AS avg_rating, count(*) AS reviews
-                               FROM reviews GROUP BY 1)
+                               FROM reviews WHERE source = 'BOOKING' AND hidden_at IS NULL GROUP BY 1)
                 SELECT u.id, u.full_name, COALESCE(led.completed, 0) AS completed, round(led.fill_bps) AS fill_bps,
                        rated.avg_rating, COALESCE(rated.reviews, 0) AS reviews
                 FROM users u LEFT JOIN led ON led.guide_id = u.id LEFT JOIN rated ON rated.guide_id = u.id

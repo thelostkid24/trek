@@ -38,8 +38,14 @@ public class GuideDetails {
 
     private String amcCertificateNumber;
 
-    /** In their own words, one or two lines. */
+    /** In their own words, one or two lines. Shown as the intro under the guide's name. */
     private String quote;
+
+    /** The profile's URL, /guides/{slug}. Old ones stay in guide_slug_history. */
+    private String slug;
+
+    /** Cover photo key in storage, see {@code GuideCoverFiles}. */
+    private String coverKey;
 
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
@@ -72,6 +78,13 @@ public class GuideDetails {
         this.bmcCertificateNumber = bmcCertificateNumber;
         this.amcInstitute = amcInstitute;
         this.amcCertificateNumber = amcCertificateNumber;
+        this.quote = quote;
+    }
+
+    /** What the guide edits about themselves; the course fields stay admin-set. */
+    public void updateOwn(Integer leadingSince, String languages, String quote) {
+        this.leadingSince = leadingSince;
+        this.languages = languages;
         this.quote = quote;
     }
 
@@ -113,5 +126,21 @@ public class GuideDetails {
 
     public String getQuote() {
         return quote;
+    }
+
+    public String getSlug() {
+        return slug;
+    }
+
+    public void setSlug(String slug) {
+        this.slug = slug;
+    }
+
+    public String getCoverKey() {
+        return coverKey;
+    }
+
+    public void setCoverKey(String coverKey) {
+        this.coverKey = coverKey;
     }
 }

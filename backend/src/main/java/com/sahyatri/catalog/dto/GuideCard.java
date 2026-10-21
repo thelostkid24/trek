@@ -8,6 +8,7 @@ import java.util.UUID;
  */
 public record GuideCard(
         UUID id,
+        String slug,
         String fullName,
         String avatarUrl,
         String homeCity,

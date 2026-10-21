@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { listGuides, type GuideListItem } from '../api/catalog.ts'
+import { guidePath, listGuides, type GuideListItem } from '../api/catalog.ts'
 import { messageFor } from '../auth/errorMessages.ts'
 import { Avatar } from '../components/Avatar.tsx'
 import { RatingLine } from '../components/catalog/GuideProfileCard.tsx'
@@ -78,7 +78,7 @@ function GuideTile({ guide: g }: { guide: GuideListItem }) {
         <div className="min-w-0">
           <h2 className="truncate font-serif text-xl leading-tight text-stone-900">
             {/* The card is clickable through this link's overlay. */}
-            <Link to={`/guides/${g.id}`} viewTransition className="after:absolute after:inset-0">
+            <Link to={guidePath(g)} viewTransition className="after:absolute after:inset-0">
               {name}
             </Link>
           </h2>

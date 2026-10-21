@@ -8,6 +8,8 @@ const TABS = [
   { to: '/admin/guides', label: 'Guides', end: false },
   { to: '/admin/blog', label: 'Blog', end: false },
   { to: '/admin/insights', label: 'Insights', end: false },
+  { to: '/admin/reviews', label: 'Reviews', end: false },
+  { to: '/admin/questions', label: 'Questions', end: false },
 ]
 
 /** /admin/* — rendered inside <RequireAuth role="ADMIN">. */

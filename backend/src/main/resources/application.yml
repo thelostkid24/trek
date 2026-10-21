@@ -67,6 +67,18 @@ app:
     guide-share-bps: ${GUIDE_SHARE_BPS:7000}
     booking-cutoff-days: 1
     zone: Asia/Kolkata
+  guide-tiers:
+    # Worked out on every read (law 8). Treks: departures completed with us; ratings: §7.14 reviews.
+    trail:
+      min-treks: 5
+    senior:
+      min-treks: 25
+      min-rating: 4.5
+      min-reviews: 10
+    summit:
+      min-treks: 75
+      min-rating: 4.7
+      min-reviews: 25
   charity:
     # Share of every booking given to charity. Comes out of the price; trekkers never pay extra. Blank name hides it.
     name: ${CHARITY_NAME:}
@@ -100,6 +112,17 @@ app:
       - patterns: [/api/auth/signup, /api/auth/login, /api/auth/google, /api/auth/otp/**, /api/auth/password/**]
         per-minute: 10
       - patterns: [/api/public/bookings, /api/public/bookings/email-code]
+        methods: [POST]
+        per-minute: 5
+      # Off-platform reviews (§7.21.5): codes and posts per IP; codes are also limited per address.
+      - patterns: [/api/public/guides/*/reviews/code]
+        methods: [POST]
+        per-minute: 5
+      - patterns: [/api/public/guides/*/reviews]
+        methods: [POST]
+        per-minute: 10
+      # Visitor questions to a guide (§7.21.6); each email also has its own code and daily question caps.
+      - patterns: [/api/public/questions/email-code, /api/public/guides/*/questions, /api/public/questions/*/messages]
         methods: [POST]
         per-minute: 5
       - patterns: [/api/account/**]

@@ -57,6 +57,12 @@ const MESSAGES: Record<string, string> = {
   EMAIL_CODE_EXPIRED: 'That code expired. Send a new one.',
   EMAIL_CODE_TOO_MANY_ATTEMPTS: 'Too many wrong codes. Send a new one.',
   EMAIL_CODE_RATE_LIMITED: 'Please wait a moment before sending another code.',
+  // Questions to a guide (§7.21.6)
+  QUESTION_NOT_FOUND: "We couldn't find that conversation.",
+  QUESTION_CLOSED: 'This conversation was closed, so it takes no more replies.',
+  QUESTION_RATE_LIMITED: "You've asked a lot of questions today. Please try again tomorrow.",
+  QUESTION_LINK_INVALID: "This link isn't valid. Open it straight from our email.",
+  QUESTION_LINK_EXPIRED: 'This link has expired. Open the newest email about your question for a fresh one.',
   BOOKING_NOT_FOUND: "We couldn't find that booking.",
   BOOKING_NOT_HELD: 'This booking is no longer waiting for payment.',
   BOOKING_NOT_PAYABLE: 'The seat hold has ended. Start a new booking to pay.',

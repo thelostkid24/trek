@@ -8,6 +8,7 @@ import com.sahyatri.auth.service.CurrentUser;
 import com.sahyatri.common.audit.AuditLog;
 import com.sahyatri.common.exception.ApiException;
 import com.sahyatri.common.storage.AvatarFiles;
+import com.sahyatri.guide.service.GuideSlugService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,9 +26,12 @@ public class GuideAdminService {
     private final AuditLog audit;
     private final AvatarFiles avatars;
     private final CurrentUser currentUser;
+    private final GuideSlugService slugs;
 
-    public GuideAdminService(UserRepository users, AuditLog audit, AvatarFiles avatars, CurrentUser currentUser) {
+    public GuideAdminService(UserRepository users, AuditLog audit, AvatarFiles avatars, CurrentUser currentUser,
+                             GuideSlugService slugs) {
         this.currentUser = currentUser;
+        this.slugs = slugs;
         this.users = users;
         this.audit = audit;
         this.avatars = avatars;
@@ -51,6 +55,8 @@ public class GuideAdminService {
             case TREKKER -> user.setRole(Role.GUIDE);
         }
         users.saveAndFlush(user);
+        // Every guide has a profile row and a slug from the start, so their page has its URL (§7.21).
+        slugs.ensure(user.getId(), user.getFullName());
         audit.record(adminId, "USER_PROMOTED", "USER", user.getId(), Map.of("role", Role.GUIDE.name()));
         return toResponse(user);
     }

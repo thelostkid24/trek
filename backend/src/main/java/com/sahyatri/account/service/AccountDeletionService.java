@@ -93,6 +93,7 @@ public class AccountDeletionService {
         jdbc.update("DELETE FROM trekker_profiles WHERE user_id = ?", userId);
         jdbc.update("DELETE FROM email_verifications WHERE user_id = ?", userId);
         jdbc.update("DELETE FROM password_resets WHERE user_id = ?", userId);
+        jdbc.update("DELETE FROM saved_guides WHERE user_id = ?", userId);
         if (phone != null) {
             jdbc.update("DELETE FROM otp_challenges WHERE phone = ?", phone);
         }
@@ -103,6 +104,8 @@ public class AccountDeletionService {
         jdbc.update("""
                 UPDATE booking_travellers t SET full_name = ?, phone = NULL
                 FROM bookings b WHERE b.id = t.booking_id AND b.user_id = ?""", REMOVED, userId);
+        // Questions they asked a guide stay for the guide, without their name (§7.21.6).
+        jdbc.update("UPDATE question_threads SET asker_name = ? WHERE asker_id = ?", REMOVED, userId);
         tokens.revokeAll(userId);
 
         Instant now = Instant.now();

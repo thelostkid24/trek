@@ -1,5 +1,6 @@
 import { queryOptions } from '@tanstack/react-query'
-import { apiFetch } from './client'
+import { API_BASE_URL, apiFetch } from './client'
+import type { PublicReview } from './reviews.ts'
 
 // Contract: docs/TRD.md §7.5 (public catalog).
 
@@ -120,6 +121,8 @@ export type GuideCredentials = {
  */
 export type GuideCard = GuideBrief &
   GuideCredentials & {
+    /** The profile URL's last part; null until assigned (docs/TRD.md §7.21). */
+    slug: string | null
     home_city: string | null
     bio: string | null
     led_this_trek: number
@@ -191,26 +194,32 @@ export type TrekPage = {
   charity: { name: string; bps: number } | null
 }
 
-export type PublicReview = {
-  rating: number
-  body: string | null
-  author_name: string
-  trek_name: string
-  trek_start_date: string
-  created_at: string
-}
+export type { PublicReview } from './reviews.ts'
 
 export type GuideProfile = GuideCredentials & {
   id: string
+  /** Canonical URL part (docs/TRD.md §7.21); the page swaps an id or old slug in the address for it. */
+  slug: string | null
   full_name: string | null
   avatar_url: string | null
+  /** 3:1 cover photo, or null. */
+  cover_url: string | null
   home_city: string | null
   bio: string | null
   treks_led: number
   rating: number | null
   review_count: number
+  /** Highest top (metres) among the treks they've led, with us or before; null when unknown (§7.21.2). */
+  highest_altitude_m: number | null
+  /** % of trekkers from their completed departures who booked with them again; null under 10 trekkers. */
+  return_rate_pct: number | null
   reviews: PublicReview[]
-  treks: { track: TrackBrief; times: number }[]
+  /** Picked by the guide, in their order. */
+  specialties: string[]
+  /** "Career in the mountains", oldest first. */
+  milestones: { year: number; text: string }[]
+  /** Most led first; `note` is the guide's line about the route; altitude and season are the trek's. */
+  treks: { track: TrackBrief; times: number; max_altitude_m: number | null; season_label: string | null; note: string | null }[]
   upcoming: DepartureSummary[]
 }
 
@@ -243,6 +252,7 @@ export type CatalogTrek = {
 /** One guide on the public guides list, most-led trek first. Contract: docs/TRD.md §7.17. */
 export type GuideListItem = GuideBrief &
   GuideCredentials & {
+    slug: string | null
     home_city: string | null
     treks_led: number
     rating: number | null
@@ -264,7 +274,15 @@ export const trekQueryOptions = (slug: string) => queryOptions({ queryKey: ['pub
 
 export const listGuides = () => apiFetch<Items<GuideListItem>>('/api/public/guides')
 
-export const getGuide = (id: string) => apiFetch<GuideProfile>(`/api/public/guides/${encodeURIComponent(id)}`)
+/** A guide's public page: /guides/{slug}, or /guides/{id} for one without a slug yet. */
+export const guidePath = (g: { id: string; slug?: string | null }) => `/guides/${g.slug ?? g.id}`
+
+/** The guide page's link-preview image, drawn by the backend (§7.21.2). Absolute, on the API's host. */
+export const guideCardUrl = (g: { id: string; slug?: string | null }) =>
+  `${API_BASE_URL}/api/public/guides/${encodeURIComponent(g.slug ?? g.id)}/card.png`
+
+/** `key`: the guide's slug, a slug they used before, or their id. */
+export const getGuide = (key: string) => apiFetch<GuideProfile>(`/api/public/guides/${encodeURIComponent(key)}`)
 
 export const getDeparture = (id: string) =>
   apiFetch<DepartureDetail>(`/api/public/departures/${encodeURIComponent(id)}`)
