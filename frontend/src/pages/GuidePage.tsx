@@ -14,6 +14,7 @@ import { AvailabilityLink } from '../components/guide/sections/AvailabilityLink.
 import { CertificationsSection } from '../components/guide/sections/CertificationsSection.tsx'
 import { FavouriteButton } from '../components/guide/sections/FavouriteButton.tsx'
 import { MediaSection } from '../components/guide/sections/MediaSection.tsx'
+import { ReplyTimeStat } from '../components/guide/sections/ReplyTimeStat.tsx'
 import { ReviewsSection } from '../components/guide/sections/ReviewsSection.tsx'
 import { TierBadge } from '../components/guide/sections/TierBadge.tsx'
 import { rupees, shortRange, weekdaysAndYear } from '../lib/format.ts'
@@ -124,7 +125,10 @@ function Profile({ guide: g, departureId }: { guide: GuideProfile; departureId: 
           </div>
         </header>
 
-        <IconFacts facts={stats} className="flex flex-wrap gap-x-10 gap-y-4" />
+        <div className="flex flex-wrap items-start gap-x-10 gap-y-4">
+          <IconFacts facts={stats} className="flex flex-wrap gap-x-10 gap-y-4" />
+          <ReplyTimeStat {...section} />
+        </div>
 
         <MediaSection {...section} />
 
