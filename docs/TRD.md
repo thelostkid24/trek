@@ -200,6 +200,9 @@ NULL everywhere = not captured (rows made before V11, or nothing sent). Tracking
 - **`guide_profile_specialties`** — `guide_id → users`, `specialty_id → guide_specialties` (both `ON DELETE CASCADE`), `position INT 0..7`. `PK (guide_id, specialty_id)`. At most eight per guide.
 - **`guide_route_notes`** — `guide_id → users`, `track_id → tracks` (both cascade), `note TEXT 1..200`, `updated_at`. `PK (guide_id, track_id)`.
 - **`guide_milestones`** — `id UUID PK`, `guide_id → users ON DELETE CASCADE`, `year INT 1950..2100`, `text TEXT 1..140`, `position INT ≥ 0`, `created_at`. Index `(guide_id, position)`. At most 30 per guide (service).
+### 6.21 Guide media — `V27__guide_media.sql`
+- **`guide_media`** — `id UUID PK`, `guide_id → users ON DELETE CASCADE`, `kind TEXT IN ('PHOTO','VIDEO')`, `caption TEXT NULL 1..120`, `position INT ≥ 0` (the guide's order), `duration_s INT NULL 1..90` (videos, rounded up), `size_bytes BIGINT > 0`, `poster_key UUID NULL` (a video's still at `guide-media/<key>.jpg`), `status TEXT IN ('PENDING','READY')`, `created_at`. CHECK: a video has `duration_s`; a photo has no duration or poster and is always READY. Photo files at `guide-media/<id>.jpg`, video files at `guide-videos/<id>`. Index `(guide_id, position)`; partial index `(created_at) WHERE status = 'PENDING'`. At most 20 rows per guide, pending included (service).
+
 - V26–V30 are reserved for §7.21.3–§7.21.7: V26 certifications, V27 media, V28 reviews, V29 questions, V30 favourites and availability.
 
 ## 7. Feature log
@@ -1231,7 +1234,28 @@ _Not built yet._ The public page follows the design: cover, headline ("Mountain 
 _Not built yet._ `guide_certifications`: type (BMC, AMC, Search & Rescue, MOI, Wilderness First Responder/Aid, Police verification, Insurance, Other), issuer, year or valid-to, number, a private document (PDF/JPG ≤ 5 MB, admins only), verified by an admin (audit-logged; editing resets it), "Expired" past valid-to. The BMC/AMC/other columns of §7.12 move in and are dropped later. Tiers at read time from config (Empty Valley treks and reviews only): Trail Guide (verified BMC + 5 treks), Senior Guide (25 treks, ≥ 4.5 from ≥ 10 reviews), Summit Guide (verified AMC, 75 treks, ≥ 4.7 from ≥ 25 reviews).
 
 #### 7.21.4 Photos and videos — `V27`
-_Not built yet._ Guides upload photos (like trek photos) and videos (MP4/MOV H.264 ≤ 90 s, ≤ 100 MB) straight to S3 by presigned URL, reorder and remove them; the page shows a carousel. No transcoding.
+Guides add up to 20 photos and short videos to their profile (table in §6.21). Photos come through the backend and are re-encoded like trek photos (JPEG/PNG ≤ 5 MB, long edge ≤ 2000). Video bytes never pass through the backend and there is no transcoding: the browser reads the length from the file, asks for a presigned PUT URL, uploads straight to storage, grabs a frame as the poster and confirms; the backend checks the stored object with a HEAD.
+
+| Method & path | Auth | Request | Success | Errors |
+|---|---|---|---|---|
+| `GET /api/guide/media` | GUIDE | — | `200 { items: [GuideMediaItem] }` (pending videos included, in order) | — |
+| `POST /api/guide/media/photos` | GUIDE | multipart `file`, optional `caption` ≤ 120 | `201 GuideMediaItem` (READY, last) | `400 UNSUPPORTED_IMAGE`, `400 VALIDATION_FAILED`, `413 FILE_TOO_LARGE`, `409 TOO_MANY_MEDIA` |
+| `POST /api/guide/media/videos` | GUIDE | `{ content_type (video/mp4 or video/quicktime), size_bytes ≤ 100 MB, duration_s ≤ 90, caption? ≤ 120 }` | `201 { id, upload_url, headers }` — a PENDING row; PUT the file to `upload_url` with `headers` within 30 min (size and type are signed) | `400 UNSUPPORTED_VIDEO`, `413 FILE_TOO_LARGE`, `400 VALIDATION_FAILED` (`duration_s`), `409 TOO_MANY_MEDIA` |
+| `PUT /api/guide/media/videos/{id}/poster` | GUIDE | multipart `file` (JPEG/PNG ≤ 5 MB) | `200 GuideMediaItem`; replaces any earlier poster | `404 MEDIA_NOT_FOUND`, image errors |
+| `POST /api/guide/media/videos/{id}/complete` | GUIDE | — | `200 GuideMediaItem` (READY; again on a READY one is a no-op) | `409 UPLOAD_MISSING` (nothing in storage yet; retry), `400 UPLOAD_INVALID` (size or type differ: the row and file are removed), `404 MEDIA_NOT_FOUND` |
+| `PUT /api/guide/media/{id}` | GUIDE | `{ caption }` (blank clears) | `200 GuideMediaItem` | `400`, `404 MEDIA_NOT_FOUND` |
+| `PUT /api/guide/media/order` | GUIDE | `{ ids }` — every one of the guide's items once, in the new order | `200 { items }` | `400 VALIDATION_FAILED` (`ids`) |
+| `DELETE /api/guide/media/{id}` | GUIDE | — | `204`; the files (video, poster) go too | `404 MEDIA_NOT_FOUND` |
+| `GET /api/public/guides/{key}/media` | public | `key`: id, slug or old slug | `200 { items }` READY only, in order | `404 GUIDE_NOT_FOUND` |
+| `GET /api/public/files/guide-media/{id}.jpg` | public | — | `200` JPEG (photo or poster), cached a year | `404` |
+| `GET /api/public/files/guide-videos/{id}` | public | — | `302` to a presigned storage GET valid 1 h (`no-store`), so Range requests and seeking work | `404` (not a READY video) |
+
+- `GuideMediaItem` = `{ id, kind PHOTO|VIDEO, caption, position, url (photo, or the video's redirect link), poster_url, duration_s, size_bytes, status PENDING|READY, created_at }`. Another guide's id answers `404 MEDIA_NOT_FOUND`; the guide is always the token's subject.
+- Storage: `FileStorage` gains `presignUpload`, `head` and `presignDownload`. S3 presigns PUT (Content-Type and Content-Length signed) and GET; the bucket needs CORS for PUT/GET from the site (DEPLOY.md §6). `LocalFileStorage` (dev, tests) hands out HMAC-signed (`JWT_SECRET`) `/api/public/local-files` URLs: PUT streams to disk and must match the signed type and exact size; GET serves the file with Range support.
+- `GuideMediaCleanupJob` (hourly, :25): a video still PENDING after a day loses its row (row lock, one transaction per row), then its files. Config `app.guide-media.upload-ttl` (30 m), `play-ttl` (1 h), `pending-ttl` (1 d); defaults only, no env vars.
+- Frontend: `components/guide/sections/MediaSection.tsx`, API in `api/guideMedia.ts`. A large stage shows the picked item (a video plays inline from a ▶ button; "VIDEO · 0:42" and the caption; "1 / 5") over a strip of thumbnails labelled "▶ Video" / "Photo". Visitors don't see the section when there is no media. The owner gets "+ Add photo or video" (a dashed button; type, size and length checked in the browser, upload progress shown) and "Reorder or remove" (move left/right, caption, remove with a confirm; unfinished uploads show there to remove).
+- The WAF's `xss-body-except-uploads` rule must also exempt `/api/guide/media/photos` and `/api/guide/media/videos/*/poster` (DEPLOY.md §10).
+- Tests: `GuideMediaTests`.
 
 #### 7.21.5 Reviews — `V28`
 _Not built yet._ Overall stars plus four optional 1–5 sub-ratings (Safety & decisions, Route knowledge, Communication, Care at altitude; a bar hides under five answers), a fixed tag list ("Mentioned often"), filters (All / Verified trek / Group verified), one public reply per review from the guide, "Report" to admin, admin hide with a stored reason. "Ask for review": a link `/r/{slug}` with WhatsApp text and a QR code; the guide picks an Empty Valley trek or "My own trekkers". Off-platform reviewers confirm by email or phone code, are badged "Group verified" and don't count in the headline rating or count.

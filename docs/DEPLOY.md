@@ -85,7 +85,24 @@ ECR, SES, Razorpay and MSG91 without a NAT Gateway (about $35/mo saved).
 ## 6. S3 buckets
 Both have **Block all public access** on:
 - `emptyvalley-uploads-bucket`: avatars, trek photos and snow-report photos. Only the backend task role touches it;
-  visitors get the files through `https://api.theemptyvalley.com/api/public/files/**`.
+  visitors get the files through `https://api.theemptyvalley.com/api/public/files/**`. Guide profile videos
+  (TRD §7.21.4) are the exception: browsers PUT them straight into `guide-videos/` and play them from it by presigned
+  URL, so the bucket needs this CORS configuration (Permissions → CORS):
+  ```json
+  [
+    {
+      "AllowedOrigins": ["https://theemptyvalley.com", "https://www.theemptyvalley.com"],
+      "AllowedMethods": ["PUT", "GET", "HEAD"],
+      "AllowedHeaders": ["Content-Type", "Range"],
+      "ExposeHeaders": ["ETag", "Content-Length", "Content-Range", "Accept-Ranges"],
+      "MaxAgeSeconds": 3600
+    }
+  ]
+  ```
+  The task role already has `s3:PutObject`, `s3:GetObject` and `s3:DeleteObject` on the bucket; presigned URLs act
+  with those, and the HEAD that confirms an upload needs `s3:GetObject` (add `s3:ListBucket` on the bucket so a missing
+  key answers 404, not 403). Public access stays blocked. Optional: a lifecycle rule that aborts incomplete multipart
+  uploads after 1 day.
 - `emptyvalley-web-bucket`: the React build for CloudFront later. Unused while Firebase serves the site.
 
 ## 7. Email (SES, ap-south-1)
@@ -192,7 +209,7 @@ The Dockerfile's build stage runs on `--platform=$BUILDPLATFORM`. Emulating amd6
 | Priority | Rule | Action |
 |---|---|---|
 | 0 | `common`: `AWSManagedRulesCommonRuleSet`. `SizeRestrictions_BODY` → Count (uploads are up to 5 MB). `CrossSiteScripting_BODY` → Count (it mistakes bytes inside JPEGs for script) | Block |
-| 1 | `xss-body-except-uploads`: blocks requests carrying the `CrossSiteScripting_BODY` label, **except** multipart uploads to track photos, snow-report photos (admin and guide), `/api/account/avatar`, `/api/admin/guides/*/avatar` and the guide's own `/api/guide/profile/avatar` and `/api/guide/profile/cover` (TRD §7.21) | Block |
+| 1 | `xss-body-except-uploads`: blocks requests carrying the `CrossSiteScripting_BODY` label, **except** multipart uploads to track photos, snow-report photos (admin and guide), `/api/account/avatar`, `/api/admin/guides/*/avatar` and the guide's own `/api/guide/profile/avatar`, `/api/guide/profile/cover`, `/api/guide/media/photos` and `/api/guide/media/videos/*/poster` (TRD §7.21). Video bytes never reach the ALB (they go straight to S3) | Block |
 | 2 | `bad-inputs`: `AWSManagedRulesKnownBadInputsRuleSet` | Block |
 | 3 | `api-rate`: 1000 requests / 5 min per IP on `/api/*`. Looser than usual because Indian mobile carriers put many users behind one IP (CGNAT) | Block |
 
