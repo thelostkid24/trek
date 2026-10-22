@@ -202,8 +202,9 @@ function Header({ guide: g, owner, name, url }: { guide: GuideProfile; owner: bo
     .filter(Boolean)
   return (
     <header className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-6">
-        <div className="-mt-14 shrink-0 sm:-mt-20">
+      {/* Top-aligned, so the photo's negative margin lifts it over the cover's edge (with items-end it wouldn't). */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-6">
+        <div className="relative -mt-14 shrink-0 sm:-mt-20">
           {g.avatar_url ? (
             <img
               src={g.avatar_url}
@@ -214,7 +215,7 @@ function Header({ guide: g, owner, name, url }: { guide: GuideProfile; owner: bo
             <Avatar url={null} name={name} size="lg" className="size-28! rounded-2xl! text-4xl! ring-4! ring-paper-50! sm:size-40! sm:text-5xl!" />
           )}
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 sm:pt-5">
           <p className="text-xs font-semibold tracking-[0.16em] text-laterite-600 uppercase">
             Mountain guide{g.home_city ? ` · ${g.home_city}` : ''}
           </p>
