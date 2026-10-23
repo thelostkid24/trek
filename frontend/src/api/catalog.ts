@@ -114,6 +114,8 @@ export type GuideCredentials = {
   amc_institute: string | null
   amc_certificate_number: string | null
   quote: string | null
+  /** A verified certificate still valid today (docs/TRD.md §7.21.3): shown as "Certified". */
+  certified: boolean
 }
 
 /**
@@ -294,9 +296,12 @@ export type GuideListItem = GuideBrief &
     treks_led: number
     rating: number | null
     review_count: number
+    /** Catalog treks they've led, most often first. */
     treks: TrackBrief[]
     /** Upcoming published dates they lead. */
     upcoming: number
+    /** Every route they lead, listed or not, in the kept order, then treks completed with us (§7.21.8). */
+    routes: string[]
   }
 
 export type Items<T> = { items: T[] }

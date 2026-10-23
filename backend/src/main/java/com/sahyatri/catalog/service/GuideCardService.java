@@ -149,15 +149,9 @@ public class GuideCardService {
         return String.join(" · ", parts);
     }
 
-    /** Any certificate on record with its number (§7.12), as {@code isCertified} in the frontend's lib/trek.ts. */
+    /** A verified certificate still valid today (§7.21.3), as {@code isCertified} in the frontend's lib/trek.ts. */
     static boolean verified(GuideProfile g) {
-        return present(g.bmcInstitute()) && present(g.bmcCertificateNumber())
-                || present(g.amcInstitute()) && present(g.amcCertificateNumber())
-                || present(g.certification()) && present(g.certificationNumber());
-    }
-
-    private static boolean present(String s) {
-        return s != null && !s.isBlank();
+        return g.certified();
     }
 
     private BufferedImage avatar(String key) {

@@ -17,7 +17,8 @@ import java.util.UUID;
  * {@code returnRatePct}: the share of trekkers from their completed departures who booked with them again, null under
  * {@link #RETURN_RATE_MIN_TREKKERS} trekkers (§7.21.2). {@code stats}: the numbers an admin picked, worked out now;
  * null when none are picked (the page shows its default row). {@code trainedAt}: short names of the institutes of the
- * mountaineering courses on record ("NIM", "ABVIMAS"), basic first (§7.21.8).
+ * mountaineering courses on record ("NIM", "ABVIMAS"), basic first (§7.21.8). {@code certified}: a verified
+ * certificate still valid today, the same rule as the credentials' {@code verified} (§7.21.3).
  */
 public record GuideProfile(
         UUID id,
@@ -47,7 +48,8 @@ public record GuideProfile(
         List<TrekLed> treks,
         List<DepartureSummary> upcoming,
         List<Stat> stats,
-        List<String> trainedAt) {
+        List<String> trainedAt,
+        boolean certified) {
 
     public static final int RETURN_RATE_MIN_TREKKERS = 10;
 

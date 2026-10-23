@@ -35,7 +35,9 @@ import com.sahyatri.guide.entity.GuideRoute;
 import com.sahyatri.guide.entity.RouteAvailability;
 import com.sahyatri.guide.entity.GuideRouteKind;
 import com.sahyatri.guide.service.GuideDetailsService;
+import com.sahyatri.guide.repository.GuideCertificationRepository;
 import com.sahyatri.guide.service.GuideRecordService;
+import com.sahyatri.guide.service.GuideRouteService;
 import com.sahyatri.guide.service.OwnGuideProfileService;
 import com.sahyatri.profile.entity.TrekkerProfile;
 import com.sahyatri.profile.repository.TrekkerProfileRepository;
@@ -49,6 +51,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeParseException;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -86,13 +89,16 @@ public class CatalogService {
     private final PlannedDateService plannedDates;
     private final OwnGuideProfileService ownProfiles;
     private final GuideRecordService records;
+    private final GuideRouteService routes;
+    private final GuideCertificationRepository certifications;
 
     public CatalogService(DepartureRepository departures, TrackRepository tracks, TrackPhotoRepository photos,
                           UserRepository users, TrekkerProfileRepository profiles, CatalogProperties props,
                           AvatarFiles avatars, TrackPhotoFiles photoFiles, GuideDetailsService guideDetails,
                           ReviewService reviews, TrekContentService content, SnowReportService snowReports,
                           BookingProperties bookingProps, CharityProperties charity, PlannedDateService plannedDates,
-                          OwnGuideProfileService ownProfiles, GuideRecordService records) {
+                          OwnGuideProfileService ownProfiles, GuideRecordService records,
+                          GuideRouteService routes, GuideCertificationRepository certifications) {
         this.departures = departures;
         this.tracks = tracks;
         this.photos = photos;
@@ -110,6 +116,13 @@ public class CatalogService {
         this.plannedDates = plannedDates;
         this.ownProfiles = ownProfiles;
         this.records = records;
+        this.routes = routes;
+        this.certifications = certifications;
+    }
+
+    /** Guides among {@code ids} shown as "Certified": a verified certificate still valid today (§7.21.3). */
+    private Set<UUID> certified(Collection<UUID> ids) {
+        return new HashSet<>(certifications.findCertifiedGuideIds(ids, today()));
     }
 
     public LocalDate today() {
@@ -269,7 +282,8 @@ public class CatalogService {
                 details.languages(), details.certification(), details.certificationNumber(), details.bmcInstitute(),
                 details.bmcCertificateNumber(), details.amcInstitute(), details.amcCertificateNumber(), details.quote(),
                 rating.average(), rating.count(), highest, returnRate, reviews.forGuide(id), extras.specialties(), extras.milestones(), treks,
-                upcoming, GuideStats.stats(record.stats(), in), GuideStats.trainedAt(record.courses()));
+                upcoming, GuideStats.stats(record.stats(), in), GuideStats.trainedAt(record.courses()),
+                !certified(Set.of(id)).isEmpty());
     }
 
     /**
@@ -293,10 +307,16 @@ public class CatalogService {
                 led.computeIfAbsent(c.getGuideId(), id -> new HashMap<>()).merge(c.getTrackId(), c.getTimes(), Long::sum));
         details.values().forEach(gd -> gd.priorTreks().forEach(p ->
                 led.computeIfAbsent(gd.guideId(), id -> new HashMap<>()).merge(p.trackId(), (long) p.times(), Long::sum)));
-        Map<UUID, Track> ledTracks = tracks.findAllById(led.values().stream().flatMap(m -> m.keySet().stream())
-                .collect(Collectors.toSet())).stream().collect(Collectors.toMap(Track::getId, Function.identity()));
+        // Every route, listed in our catalog or not, as on the guide page (§7.21.8).
+        Map<UUID, List<GuideRoute>> routesByGuide = routes.forGuides(ids);
+        Set<UUID> trackIds = led.values().stream().flatMap(m -> m.keySet().stream()).collect(Collectors.toCollection(HashSet::new));
+        routesByGuide.values().stream().flatMap(List::stream).map(GuideRoute::getTrackId).filter(Objects::nonNull)
+                .forEach(trackIds::add);
+        Map<UUID, Track> ledTracks = tracks.findAllById(trackIds).stream()
+                .collect(Collectors.toMap(Track::getId, Function.identity()));
         Map<UUID, Long> upcoming = departures.findListed(DepartureStatus.PUBLISHED, today(), FAR_FUTURE).stream()
                 .collect(Collectors.groupingBy(d -> d.getGuide().getId(), Collectors.counting()));
+        Set<UUID> certifiedIds = certified(ids);
 
         return active.stream().map(g -> {
                     Map<UUID, Long> byTrack = led.getOrDefault(g.getId(), Map.of());
@@ -304,6 +324,21 @@ public class CatalogService {
                             .sorted(Map.Entry.<UUID, Long>comparingByValue().reversed())
                             .map(e -> TrackBrief.of(ledTracks.get(e.getKey())))
                             .toList();
+                    List<GuideRoute> guideRoutes = routesByGuide.getOrDefault(g.getId(), List.of());
+                    Set<UUID> routed = guideRoutes.stream().map(GuideRoute::getTrackId).filter(Objects::nonNull)
+                            .collect(Collectors.toSet());
+                    // byTrack already holds catalog routes' times plus completed departures; add the rest of the
+                    // routes' times and nothing twice.
+                    long treksLed = byTrack.values().stream().mapToLong(Long::longValue).sum()
+                            + guideRoutes.stream().filter(r -> r.getTrackId() == null && r.getTimesLed() != null)
+                            .mapToLong(GuideRoute::getTimesLed).sum();
+                    List<String> routeNames = new ArrayList<>(guideRoutes.stream()
+                            .map(r -> r.getTrackId() == null ? r.getName() : ledTracks.get(r.getTrackId()).getName())
+                            .toList());
+                    byTrack.entrySet().stream()
+                            .filter(e -> !routed.contains(e.getKey()))
+                            .sorted(Map.Entry.<UUID, Long>comparingByValue().reversed())
+                            .forEach(e -> routeNames.add(ledTracks.get(e.getKey()).getName()));
                     GuideDetailsResponse gd = details.get(g.getId());
                     RatingSummary rating = ratings.getOrDefault(g.getId(), RatingSummary.NONE);
                     TrekkerProfile home = homes.get(g.getId());
@@ -311,8 +346,9 @@ public class CatalogService {
                             home == null ? null : home.getHomeCity(), gd.yearsLeading(), gd.languages(),
                             gd.certification(), gd.certificationNumber(), gd.bmcInstitute(), gd.bmcCertificateNumber(),
                             gd.amcInstitute(), gd.amcCertificateNumber(), gd.quote(),
-                            byTrack.values().stream().mapToLong(Long::longValue).sum(), rating.average(),
-                            rating.count(), treks, upcoming.getOrDefault(g.getId(), 0L));
+                            treksLed, rating.average(),
+                            rating.count(), treks, upcoming.getOrDefault(g.getId(), 0L), routeNames,
+                            certifiedIds.contains(g.getId()));
                 })
                 .sorted(Comparator.comparing((GuideListItem g) -> g.upcoming() == 0)
                         .thenComparing(Comparator.comparingLong(GuideListItem::treksLed).reversed()))
@@ -338,6 +374,7 @@ public class CatalogService {
         details.values().forEach(gd -> gd.priorTreks()
                 .forEach(p -> led.merge(gd.guideId() + "/" + p.trackId(), (long) p.times(), Long::sum)));
         Map<UUID, RatingSummary> ratings = reviews.ratings(guideIds);
+        Set<UUID> certifiedIds = certified(guideIds);
 
         Map<UUID, GuideCard> cards = new HashMap<>();
         for (Departure d : list) {
@@ -350,7 +387,7 @@ public class CatalogService {
                     home == null ? null : home.getHomeCity(), home == null ? null : home.getBio(), led.getOrDefault(g.getId() + "/" + d.getTrack().getId(), 0L),
                     gd.yearsLeading(), gd.languages(), gd.certification(), gd.certificationNumber(), gd.bmcInstitute(),
                     gd.bmcCertificateNumber(), gd.amcInstitute(), gd.amcCertificateNumber(), gd.quote(),
-                    rating.average(), rating.count()));
+                    rating.average(), rating.count(), certifiedIds.contains(g.getId())));
         }
         return cards;
     }

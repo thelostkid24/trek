@@ -95,7 +95,7 @@ function Profile({ guide: g, departureId }: { guide: GuideProfile; departureId: 
     <div className="bg-paper-50 pb-16">
       <Seo
         title={`${name}, trek guide`}
-        description={g.bio ?? `${name} leads small-batch treks with The Empty Valley.`}
+        description={g.quote ?? g.bio ?? `${name} leads small-batch treks with The Empty Valley.`}
         path={guidePath(g)}
         image={guideCardUrl(g)}
       />

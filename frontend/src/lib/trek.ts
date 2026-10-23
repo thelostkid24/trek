@@ -9,11 +9,7 @@ export function trekTagline(track: TrackDetail): string {
     .join(' · ')
 }
 
-/** True once any course or certificate has both where it's from and its number on file. */
+/** True while an admin-verified certificate is still valid (docs/TRD.md §7.21.3); worked out by the server. */
 export function isCertified(g: GuideCredentials) {
-  return (
-    (g.bmc_institute !== null && g.bmc_certificate_number !== null) ||
-    (g.amc_institute !== null && g.amc_certificate_number !== null) ||
-    (g.certification !== null && g.certification_number !== null)
-  )
+  return g.certified
 }

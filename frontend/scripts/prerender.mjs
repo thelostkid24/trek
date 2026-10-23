@@ -5,7 +5,8 @@
 // these files before its catch-all rewrite (cleanUrls in firebase.json maps /faqs to faqs.html). See docs/TRD.md §7.16.
 //
 // Runs after `npm run build` in the deploy workflow, against the live API: `npm run prerender`. A trek or guide added
-// later (or a post published later) gets the site-wide preview until the next deploy.
+// later (or a post published later) gets the site-wide preview until the next deploy; the deploy workflow also runs
+// this nightly (frontend only) so edits to a guide or trek reach link previews within a day.
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 
 const SITE_ORIGIN = 'https://theemptyvalley.com'
@@ -146,7 +147,8 @@ for (const { id } of (await get('/api/public/guides')).items) {
   if (!/^[0-9a-f-]{36}$/.test(id)) continue
   const guide = await get(`/api/public/guides/${id}`)
   const name = guide.full_name ?? 'Local guide'
-  const description = guide.bio || `${name} leads small-batch treks with ${SITE_NAME}.`
+  // The intro line is written to stand alone; the bio's first paragraph is the fallback.
+  const description = guide.quote || guide.bio || `${name} leads small-batch treks with ${SITE_NAME}.`
   const slug = guide.slug && /^[a-z0-9-]+$/.test(guide.slug) ? guide.slug : null
   const page = {
     title: `${name}, trek guide`,

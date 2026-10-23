@@ -1,6 +1,7 @@
 name: Deploy
 
-# Runs after CI passes on main: backend to ECS, then frontend to Firebase Hosting. Setup (one-time) is in
+# Runs after CI passes on main: backend to ECS, then frontend to Firebase Hosting. Nightly it also rebuilds just the
+# frontend from the last release, so link previews pick up guide and trek edits made since (docs/TRD.md §7.16). Setup (one-time) is in
 # docs/DEPLOY.md §13: an AWS role and a Google service account GitHub can assume through OIDC (no stored keys),
 # plus these repository variables (Settings → Secrets and variables → Actions → Variables):
 #   AWS_ROLE_ARN, ECR_REPOSITORY, ECS_CLUSTER, ECS_SERVICE, ECS_TASK_FAMILY, ECS_CONTAINER,
@@ -10,6 +11,8 @@ on:
     workflows: [CI]
     types: [completed]
     branches: [main]
+  schedule:
+    - cron: '30 21 * * *' # 03:00 IST
   workflow_dispatch:
 
 permissions:
@@ -62,12 +65,18 @@ jobs:
 
   frontend:
     needs: backend
+    # The nightly run skips the backend job; the frontend still runs then.
+    if: always() && (needs.backend.result == 'success' || github.event_name == 'schedule' && needs.backend.result == 'skipped')
     runs-on: ubuntu-latest
     environment: production
     steps:
       - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: ${{ github.event_name == 'schedule' && '0' || '1' }}
+      # Nightly: rebuild what's live (the last release tag), never unreleased commits on main.
+      - if: github.event_name == 'schedule'
+        run: git checkout "$(git describe --tags --abbrev=0 --match 'v[0-9]*')"
       - uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -98,6 +107,7 @@ jobs:
   # Tags what just went live as vX.Y.Z and opens a GitHub Release listing the PRs since the last one (docs/DEPLOY.md §13).
   release:
     needs: frontend
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     permissions:
       contents: write

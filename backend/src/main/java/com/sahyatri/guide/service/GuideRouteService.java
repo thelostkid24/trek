@@ -45,6 +45,14 @@ public class GuideRouteService {
         return routes.findByGuideIdOrderByPositionAsc(guideId);
     }
 
+    /** Each guide's routes in their kept order; guides without any are left out. */
+    @Transactional(readOnly = true)
+    public Map<UUID, List<GuideRoute>> forGuides(Collection<UUID> guideIds) {
+        return routes.findByGuideIdIn(guideIds).stream()
+                .sorted(Comparator.comparingInt(GuideRoute::getPosition))
+                .collect(Collectors.groupingBy(GuideRoute::getGuideId));
+    }
+
     /** Catalog treks with a times-led count, per guide: what the pages add completed departures to. */
     @Transactional(readOnly = true)
     public Map<UUID, List<PriorTrek>> priorTreks(Collection<UUID> guideIds) {

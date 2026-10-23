@@ -48,11 +48,13 @@ export function shortRange(start: string, end: string): string {
   return `${a.getDate()} ${month(a)} – ${b.getDate()} ${month(b)}`
 }
 
-/** The weekdays and year under a short range: "Sat–Thu · 2026". */
+/** The weekdays and year under a short range: "Sat–Thu · 2026", or "Tue–Sat · 2026–27" across New Year. */
 export function weekdaysAndYear(start: string, end: string): string {
   const weekday = (iso: string) => parseDate(iso).toLocaleDateString('en-IN', { weekday: 'short' })
   const days = start === end ? weekday(start) : `${weekday(start)}–${weekday(end)}`
-  return `${days} · ${parseDate(start).getFullYear()}`
+  const from = parseDate(start).getFullYear()
+  const to = parseDate(end).getFullYear()
+  return `${days} · ${from === to ? from : `${from}–${String(to).slice(-2)}`}`
 }
 
 /**
