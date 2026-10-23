@@ -11,6 +11,11 @@ import jakarta.validation.constraints.Size;
  * impossible day and a year after this one.
  */
 public record Milestone(@Min(1950) @Max(2100) Integer year, @Min(1) @Max(12) Integer month,
-                       @Min(1) @Max(31) Integer day, boolean approximate,
+                       @Min(1) @Max(31) Integer day, Boolean approximate,
                        @NotBlank @Size(max = 140) String text) {
+
+    /** Left out means not approximate. */
+    public Milestone {
+        approximate = Boolean.TRUE.equals(approximate);
+    }
 }
