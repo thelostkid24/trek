@@ -69,7 +69,7 @@ function GuideTile({ guide: g }: { guide: GuideListItem }) {
     g.treks_led > 0 && `Led ${g.treks_led} ${g.treks_led === 1 ? 'trek' : 'treks'}`,
     g.languages && `Speaks ${g.languages}`,
   ].filter(Boolean)
-  const treks = g.treks.slice(0, TREKS_SHOWN)
+  const routes = g.routes.slice(0, TREKS_SHOWN)
 
   return (
     <li className="relative flex flex-col rounded-2xl bg-white p-5 ring-1 ring-stone-200 transition hover:-translate-y-1 hover:shadow-lg hover:shadow-stone-900/5">
@@ -100,11 +100,11 @@ function GuideTile({ guide: g }: { guide: GuideListItem }) {
 
       {record.length > 0 && <p className="mt-2 text-xs text-stone-500">{record.join(' · ')}</p>}
 
-      {treks.length > 0 && (
+      {routes.length > 0 && (
         <p className="mt-3 text-sm text-stone-700">
           <span className="text-stone-500">Knows </span>
-          {treks.map((t) => t.name).join(', ')}
-          {g.treks.length > treks.length && <span className="text-stone-500"> +{g.treks.length - treks.length} more</span>}
+          {routes.join(', ')}
+          {g.routes.length > routes.length && <span className="text-stone-500"> +{g.routes.length - routes.length} more</span>}
         </p>
       )}
 

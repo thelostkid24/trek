@@ -81,6 +81,47 @@ class GuideListTests extends AuthTestSupport {
     }
 
     @Test
+    void routesOffTheCatalogCountAndCertifiedFollowsVerifiedCertificates() throws Exception {
+        String admin = adminToken();
+        UUID kedarkantha = createTrack(admin, 2);
+        UUID guideId = guideUser();
+        String kedarkanthaName = jdbc.queryForObject("SELECT name FROM tracks WHERE id = ?", String.class, kedarkantha);
+        UUID done = publish(admin, kedarkantha, guideId, 20);
+        jdbc.update("UPDATE departures SET status = 'COMPLETED' WHERE id = ?", done);
+        authed(put("/api/admin/guides/" + guideId + "/record"), admin, """
+                {"routes":[{"track_id":"%s","times_led":50},{"name":"Har Ki Dun","times_led":30},{"name":"Yunam"}]}"""
+                .formatted(kedarkantha)).andExpect(status().isOk());
+        // Course columns alone (§7.12) no longer make a guide "Certified".
+        authed(put("/api/admin/guides/" + guideId + "/details"), admin, """
+                {"bmc_institute":"NIM","bmc_certificate_number":"B-1"}""").andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/public/guides"))
+                .andExpect(jsonPath(guide(guideId) + ".treks_led", contains(81)))
+                .andExpect(jsonPath(guide(guideId) + ".routes", contains(List.of(kedarkanthaName, "Har Ki Dun", "Yunam"))))
+                .andExpect(jsonPath(guide(guideId) + ".certified", contains(false)));
+        mockMvc.perform(get("/api/public/guides/" + guideId))
+                .andExpect(jsonPath("$.treks_led").value(81))
+                .andExpect(jsonPath("$.certified").value(false));
+
+        UUID cert = UUID.randomUUID();
+        jdbc.update("""
+                INSERT INTO guide_certifications (id, guide_id, type, issuer, verified_at, created_at, updated_at)
+                VALUES (?, ?, 'BMC', 'NIM, Uttarkashi', now(), now(), now())""", cert, guideId);
+        UUID upcoming = publish(admin, kedarkantha, guideId, 30);
+        mockMvc.perform(get("/api/public/guides"))
+                .andExpect(jsonPath(guide(guideId) + ".certified", contains(true)));
+        mockMvc.perform(get("/api/public/guides/" + guideId)).andExpect(jsonPath("$.certified").value(true));
+        mockMvc.perform(get("/api/public/departures/" + upcoming)).andExpect(jsonPath("$.guide.certified").value(true));
+
+        // Expired, or unverified, it's gone everywhere.
+        jdbc.update("UPDATE guide_certifications SET valid_to = ? WHERE id = ?", today().minusDays(1), cert);
+        mockMvc.perform(get("/api/public/guides"))
+                .andExpect(jsonPath(guide(guideId) + ".certified", contains(false)));
+        jdbc.update("UPDATE guide_certifications SET valid_to = NULL, verified_at = NULL WHERE id = ?", cert);
+        mockMvc.perform(get("/api/public/departures/" + upcoming)).andExpect(jsonPath("$.guide.certified").value(false));
+    }
+
+    @Test
     void trekkersAreNotGuides() throws Exception {
         String email = uniqueEmail();
         emailTrekker(email);

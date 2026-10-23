@@ -5,6 +5,7 @@ import java.util.UUID;
 /**
  * A departure's guide as the trek and departure pages show it: "Sankri · 6 years leading · led Kedarkantha 34 times",
  * their bio, credentials and rating. Counts and the rating are computed at read time (law 8); credentials may be null.
+ * {@code certified}: a verified certificate still valid today (§7.21.3).
  */
 public record GuideCard(
         UUID id,
@@ -24,5 +25,6 @@ public record GuideCard(
         String amcCertificateNumber,
         String quote,
         Double rating,
-        long reviewCount) {
+        long reviewCount,
+        boolean certified) {
 }
