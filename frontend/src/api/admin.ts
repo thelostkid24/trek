@@ -1,6 +1,9 @@
 import { apiFetch } from './client'
+import type { PledgeKind } from './certifications.ts'
+import type { RouteItem } from './guide.ts'
 import type {
   ContentItem,
+  GuideStatKey,
   ContentKind,
   DepartureStatus,
   Difficulty,
@@ -199,17 +202,44 @@ export type GuideDetails = {
   amc_institute: string | null
   amc_certificate_number: string | null
   quote: string | null
-  /** How often they led each trek before Sahyātri; the pages add departures completed with us. */
+  /** Catalog treks with times led before Sahyātri, most-led first (read-only; set in the record). */
   prior_treks: { track_id: string; times: number }[]
 }
 
-export type GuideDetailsInput = Omit<GuideDetails, 'guide_id' | 'years_leading'>
+export type GuideDetailsInput = Omit<GuideDetails, 'guide_id' | 'years_leading' | 'prior_treks'>
 
 export const getGuideDetails = (token: string, guideId: string) =>
   apiFetch<GuideDetails>(`/api/admin/guides/${guideId}/details`, { token })
 
 export const updateGuideDetails = (token: string, guideId: string, body: GuideDetailsInput) =>
   apiFetch<GuideDetails>(`/api/admin/guides/${guideId}/details`, { method: 'PUT', token, body })
+
+// Guide record: routes, pledges, picked stats, treks in the last 3 years (docs/TRD.md §7.21.8).
+
+/** `route_index`: for ROUTE_TIMES, the route's place in `routes`. */
+export type StatPick = { key: GuideStatKey; route_index: number | null }
+
+export type GuideRecord = {
+  treks_last_3y: number | null
+  routes: RouteItem[]
+  pledges: PledgeKind[]
+  /** Empty: the page shows its default row. */
+  stats: StatPick[]
+}
+
+/** `id` keeps an existing route (and stats pointing at it); null adds one. */
+export type GuideRecordInput = {
+  treks_last_3y: number | null
+  routes: Omit<RouteItem, 'track_name'>[]
+  pledges: PledgeKind[]
+  stats: StatPick[]
+}
+
+export const getGuideRecord = (token: string, guideId: string) =>
+  apiFetch<GuideRecord>(`/api/admin/guides/${guideId}/record`, { token })
+
+export const updateGuideRecord = (token: string, guideId: string, body: GuideRecordInput) =>
+  apiFetch<GuideRecord>(`/api/admin/guides/${guideId}/record`, { method: 'PUT', token, body })
 
 // Guide profile: name, photo, home city and bio, set by an admin (docs/TRD.md §7.12).
 

@@ -12,12 +12,14 @@ import {
   listOwnCertifications,
   MAX_DOCUMENT_BYTES,
   openCertificationDocument,
+  PLEDGES,
   updateCertification,
   uploadCertificationDocument,
   type Certification,
   type CertificationInput,
   type CertificationStatus,
   type CertificationType,
+  type PledgeKind,
   type PublicCertification,
 } from '../../../api/certifications.ts'
 import { fieldErrors } from '../../../auth/errorMessages.ts'
@@ -30,22 +32,21 @@ import type { GuideSectionProps } from './types.ts'
 const OWN_KEY = ['own-certifications'] as const
 
 /**
- * "Certifications and safety" (§7.21.3). Visitors see verified certificates only (expired ones marked so); the owner
- * sees all of theirs, pending ones too, and adds or edits them in place. An admin checks each against its document.
+ * "Certifications and safety" (§7.21.3). Everyone sees every certificate with its status (only an admin's check makes
+ * one Verified) and the safety pledges an admin recorded; the owner adds or edits certificates in place.
  */
 export function CertificationsSection({ guide, owner }: GuideSectionProps) {
   const { withAuth } = useAuth()
-  const visitor = useQuery({
-    queryKey: credentialsKey(guide.id),
-    queryFn: () => getGuideCredentials(guide.id),
-    enabled: !owner,
-  })
+  // Shared with TierBadge, so it's fetched once; the owner reads their certificates from their own list.
+  const visitor = useQuery({ queryKey: credentialsKey(guide.id), queryFn: () => getGuideCredentials(guide.id) })
   const own = useQuery({ queryKey: OWN_KEY, queryFn: () => withAuth(listOwnCertifications), enabled: owner })
   /** The row being edited, or 'new'. */
   const [editing, setEditing] = useState<string | 'new' | null>(null)
 
   const rows: (PublicCertification | Certification)[] = (owner ? own.data?.items : visitor.data?.items) ?? []
-  if (!owner && rows.length === 0) return null
+  const pledges = visitor.data?.pledges ?? []
+  const first = guide.full_name?.trim().split(/\s+/)[0] || 'this guide'
+  if (!owner && rows.length === 0 && pledges.length === 0) return null
 
   return (
     <section aria-labelledby="certifications-heading" className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-paper-200 sm:p-5">
@@ -75,7 +76,7 @@ export function CertificationsSection({ guide, owner }: GuideSectionProps) {
         </p>
       )}
 
-      {rows.length > 0 && (
+      {rows.length + pledges.length > 0 && (
         <ul className="mt-4 divide-y divide-paper-200">
           {rows.map((c) => (
             <li key={c.id} className="py-3">
@@ -85,14 +86,31 @@ export function CertificationsSection({ guide, owner }: GuideSectionProps) {
               )}
             </li>
           ))}
+          {pledges.map((p) => (
+            <li key={p} className="py-3">
+              <PledgeRow kind={p} first={first} />
+            </li>
+          ))}
         </ul>
       )}
     </section>
   )
 }
 
+/** Courses that lapse: their row reads "Expiry not given" rather than "Year not given" with no date. */
+const EXPIRING: CertificationType[] = ['FIRST_AID', 'WILDERNESS_FIRST_RESPONDER', 'INSURANCE']
+
 function CertificationRow({ cert: c, onEdit }: { cert: PublicCertification | Certification; onEdit?: () => void }) {
-  const when = c.valid_to ? `valid to ${monthYear(c.valid_to)}` : c.year !== null ? String(c.year) : null
+  const when =
+    c.status === 'EXPIRED'
+      ? 'Renewal needed'
+      : c.valid_to
+        ? `valid to ${monthYear(c.valid_to)}`
+        : c.year !== null
+          ? String(c.year)
+          : EXPIRING.includes(c.type)
+            ? 'Expiry not given'
+            : 'Year not given'
   return (
     <div className="flex items-start gap-3">
       <ShieldIcon className={`mt-0.5 size-5 shrink-0 ${c.status === 'VERIFIED' ? 'text-brand-700' : 'text-stone-400'}`} />
@@ -113,9 +131,25 @@ function CertificationRow({ cert: c, onEdit }: { cert: PublicCertification | Cer
   )
 }
 
+/** A pledge an admin recorded from onboarding: "Agreed" or "Declared", always grey. */
+function PledgeRow({ kind, first }: { kind: PledgeKind; first: string }) {
+  const p = PLEDGES[kind]
+  return (
+    <div className="flex items-start gap-3">
+      <ShieldIcon className="mt-0.5 size-5 shrink-0 text-stone-400" />
+      <div className="min-w-0 flex-1">
+        <p className="font-medium text-stone-900">{p.title}</p>
+        <p className="text-sm text-stone-600">{p.detail.replace('{name}', first)}</p>
+      </div>
+      <span className="shrink-0 rounded-full bg-paper-200 px-2.5 py-0.5 text-xs font-semibold text-stone-600">{p.status}</span>
+    </div>
+  )
+}
+
 const PILL: Record<CertificationStatus, { label: string; className: string }> = {
   VERIFIED: { label: 'Verified', className: 'bg-brand-100 text-brand-900' },
   EXPIRED: { label: 'Expired', className: 'bg-laterite-100 text-laterite-600' },
+  IN_COURSE: { label: 'In course', className: 'bg-paper-200 text-stone-600' },
   PENDING: { label: 'Pending', className: 'bg-paper-200 text-stone-600' },
 }
 
@@ -129,7 +163,7 @@ function monthYear(iso: string) {
   return new Date(`${iso}T00:00:00`).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })
 }
 
-type Draft = { type: CertificationType; title: string; issuer: string; year: string; valid_to: string; number: string }
+type Draft = { type: CertificationType; title: string; issuer: string; year: string; valid_to: string; number: string; in_course: boolean }
 
 const toDraft = (c?: Certification): Draft => ({
   type: c?.type ?? 'BMC',
@@ -138,6 +172,7 @@ const toDraft = (c?: Certification): Draft => ({
   year: c?.year != null ? String(c.year) : '',
   valid_to: c?.valid_to ?? '',
   number: c?.number ?? '',
+  in_course: c?.in_course ?? false,
 })
 
 const toInput = (d: Draft): CertificationInput => ({
@@ -147,6 +182,7 @@ const toInput = (d: Draft): CertificationInput => ({
   year: d.year ? Number(d.year) : null,
   valid_to: d.valid_to || null,
   number: d.number.trim() || null,
+  in_course: d.in_course,
 })
 
 /** Add or edit one certificate, with its document. Saving any change sends it back for checking. */
@@ -254,6 +290,15 @@ function CertificationForm({ cert, guideId, onDone }: { cert?: Certification; gu
           error={errors.number}
         />
       </div>
+      <label className="flex items-center gap-2 text-sm text-stone-800">
+        <input
+          type="checkbox"
+          checked={draft.in_course}
+          onChange={(e) => setDraft({ ...draft, in_course: e.target.checked })}
+          className="size-4 rounded border-paper-300 text-brand-800"
+        />
+        I'm still doing this course
+      </label>
       <div>
         <label htmlFor={`${idPrefix}-file`} className="block text-sm font-medium text-stone-800">
           {cert?.document_url ? 'Replace the document' : 'Scan or photo of the certificate'}

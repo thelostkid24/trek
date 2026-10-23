@@ -1,6 +1,6 @@
 package com.sahyatri.guide.repository;
 
-import com.sahyatri.guide.entity.GuideRouteNote;
+import com.sahyatri.guide.entity.GuideProfileStat;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -8,11 +8,11 @@ import org.springframework.data.jpa.repository.Query;
 import java.util.List;
 import java.util.UUID;
 
-public interface GuideRouteNoteRepository extends JpaRepository<GuideRouteNote, GuideRouteNote.Key> {
+public interface GuideProfileStatRepository extends JpaRepository<GuideProfileStat, GuideProfileStat.Key> {
 
-    List<GuideRouteNote> findByGuideId(UUID guideId);
+    List<GuideProfileStat> findByGuideIdOrderByPositionAsc(UUID guideId);
 
     @Modifying(flushAutomatically = true)
-    @Query("delete from GuideRouteNote x where x.guideId = :guideId")
+    @Query("delete from GuideProfileStat s where s.guideId = :guideId")
     void deleteForGuide(UUID guideId);
 }

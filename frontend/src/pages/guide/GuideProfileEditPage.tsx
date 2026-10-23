@@ -12,13 +12,16 @@ import {
   uploadOwnGuidePhoto,
   type Milestone,
   type OwnGuideProfile,
+  type RouteItem,
 } from '../../api/guide.ts'
 import { fieldErrors } from '../../auth/errorMessages.ts'
 import { useAuth } from '../../auth/useAuth.ts'
 import { Button, ErrorNote, Loading, Panel } from '../../components/admin/AdminUi.tsx'
 import { TextField } from '../../components/auth/TextField.tsx'
 import { Avatar } from '../../components/Avatar.tsx'
-import { TextAreaField } from '../../components/profile/fields.tsx'
+import { RoutePlanFields } from '../../components/guide/RoutePlanFields.tsx'
+import { SelectField, TextAreaField } from '../../components/profile/fields.tsx'
+import { lastLed, MONTHS, planOf } from '../../lib/guideRecord.ts'
 import { shrinkPhoto } from '../../lib/photos.ts'
 import { SITE_ORIGIN } from '../../lib/siteLinks.ts'
 
@@ -26,8 +29,9 @@ const QUERY_KEY = ['guide-own-profile']
 
 /**
  * /guide/profile — the guide edits what their public page shows (docs/TRD.md §7.21): photo, cover, name, home,
- * intro, languages, the year they started, bio, specialties, a note per route and career milestones. Photos save
- * as soon as they're picked; everything else saves with one button. Course credentials stay with the team (§7.12).
+ * intro, languages, the year they started, bio, specialties, when they can lead each route and a note on it, and
+ * career milestones. Photos save as soon as they're picked; everything else saves with one button. Course
+ * credentials and the route record (times and last led) stay with the team (§7.12, §7.21.8).
  */
 export function GuideProfileEditPage() {
   const { withAuth } = useAuth()
@@ -53,9 +57,7 @@ function Editor({ initial }: { initial: OwnGuideProfile }) {
   })
   const [specialties, setSpecialties] = useState(initial.specialty_ids)
   const [milestones, setMilestones] = useState<Milestone[]>(initial.milestones)
-  const [notes, setNotes] = useState<Record<string, string>>(
-    Object.fromEntries(initial.route_notes.map((n) => [n.track_id, n.note])),
-  )
+  const [routes, setRoutes] = useState<RouteItem[]>(initial.routes)
   const [savedAt, setSavedAt] = useState<number | null>(null)
 
   const save = useMutation({
@@ -70,19 +72,23 @@ function Editor({ initial }: { initial: OwnGuideProfile }) {
           bio: form.bio || null,
           specialty_ids: specialties,
           milestones: milestones.filter((m) => m.text.trim()),
-          route_notes: Object.entries(notes)
-            .filter(([, note]) => note.trim())
-            .map(([track_id, note]) => ({ track_id, note })),
+          // A trek without a row is only sent once the guide gives it a plan or a note.
+          routes: routes
+            .filter((r) => r.id !== null || r.availability !== 'ASK' || r.note?.trim())
+            .map((r) => ({ id: r.id, track_id: r.id === null ? r.track_id : null, ...planOf(r) })),
         }),
       ),
     onSuccess: (data) => {
       queryClient.setQueryData(QUERY_KEY, data)
+      setRoutes(data.routes)
       void queryClient.invalidateQueries({ queryKey: ['public-guide'] })
       if (auth.status === 'authenticated') auth.updateUser({ ...auth.user, full_name: data.full_name })
       setSavedAt(Date.now())
     },
   })
   const errors = fieldErrors(save.error)
+  const setMilestone = (i: number, patch: Partial<Milestone>) =>
+    setMilestones(milestones.map((x, j) => (j === i ? { ...x, ...patch } : x)))
   const set = (field: keyof typeof form) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [field]: e.target.value }))
   const publicUrl = `${SITE_ORIGIN}/guides/${initial.slug}`
 
@@ -177,22 +183,29 @@ function Editor({ initial }: { initial: OwnGuideProfile }) {
         </Panel>
 
         <Panel title="Routes you lead">
-          {initial.routes.length === 0 ? (
-            <p className="mt-2 text-sm text-stone-600">Your treks show here once you've led one with us or the team has added the ones you led before.</p>
+          {routes.length === 0 ? (
+            <p className="mt-2 text-sm text-stone-600">Your routes show here once you've led one with us or the team has added the ones you led before.</p>
           ) : (
-            <div className="mt-3 space-y-3">
-              <p className="text-sm text-stone-600">A line about each route, in your words. Trekkers see it when they open the route on your page.</p>
-              {initial.routes.map((r, i) => (
-                <TextField
-                  key={r.track_id}
-                  label={r.name}
-                  name={`route-${r.track_id}`}
-                  maxLength={200}
-                  value={notes[r.track_id] ?? ''}
-                  onChange={(e) => setNotes((n) => ({ ...n, [r.track_id]: e.target.value }))}
-                  error={errors[`route_notes[${i}].note`]}
-                  placeholder="E.g. My home winter route. I know which campsites stay out of the wind in January."
-                />
+            <div className="mt-3 space-y-5">
+              <p className="text-sm text-stone-600">
+                When you can lead each route, and a line about it in your words. Times and when you last led it come from the team.
+              </p>
+              {routes.map((r, i) => (
+                <fieldset key={r.id ?? r.track_id} className="space-y-3 border-t border-stone-100 pt-4 first:border-0 first:pt-0">
+                  <legend className="flex w-full flex-wrap items-baseline justify-between gap-2">
+                    <span className="font-medium text-stone-900">{r.track_name ?? r.name}</span>
+                    <span className="font-mono text-xs text-stone-500">
+                      {r.times_led !== null ? `${r.times_led}× before` : 'Led'} · last {lastLed(r).toLowerCase()}
+                    </span>
+                  </legend>
+                  <RoutePlanFields
+                    plan={r}
+                    onChange={(plan) => setRoutes(routes.map((x, j) => (j === i ? { ...x, ...plan } : x)))}
+                    name={`route-${i}`}
+                    errors={errors}
+                    prefix={`routes[${i}]`}
+                  />
+                </fieldset>
               ))}
             </div>
           )}
@@ -201,7 +214,11 @@ function Editor({ initial }: { initial: OwnGuideProfile }) {
         <Panel
           title="Career in the mountains"
           action={
-            <Button tone="secondary" onClick={() => setMilestones([...milestones, { year: new Date().getFullYear(), text: '' }])} disabled={milestones.length >= 30}>
+            <Button
+              tone="secondary"
+              onClick={() => setMilestones([...milestones, { year: new Date().getFullYear(), month: null, day: null, approximate: false, text: '' }])}
+              disabled={milestones.length >= 30}
+            >
               + Add milestone
             </Button>
           }
@@ -211,7 +228,7 @@ function Editor({ initial }: { initial: OwnGuideProfile }) {
           ) : (
             <ol className="mt-3 space-y-3">
               {milestones.map((m, i) => (
-                <li key={i} className="grid grid-cols-[6rem_1fr_auto] items-start gap-2">
+                <li key={i} className="grid gap-2 border-t border-stone-100 pt-3 first:border-0 first:pt-0 sm:grid-cols-[6rem_5rem_4.5rem_1fr_auto] sm:items-start">
                   <TextField
                     label="Year"
                     name={`milestone-year-${i}`}
@@ -219,18 +236,57 @@ function Editor({ initial }: { initial: OwnGuideProfile }) {
                     inputMode="numeric"
                     min={1950}
                     max={new Date().getFullYear()}
-                    value={String(m.year)}
-                    onChange={(e) => setMilestones(milestones.map((x, j) => (j === i ? { ...x, year: Number(e.target.value) } : x)))}
+                    value={m.year === null ? '' : String(m.year)}
+                    onChange={(e) => {
+                      const year = e.target.value ? Number(e.target.value) : null
+                      setMilestone(i, year === null ? { year, month: null, day: null, approximate: false } : { year })
+                    }}
                     error={errors[`milestones[${i}].year`]}
+                    hint={m.year === null ? 'Blank shows “—”' : undefined}
+                  />
+                  <SelectField
+                    label="Month"
+                    name={`milestone-month-${i}`}
+                    placeholder="—"
+                    options={MONTHS.map((label, j) => ({ value: String(j + 1), label }))}
+                    value={m.month === null ? '' : String(m.month)}
+                    disabled={m.year === null}
+                    onChange={(e) => {
+                      const month = e.target.value ? Number(e.target.value) : null
+                      setMilestone(i, month === null ? { month, day: null } : { month, approximate: false })
+                    }}
+                    error={errors[`milestones[${i}].month`]}
+                  />
+                  <TextField
+                    label="Day"
+                    name={`milestone-day-${i}`}
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={31}
+                    disabled={m.month === null}
+                    value={m.day === null ? '' : String(m.day)}
+                    onChange={(e) => setMilestone(i, { day: e.target.value ? Number(e.target.value) : null })}
+                    error={errors[`milestones[${i}].day`]}
                   />
                   <TextField
                     label="What happened"
                     name={`milestone-text-${i}`}
                     maxLength={140}
                     value={m.text}
-                    onChange={(e) => setMilestones(milestones.map((x, j) => (j === i ? { ...x, text: e.target.value } : x)))}
+                    onChange={(e) => setMilestone(i, { text: e.target.value })}
                     error={errors[`milestones[${i}].text`]}
                   />
+                  <label className="flex items-center gap-2 text-sm text-stone-700 sm:col-span-4">
+                    <input
+                      type="checkbox"
+                      checked={m.approximate}
+                      disabled={m.year === null || m.month !== null}
+                      onChange={(e) => setMilestone(i, { approximate: e.target.checked })}
+                      className="size-4 rounded border-paper-300"
+                    />
+                    About that year (shows “~{m.year ?? 'year'}”)
+                  </label>
                   <button
                     type="button"
                     onClick={() => setMilestones(milestones.filter((_, j) => j !== i))}

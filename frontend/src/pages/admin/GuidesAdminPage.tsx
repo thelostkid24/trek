@@ -8,7 +8,6 @@ import {
   getGuideProfile,
   listGuides,
   listGuideSpecialties,
-  listTracks,
   promoteGuide,
   removeGuidePhoto,
   updateGuideDetails,
@@ -22,18 +21,28 @@ import { fieldErrors } from '../../auth/errorMessages.ts'
 import { useAuth } from '../../auth/useAuth.ts'
 import { ErrorNote, Loading, Panel, Button } from '../../components/admin/AdminUi.tsx'
 import { GuideCertificatesPanel } from '../../components/admin/GuideCertificatesPanel.tsx'
+import { GuideRecordPanel } from '../../components/admin/GuideRecordPanel.tsx'
 import { TextField } from '../../components/auth/TextField.tsx'
 import { Avatar } from '../../components/Avatar.tsx'
-import { SelectField, TextAreaField } from '../../components/profile/fields.tsx'
+import { TextAreaField } from '../../components/profile/fields.tsx'
 import { shrinkPhoto } from '../../lib/photos.ts'
+
+type PanelKind = 'profile' | 'credentials' | 'certificates' | 'record'
+
+const PANELS: { panel: PanelKind; label: string }[] = [
+  { panel: 'profile', label: 'Profile' },
+  { panel: 'credentials', label: 'Credentials' },
+  { panel: 'certificates', label: 'Certificates' },
+  { panel: 'record', label: 'Record' },
+]
 
 export function GuidesAdminPage() {
   const { withAuth } = useAuth()
   const queryClient = useQueryClient()
   const guides = useQuery({ queryKey: ['admin-guides'], queryFn: () => withAuth(listGuides) })
   const [email, setEmail] = useState('')
-  /** Which guide's panel is open, and which: their profile or their credentials. */
-  const [open, setOpen] = useState<{ id: string; panel: 'profile' | 'credentials' | 'certificates' } | null>(null)
+  /** Which guide's panel is open, and which. */
+  const [open, setOpen] = useState<{ id: string; panel: PanelKind } | null>(null)
   const promote = useMutation({
     mutationFn: (value: string) => withAuth((token) => promoteGuide(token, value)),
     onSuccess: () => {
@@ -91,18 +100,21 @@ export function GuidesAdminPage() {
                     <p className="truncate font-medium">{g.full_name ?? 'No name yet'}</p>
                     <p className="truncate text-sm text-stone-500">{[g.email, g.phone].filter(Boolean).join(' · ')}</p>
                   </div>
-                  {(['profile', 'credentials', 'certificates'] as const).map((panel) => {
-                    const on = open?.id === g.id && open.panel === panel
-                    return (
-                      <Button key={panel} tone="secondary" onClick={() => setOpen(on ? null : { id: g.id, panel })}>
-                        {on ? 'Close' : panel === 'profile' ? 'Profile' : panel === 'credentials' ? 'Credentials' : 'Certificates'}
-                      </Button>
-                    )
-                  })}
+                  <div className="flex flex-wrap justify-end gap-2">
+                    {PANELS.map(({ panel, label }) => {
+                      const on = open?.id === g.id && open.panel === panel
+                      return (
+                        <Button key={panel} tone="secondary" onClick={() => setOpen(on ? null : { id: g.id, panel })}>
+                          {on ? 'Close' : label}
+                        </Button>
+                      )
+                    })}
+                  </div>
                 </div>
                 {open?.id === g.id && open.panel === 'profile' && <ProfileForm guideId={g.id} onDone={() => setOpen(null)} />}
                 {open?.id === g.id && open.panel === 'credentials' && <DetailsForm guideId={g.id} onDone={() => setOpen(null)} />}
                 {open?.id === g.id && open.panel === 'certificates' && <GuideCertificatesPanel guideId={g.id} />}
+                {open?.id === g.id && open.panel === 'record' && <GuideRecordPanel guideId={g.id} onDone={() => setOpen(null)} />}
               </li>
             ))}
           </ul>
@@ -322,7 +334,7 @@ function DetailsForm({ guideId, onDone }: { guideId: string; onDone: () => void 
   })
   if (details.isPending) return <Loading />
   if (details.isError) return <ErrorNote error={details.error} />
-  const { guide_id: _g, years_leading: _y, ...input } = details.data
+  const { guide_id: _g, years_leading: _y, prior_treks: _p, ...input } = details.data
   return <DetailsFields guideId={guideId} initial={input} onDone={onDone} />
 }
 
@@ -387,8 +399,6 @@ function DetailsFields({ guideId, initial, onDone }: { guideId: string; initial:
         <TextAreaField label="In their own words" name="quote" maxLength={240} rows={2} value={form.quote ?? ''}
           onChange={text('quote')} error={errors.quote} hint="One or two lines, shown in quotes." />
       </div>
-      <PriorTreks value={form.prior_treks} onChange={(prior_treks) => setForm((f) => ({ ...f, prior_treks }))}
-        error={errors.prior_treks} />
       {save.error && Object.keys(errors).length === 0 && (
         <div className="sm:col-span-2">
           <ErrorNote error={save.error} />
@@ -400,47 +410,5 @@ function DetailsFields({ guideId, initial, onDone }: { guideId: string; initial:
         </Button>
       </div>
     </form>
-  )
-}
-
-type PriorTrekRow = GuideDetailsInput['prior_treks'][number]
-
-/**
- * How often the guide led each trek before Sahyātri. The trek, departure and guide pages add the departures they've
- * completed with us, so a guide new to the site doesn't read "First time leading it".
- */
-function PriorTreks({ value, onChange, error }: { value: PriorTrekRow[]; onChange: (rows: PriorTrekRow[]) => void; error?: string }) {
-  const { withAuth } = useAuth()
-  const tracks = useQuery({ queryKey: ['admin-tracks'], queryFn: () => withAuth(listTracks) })
-  const set = (i: number, row: Partial<PriorTrekRow>) => onChange(value.map((r, j) => (j === i ? { ...r, ...row } : r)))
-  const options = (tracks.data?.items ?? []).map((t) => ({ value: t.id, label: t.name }))
-
-  return (
-    <fieldset className="sm:col-span-2">
-      <legend className="text-sm font-medium text-stone-800">Treks led before Sahyātri</legend>
-      <p className="mt-0.5 text-sm text-stone-500">
-        Times led elsewhere. The pages add the departures they complete with us.
-      </p>
-      {tracks.isError && <ErrorNote error={tracks.error} />}
-      <ul className="mt-2 space-y-2">
-        {value.map((row, i) => (
-          <li key={i} className="grid grid-cols-[1fr_6rem_auto] items-end gap-2">
-            <SelectField label="Trek" name={`prior_trek_${i}`} required options={options} value={row.track_id}
-              onChange={(e) => set(i, { track_id: e.target.value })} />
-            <TextField label="Times" name={`prior_times_${i}`} type="number" required min={1} max={1000} step="1"
-              value={row.times || ''} onChange={(e) => set(i, { times: Number(e.target.value) })} />
-            <button type="button" onClick={() => onChange(value.filter((_, j) => j !== i))}
-              className="mb-2.5 text-sm text-stone-500 hover:text-stone-800">
-              Remove
-            </button>
-          </li>
-        ))}
-      </ul>
-      <button type="button" onClick={() => onChange([...value, { track_id: '', times: 0 }])}
-        className="mt-2 text-sm font-semibold text-brand-800 hover:text-brand-900">
-        + Add a trek
-      </button>
-      {error && <p className="mt-1 text-sm text-laterite-600">{error}</p>}
-    </fieldset>
   )
 }

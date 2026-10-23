@@ -17,6 +17,7 @@ import com.sahyatri.guide.dto.PublicCertification;
 import com.sahyatri.guide.entity.CertificationType;
 import com.sahyatri.guide.entity.GuideCertification;
 import com.sahyatri.guide.repository.GuideCertificationRepository;
+import com.sahyatri.guide.repository.GuidePledgeRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,10 +50,12 @@ public class GuideCertificationService {
     private final GuideSlugService slugs;
     private final GuideTierService tiers;
     private final CatalogProperties catalog;
+    private final GuidePledgeRepository pledges;
 
     public GuideCertificationService(GuideCertificationRepository certifications, CurrentUser currentUser,
                                      UserRepository users, FileStorage storage, AuditLog audit,
-                                     GuideSlugService slugs, GuideTierService tiers, CatalogProperties catalog) {
+                                     GuideSlugService slugs, GuideTierService tiers, CatalogProperties catalog,
+                                     GuidePledgeRepository pledges) {
         this.certifications = certifications;
         this.currentUser = currentUser;
         this.users = users;
@@ -61,6 +64,7 @@ public class GuideCertificationService {
         this.slugs = slugs;
         this.tiers = tiers;
         this.catalog = catalog;
+        this.pledges = pledges;
     }
 
     // --- The guide's own ---
@@ -160,7 +164,10 @@ public class GuideCertificationService {
 
     // --- Public ---
 
-    /** Verified certificates (expired ones too) and the tier. Never pending ones, documents or most numbers. */
+    /**
+     * Every certificate with its status, the safety pledges and the tier. Never documents or most numbers; only
+     * verified, unexpired ones count towards {@code verified} and the tier.
+     */
     @Transactional(readOnly = true)
     public GuideCredentials publicCredentials(String key) {
         UUID guideId = slugs.resolve(key)
@@ -170,12 +177,12 @@ public class GuideCertificationService {
                 .orElseThrow(GuideCertificationService::guideNotFound);
         LocalDate today = today();
         List<GuideCertification> all = certifications.findByGuideIdOrderByCreatedAtAsc(guideId);
-        List<PublicCertification> items = sorted(all).stream().filter(GuideCertification::isVerified)
+        List<PublicCertification> items = sorted(all).stream()
                 .map(c -> new PublicCertification(c.getId(), c.getType(), c.getTitle(), c.getIssuer(), c.getYear(),
                         c.getValidTo(), c.getType().publicNumber() ? c.getNumber() : null, status(c, today)))
                 .toList();
         boolean verified = items.stream().anyMatch(i -> i.status() == CertificationStatus.VERIFIED);
-        return new GuideCredentials(tiers.tierFor(guideId, all, today), verified, items);
+        return new GuideCredentials(tiers.tierFor(guideId, all, today), verified, items, pledges.kindsFor(guideId));
     }
 
     /** A document to send: bytes, type and a file name. */
@@ -202,12 +209,13 @@ public class GuideCertificationService {
         if (req.year() != null && req.year() > today().getYear()) {
             throw ApiException.validation("year", "can't be in the future");
         }
-        c.edit(req.type(), title, blankToNull(req.issuer()), req.year(), req.validTo(), blankToNull(req.number()));
+        c.edit(req.type(), title, blankToNull(req.issuer()), req.year(), req.validTo(), blankToNull(req.number()),
+                Boolean.TRUE.equals(req.inCourse()));
     }
 
     private Certification toResponse(GuideCertification c, String documentPath) {
         return new Certification(c.getId(), c.getType(), c.getTitle(), c.getIssuer(), c.getYear(), c.getValidTo(),
-                c.getNumber(), status(c, today()), documentPath, c.getVerifiedAt(), c.getCreatedAt(),
+                c.getNumber(), c.isInCourse(), status(c, today()), documentPath, c.getVerifiedAt(), c.getCreatedAt(),
                 c.getUpdatedAt());
     }
 
@@ -215,7 +223,10 @@ public class GuideCertificationService {
         if (c.isExpired(today)) {
             return CertificationStatus.EXPIRED;
         }
-        return c.isVerified() ? CertificationStatus.VERIFIED : CertificationStatus.PENDING;
+        if (c.isVerified()) {
+            return CertificationStatus.VERIFIED;
+        }
+        return c.isInCourse() ? CertificationStatus.IN_COURSE : CertificationStatus.PENDING;
     }
 
     private static String ownDocumentPath(GuideCertification c) {

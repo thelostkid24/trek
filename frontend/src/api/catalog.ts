@@ -1,5 +1,6 @@
 import { queryOptions } from '@tanstack/react-query'
 import { API_BASE_URL, apiFetch } from './client'
+import type { GuideRouteKind, Milestone, RoutePlan } from './guide.ts'
 import type { PublicReview } from './reviews.ts'
 
 // Contract: docs/TRD.md §7.5 (public catalog).
@@ -216,12 +217,48 @@ export type GuideProfile = GuideCredentials & {
   reviews: PublicReview[]
   /** Picked by the guide, in their order. */
   specialties: string[]
-  /** "Career in the mountains", oldest first. */
-  milestones: { year: number; text: string }[]
-  /** Most led first; `note` is the guide's line about the route; altitude and season are the trek's. */
-  treks: { track: TrackBrief; times: number; max_altitude_m: number | null; season_label: string | null; note: string | null }[]
+  /** "Career in the mountains", in the guide's order. */
+  milestones: Milestone[]
+  /**
+   * Their routes in the kept order, then catalog treks completed with us that aren't routes yet (`route_id` null).
+   * `track` is null for a route we don't list; `name` is always set. `times` is null when unknown ("Led").
+   * Altitude and season are the catalog trek's (docs/TRD.md §7.21.8).
+   */
+  treks: (RoutePlan & {
+    route_id: string | null
+    track: TrackBrief | null
+    name: string
+    kind: GuideRouteKind
+    times: number | null
+    last_led_year: number | null
+    last_led_month: number | null
+    most_recent: boolean
+    max_altitude_m: number | null
+    season_label: string | null
+  })[]
   upcoming: DepartureSummary[]
+  /** The numbers an admin picked, worked out on read; null when none are picked (the default row shows). */
+  stats: GuideStat[] | null
+  /** Short names of the institutes of their mountaineering courses ("NIM", "ABVIMAS"), basic first. */
+  trained_at: string[]
 }
+
+/** One number in the stats row: "50×" over "Kedarkantha led". */
+export type GuideStat = { key: GuideStatKey; value: string; label: string; brief: string | null }
+
+export type GuideStatKey =
+  | 'RATING'
+  | 'TREKS_LED'
+  | 'TREKS_LAST_3Y'
+  | 'YEARS_LEADING'
+  | 'ROUTES_LED'
+  | 'PEAK_CLIMBS'
+  | 'EVACUATIONS'
+  | 'COURSES'
+  | 'TOP_COURSE'
+  | 'ROUTE_TIMES'
+  | 'HIGHEST_PASS'
+  | 'RETURN_RATE'
 
 /** A departure as listed under its trek in the catalog. Contract: docs/TRD.md §7.9. */
 export type CatalogDeparture = {

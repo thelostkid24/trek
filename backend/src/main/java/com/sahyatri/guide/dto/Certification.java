@@ -11,6 +11,6 @@ import java.util.UUID;
  * (the guide's own or the admin one), or null with no document.
  */
 public record Certification(UUID id, CertificationType type, String title, String issuer, Integer year,
-                            LocalDate validTo, String number, CertificationStatus status, String documentUrl,
+                            LocalDate validTo, String number, boolean inCourse, CertificationStatus status, String documentUrl,
                             Instant verifiedAt, Instant createdAt, Instant updatedAt) {
 }

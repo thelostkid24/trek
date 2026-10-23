@@ -47,6 +47,10 @@ public class GuideDetails {
     /** Cover photo key in storage, see {@code GuideCoverFiles}. */
     private String coverKey;
 
+    /** Treks led elsewhere in the last three years, from onboarding (admin-set, §7.21.8). */
+    @Column(name = "treks_last_3y")
+    private Integer treksLast3y;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -86,6 +90,14 @@ public class GuideDetails {
         this.leadingSince = leadingSince;
         this.languages = languages;
         this.quote = quote;
+    }
+
+    public void setTreksLast3y(Integer treksLast3y) {
+        this.treksLast3y = treksLast3y;
+    }
+
+    public Integer getTreksLast3y() {
+        return treksLast3y;
     }
 
     public UUID getUserId() {

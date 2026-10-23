@@ -8,12 +8,16 @@ import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
 
-/** A guide adds or rewrites one certificate. Blank text clears a field; {@code title} is required for OTHER. */
+/**
+ * A guide adds or rewrites one certificate. Blank text clears a field; {@code title} is required for OTHER.
+ * {@code inCourse}: still doing it; null means false.
+ */
 public record CertificationRequest(
         @NotNull CertificationType type,
         @Size(max = 120) String title,
         @Size(max = 160) String issuer,
         @Min(1950) @Max(2100) Integer year,
         LocalDate validTo,
-        @Size(max = 60) String number) {
+        @Size(max = 60) String number,
+        Boolean inCourse) {
 }

@@ -54,14 +54,20 @@ class OwnGuideProfileTests extends AuthTestSupport {
                 {"full_name":" Shrey Rai ","home_city":"Sankri","bio":"Grew up in Osla.","quote":"Leads groups of six.",
                  "languages":"Hindi, Garhwali, English","leading_since":2015,
                  "specialty_ids":["%s","%s"],
-                 "milestones":[{"year":2014,"text":"Basic Mountaineering Course, NIM"},{"year":2022,"text":"100th trek led"}],
-                 "route_notes":[{"track_id":"%s","note":"Knows which campsites stay out of the wind."}]}"""
-                .formatted(options.get(1), options.get(0), track))
+                 "milestones":[{"year":2014,"approximate":true,"text":"Basic Mountaineering Course, NIM"},
+                               {"year":2022,"month":11,"day":17,"text":"100th trek led"},{"text":"Undated"}],
+                 "routes":[{"track_id":"%s","availability":"FROM_DATE","available_from":"%s",
+                            "note":"Knows which campsites stay out of the wind."}]}"""
+                .formatted(options.get(1), options.get(0), track, today().plusDays(30)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.full_name").value("Shrey Rai"))
                 .andExpect(jsonPath("$.specialty_ids[0]").value(options.get(1)))
                 .andExpect(jsonPath("$.milestones[1].text").value("100th trek led"))
-                .andExpect(jsonPath("$.route_notes[0].track_id").value(track.toString()));
+                .andExpect(jsonPath("$.milestones[1].day").value(17))
+                .andExpect(jsonPath("$.milestones[2].year").value(nullValue()))
+                .andExpect(jsonPath("$.routes[0].id").isString())
+                .andExpect(jsonPath("$.routes[0].track_id").value(track.toString()))
+                .andExpect(jsonPath("$.routes[0].availability").value("FROM_DATE"));
 
         for (String key : List.of(slug, guideId.toString(), slug.toUpperCase())) {
             mockMvc.perform(get("/api/public/guides/" + key))
@@ -74,17 +80,36 @@ class OwnGuideProfileTests extends AuthTestSupport {
                     .andExpect(jsonPath("$.years_leading").isNumber())
                     .andExpect(jsonPath("$.specialties", hasSize(2)))
                     .andExpect(jsonPath("$.milestones[0].year").value(2014))
+                    .andExpect(jsonPath("$.milestones[0].approximate").value(true))
+                    .andExpect(jsonPath("$.treks[0].note").value("Knows which campsites stay out of the wind."))
+                    .andExpect(jsonPath("$.treks[0].times").value(nullValue()))
                     .andExpect(jsonPath("$.cover_url").value(nullValue()));
         }
         mockMvc.perform(get("/api/public/guides/nobody-" + UUID.randomUUID().toString().substring(0, 8)))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("GUIDE_NOT_FOUND"));
 
-        // A note on a trek they don't lead, a duplicate specialty, a future milestone, nine specialties.
+        // A trek they don't lead, someone else's route id, a season without "any time", a duplicate specialty, a
+        // future milestone, a day without a month, nine specialties.
         authed(put("/api/guide/profile"), guide, """
-                {"full_name":"Shrey Rai","route_notes":[{"track_id":"%s","note":"Not mine."}]}""".formatted(other))
+                {"full_name":"Shrey Rai","routes":[{"track_id":"%s","note":"Not mine."}]}""".formatted(other))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.details.fields['route_notes[0].track_id']").exists());
+                .andExpect(jsonPath("$.details.fields['routes[0].track_id']").exists());
+        authed(put("/api/guide/profile"), guide, """
+                {"full_name":"Shrey Rai","routes":[{"id":"%s"}]}""".formatted(UUID.randomUUID()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.details.fields['routes[0].id']").exists());
+        String routeId = JsonPath.read(authed(get("/api/guide/profile"), guide, null)
+                .andReturn().getResponse().getContentAsString(), "$.routes[0].id");
+        authed(put("/api/guide/profile"), guide, """
+                {"full_name":"Shrey Rai","routes":[{"id":"%s","availability":"ASK","season_from_month":3,
+                 "season_to_month":10}]}""".formatted(routeId))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.details.fields['routes[0].season_from_month']").exists());
+        authed(put("/api/guide/profile"), guide, """
+                {"full_name":"Shrey Rai","milestones":[{"year":2020,"day":3,"text":"No month"}]}""")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.details.fields['milestones[0].month']").exists());
         authed(put("/api/guide/profile"), guide, """
                 {"full_name":"Shrey Rai","specialty_ids":["%s","%s"]}""".formatted(options.get(0), options.get(0)))
                 .andExpect(status().isBadRequest())
@@ -98,12 +123,13 @@ class OwnGuideProfileTests extends AuthTestSupport {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.details.fields.full_name").exists());
 
-        // Null lists clear them.
+        // Null lists clear them; routes stay, since only admins remove routes.
         authed(put("/api/guide/profile"), guide, """
                 {"full_name":"Shrey Rai"}""")
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.specialty_ids", hasSize(0)))
                 .andExpect(jsonPath("$.milestones", hasSize(0)))
+                .andExpect(jsonPath("$.routes[0].note").value("Knows which campsites stay out of the wind."))
                 .andExpect(jsonPath("$.bio").value(nullValue()));
     }
 
