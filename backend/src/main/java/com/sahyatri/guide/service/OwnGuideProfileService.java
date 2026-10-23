@@ -6,9 +6,7 @@ import com.sahyatri.auth.entity.User;
 import com.sahyatri.auth.repository.UserRepository;
 import com.sahyatri.auth.service.CurrentUser;
 import com.sahyatri.catalog.entity.DepartureStatus;
-import com.sahyatri.catalog.entity.Track;
 import com.sahyatri.catalog.repository.DepartureRepository;
-import com.sahyatri.catalog.repository.TrackRepository;
 import com.sahyatri.common.config.CatalogProperties;
 import com.sahyatri.common.exception.ApiException;
 import com.sahyatri.common.storage.AvatarFiles;
@@ -19,19 +17,14 @@ import com.sahyatri.guide.dto.GuidePageExtras;
 import com.sahyatri.guide.dto.Milestone;
 import com.sahyatri.guide.dto.OwnGuideProfile;
 import com.sahyatri.guide.dto.OwnGuideProfileRequest;
-import com.sahyatri.guide.dto.RouteNote;
-import com.sahyatri.guide.dto.RouteOption;
 import com.sahyatri.guide.dto.Specialty;
 import com.sahyatri.guide.entity.GuideDetails;
 import com.sahyatri.guide.entity.GuideMilestone;
 import com.sahyatri.guide.entity.GuideProfileSpecialty;
-import com.sahyatri.guide.entity.GuideRouteNote;
 import com.sahyatri.guide.entity.GuideSpecialty;
 import com.sahyatri.guide.repository.GuideDetailsRepository;
 import com.sahyatri.guide.repository.GuideMilestoneRepository;
-import com.sahyatri.guide.repository.GuidePriorTrekRepository;
 import com.sahyatri.guide.repository.GuideProfileSpecialtyRepository;
-import com.sahyatri.guide.repository.GuideRouteNoteRepository;
 import com.sahyatri.guide.repository.GuideSpecialtyRepository;
 import com.sahyatri.profile.entity.TrekkerProfile;
 import com.sahyatri.profile.repository.TrekkerProfileRepository;
@@ -41,6 +34,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.awt.image.BufferedImage;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -53,8 +47,9 @@ import java.util.stream.IntStream;
 
 /**
  * The guide's own profile (§7.21): name, photo, cover, home, intro, bio, languages, the year they started, their
- * specialties, a note per route and their career milestones. The guide is always the token's subject, never an id
- * from the request. Course credentials, the slug and treks led before Sahyātri stay with admins (§7.12).
+ * specialties, when they can lead each route and a note on it, and their career milestones. The guide is always the
+ * token's subject, never an id from the request. Course credentials, the slug and the route record stay with admins
+ * (§7.12, §7.21.8).
  */
 @Service
 public class OwnGuideProfileService {
@@ -70,10 +65,8 @@ public class OwnGuideProfileService {
     private final GuideSpecialtyRepository specialties;
     private final GuideProfileSpecialtyRepository picked;
     private final GuideMilestoneRepository milestones;
-    private final GuideRouteNoteRepository routeNotes;
-    private final GuidePriorTrekRepository priorTreks;
+    private final GuideRouteService routes;
     private final DepartureRepository departures;
-    private final TrackRepository tracks;
     private final AvatarService avatars;
     private final AvatarFiles avatarFiles;
     private final FileStorage storage;
@@ -83,9 +76,8 @@ public class OwnGuideProfileService {
     public OwnGuideProfileService(CurrentUser currentUser, UserRepository users, TrekkerProfileRepository profiles,
                                   GuideDetailsRepository details, GuideSlugService slugs,
                                   GuideSpecialtyRepository specialties, GuideProfileSpecialtyRepository picked,
-                                  GuideMilestoneRepository milestones, GuideRouteNoteRepository routeNotes,
-                                  GuidePriorTrekRepository priorTreks, DepartureRepository departures,
-                                  TrackRepository tracks, AvatarService avatars, AvatarFiles avatarFiles,
+                                  GuideMilestoneRepository milestones, GuideRouteService routes,
+                                  DepartureRepository departures, AvatarService avatars, AvatarFiles avatarFiles,
                                   FileStorage storage, GuideCoverFiles coverFiles, CatalogProperties catalog) {
         this.currentUser = currentUser;
         this.users = users;
@@ -95,10 +87,8 @@ public class OwnGuideProfileService {
         this.specialties = specialties;
         this.picked = picked;
         this.milestones = milestones;
-        this.routeNotes = routeNotes;
-        this.priorTreks = priorTreks;
+        this.routes = routes;
         this.departures = departures;
-        this.tracks = tracks;
         this.avatars = avatars;
         this.avatarFiles = avatarFiles;
         this.storage = storage;
@@ -120,7 +110,7 @@ public class OwnGuideProfileService {
         }
         List<Milestone> newMilestones = req.milestones() == null ? List.of() : req.milestones();
         for (int i = 0; i < newMilestones.size(); i++) {
-            if (newMilestones.get(i).year() > thisYear) {
+            if (newMilestones.get(i).year() != null && newMilestones.get(i).year() > thisYear) {
                 throw ApiException.validation("milestones[" + i + "].year", "can't be in the future");
             }
         }
@@ -131,17 +121,8 @@ public class OwnGuideProfileService {
         if (specialties.findAllById(specialtyIds).size() != specialtyIds.size()) {
             throw ApiException.validation("specialty_ids", "names a specialty that doesn't exist");
         }
-        List<RouteNote> notes = req.routeNotes() == null ? List.of() : req.routeNotes();
-        Set<UUID> routeIds = routeIds(guideId);
-        Set<UUID> noted = new HashSet<>();
-        for (int i = 0; i < notes.size(); i++) {
-            UUID trackId = notes.get(i).trackId();
-            if (!noted.add(trackId)) {
-                throw ApiException.validation("route_notes[" + i + "].track_id", "lists a trek twice");
-            }
-            if (!routeIds.contains(trackId)) {
-                throw ApiException.validation("route_notes[" + i + "].track_id", "isn't a trek you lead");
-            }
+        for (int i = 0; i < newMilestones.size(); i++) {
+            checkDate("milestones[" + i + "]", newMilestones.get(i));
         }
 
         guide.setFullName(req.fullName().trim());
@@ -159,11 +140,14 @@ public class OwnGuideProfileService {
                 .mapToObj(i -> new GuideProfileSpecialty(guideId, specialtyIds.get(i), i)).toList());
         milestones.deleteForGuide(guideId);
         milestones.saveAllAndFlush(IntStream.range(0, newMilestones.size())
-                .mapToObj(i -> new GuideMilestone(guideId, newMilestones.get(i).year(),
-                        newMilestones.get(i).text().trim(), i)).toList());
-        routeNotes.deleteForGuide(guideId);
-        routeNotes.saveAllAndFlush(notes.stream()
-                .map(n -> new GuideRouteNote(guideId, n.trackId(), n.note().trim())).toList());
+                .mapToObj(i -> {
+                    Milestone m = newMilestones.get(i);
+                    return new GuideMilestone(guideId, m.year(), m.month(), m.day(), m.approximate(),
+                            m.text().trim(), i);
+                }).toList());
+        if (req.routes() != null) {
+            routes.updateOwn(guideId, req.routes(), ledTrackIds(guideId));
+        }
         return toResponse(guide);
     }
 
@@ -213,10 +197,8 @@ public class OwnGuideProfileService {
                 .sorted(Comparator.comparingInt(GuideProfileSpecialty::getPosition))
                 .map(s -> names.get(s.getSpecialtyId())).toList();
         List<Milestone> career = milestones.findByGuideIdOrderByPositionAsc(guideId).stream()
-                .map(m -> new Milestone(m.getYear(), m.getText())).toList();
-        Map<UUID, String> notes = routeNotes.findByGuideId(guideId).stream()
-                .collect(Collectors.toMap(GuideRouteNote::getTrackId, GuideRouteNote::getNote));
-        return new GuidePageExtras(coverFiles.url(coverKey), picks, career, notes);
+                .map(OwnGuideProfileService::toMilestone).toList();
+        return new GuidePageExtras(coverFiles.url(coverKey), picks, career);
     }
 
     static byte[] toCoverJpeg(byte[] bytes) {
@@ -249,24 +231,39 @@ public class OwnGuideProfileService {
                 .sorted(Comparator.comparingInt(GuideProfileSpecialty::getPosition))
                 .map(GuideProfileSpecialty::getSpecialtyId).toList();
         List<Milestone> career = milestones.findByGuideIdOrderByPositionAsc(id).stream()
-                .map(m -> new Milestone(m.getYear(), m.getText())).toList();
-        List<RouteNote> notes = routeNotes.findByGuideId(id).stream()
-                .map(n -> new RouteNote(n.getTrackId(), n.getNote())).toList();
+                .map(OwnGuideProfileService::toMilestone).toList();
         List<Specialty> options = specialties.findAllByOrderByPositionAscNameAsc().stream()
                 .map(s -> new Specialty(s.getId(), s.getName())).toList();
-        List<RouteOption> routes = tracks.findAllById(routeIds(id)).stream()
-                .sorted(Comparator.comparing(Track::getName))
-                .map(t -> new RouteOption(t.getId(), t.getName())).toList();
         return new OwnGuideProfile(id, d.getSlug(), guide.getFullName(), avatarFiles.url(guide.getAvatarKey()),
                 coverFiles.url(d.getCoverKey()), p == null ? null : p.getHomeCity(), p == null ? null : p.getBio(),
-                d.getQuote(), d.getLanguages(), d.getLeadingSince(), specialtyIds, career, notes, options, routes);
+                d.getQuote(), d.getLanguages(), d.getLeadingSince(), specialtyIds, career, options,
+                routes.items(id, ledTrackIds(id)));
     }
 
-    /** Treks the guide has completed with us, led before Sahyātri, or leads on an upcoming published date. */
-    private Set<UUID> routeIds(UUID guideId) {
+    static Milestone toMilestone(GuideMilestone m) {
+        return new Milestone(m.getYear(), m.getMonth(), m.getDay(), m.isApproximate(), m.getText());
+    }
+
+    /** A month needs a year, a day needs a month and must exist, and "~" goes with a year alone. */
+    private static void checkDate(String field, Milestone m) {
+        if (m.month() != null && m.year() == null) {
+            throw ApiException.validation(field + ".year", "is required with a month");
+        }
+        if (m.day() != null && m.month() == null) {
+            throw ApiException.validation(field + ".month", "is required with a day");
+        }
+        if (m.approximate() && (m.year() == null || m.month() != null)) {
+            throw ApiException.validation(field + ".approximate", "only goes with a year alone");
+        }
+        if (m.day() != null && m.day() > YearMonth.of(m.year(), m.month()).lengthOfMonth()) {
+            throw ApiException.validation(field + ".day", "isn't a day of that month");
+        }
+    }
+
+    /** Treks the guide has completed with us or leads on an upcoming published date: they can add these as routes. */
+    private Set<UUID> ledTrackIds(UUID guideId) {
         Set<UUID> ids = new LinkedHashSet<>();
         departures.countByGuideAndTrack(Set.of(guideId), DepartureStatus.COMPLETED).forEach(c -> ids.add(c.getTrackId()));
-        priorTreks.findByGuideIdIn(Set.of(guideId)).forEach(p -> ids.add(p.getTrackId()));
         departures.findListedForGuide(guideId, DepartureStatus.PUBLISHED, today())
                 .forEach(dep -> ids.add(dep.getTrack().getId()));
         return ids;

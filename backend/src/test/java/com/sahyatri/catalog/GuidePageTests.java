@@ -37,8 +37,8 @@ class GuidePageTests extends AuthTestSupport {
         jdbc.update("UPDATE tracks SET max_altitude_m = 3810, season_label = 'Snow trek · Dec–Apr' WHERE id = ?", kedarkantha);
         jdbc.update("UPDATE tracks SET max_altitude_m = 4650 WHERE id = ?", rupin);
         // Rupin was led before Sahyātri; it still counts towards the highest pass.
-        authed(put("/api/admin/guides/" + guide + "/details"), admin, """
-                {"prior_treks":[{"track_id":"%s","times":2}]}""".formatted(rupin)).andExpect(status().isOk());
+        authed(put("/api/admin/guides/" + guide + "/record"), admin, """
+                {"routes":[{"track_id":"%s","times_led":2}]}""".formatted(rupin)).andExpect(status().isOk());
 
         UUID first = publish(admin, kedarkantha, guide, 30);
         UUID second = publish(admin, rajmachi, guide, 40);

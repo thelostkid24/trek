@@ -51,8 +51,8 @@ class GuideListTests extends AuthTestSupport {
         authed(put("/api/admin/guides/" + leading + "/details"), admin, """
                 {"languages":"Hindi, Garhwali","bmc_institute":"NIM","bmc_certificate_number":"B-1"}""")
                 .andExpect(status().isOk());
-        authed(put("/api/admin/guides/" + veteran + "/details"), admin, """
-                {"prior_treks":[{"track_id":"%s","times":3},{"track_id":"%s","times":9}]}""".formatted(track, other))
+        authed(put("/api/admin/guides/" + veteran + "/record"), admin, """
+                {"routes":[{"track_id":"%s","times_led":3},{"track_id":"%s","times_led":9}]}""".formatted(track, other))
                 .andExpect(status().isOk());
 
         String body = mockMvc.perform(get("/api/public/guides"))

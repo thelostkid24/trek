@@ -26,6 +26,7 @@ import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.UUID;
 
 /**
@@ -120,9 +121,22 @@ public class GuideCardService {
         }
     }
 
-    /** "4.9 · 38 reviews · 52 treks", leaving out the parts that are empty. */
+    /**
+     * With picked stats (§7.21.8): "NIM & ABVIMAS trained · 4 yrs · 21 treks", the third part the first picked stat
+     * with a short form. Otherwise "4.9 · 38 reviews · 52 treks". Empty parts are left out.
+     */
     static String numbers(GuideProfile g) {
         List<String> parts = new ArrayList<>();
+        if (g.stats() != null) {
+            if (!g.trainedAt().isEmpty()) {
+                parts.add(String.join(" & ", g.trainedAt()) + " trained");
+            }
+            if (g.yearsLeading() != null) {
+                parts.add(g.yearsLeading() + (g.yearsLeading() == 1 ? " yr" : " yrs"));
+            }
+            g.stats().stream().map(GuideProfile.Stat::brief).filter(Objects::nonNull).findFirst().ifPresent(parts::add);
+            return String.join(" · ", parts);
+        }
         if (g.rating() != null) {
             parts.add(String.format(Locale.ROOT, "%.1f", g.rating()));
         }

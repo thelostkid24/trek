@@ -52,6 +52,10 @@ public interface DepartureRepository extends JpaRepository<Departure, UUID> {
             group by d.guide.id, d.track.id""")
     List<LedCount> countByGuideAndTrack(Collection<UUID> guideIds, DepartureStatus status);
 
+    /** Departures a guide led with the given status starting on or after {@code from}. */
+    @Query("select count(d) from Departure d where d.guide.id = :guideId and d.status = :status and d.startDate >= :from")
+    long countForGuideSince(UUID guideId, DepartureStatus status, LocalDate from);
+
     interface LedCount {
         UUID getGuideId();
 

@@ -30,8 +30,8 @@ export const CERTIFICATION_LABELS: Record<CertificationType, string> = {
   OTHER: 'Other certificate',
 }
 
-/** EXPIRED past valid-to (verified or not); VERIFIED or PENDING otherwise. */
-export type CertificationStatus = 'VERIFIED' | 'EXPIRED' | 'PENDING'
+/** EXPIRED past valid-to (verified or not); otherwise VERIFIED, IN_COURSE (still doing it) or PENDING. */
+export type CertificationStatus = 'VERIFIED' | 'EXPIRED' | 'IN_COURSE' | 'PENDING'
 
 export type GuideTier = 'TRAIL_GUIDE' | 'SENIOR_GUIDE' | 'SUMMIT_GUIDE'
 
@@ -50,6 +50,8 @@ export type Certification = {
   /** ISO date; the last day it's valid. */
   valid_to: string | null
   number: string | null
+  /** Still doing the course. */
+  in_course: boolean
   status: CertificationStatus
   /** API path that needs the caller's token; null with no document. */
   document_url: string | null
@@ -65,9 +67,10 @@ export type CertificationInput = {
   year: number | null
   valid_to: string | null
   number: string | null
+  in_course: boolean
 }
 
-/** Verified certificates only (expired included); `number` only for BMC/AMC; never the document. */
+/** Every certificate with its status; `number` only for BMC/AMC; never the document. */
 export type PublicCertification = Pick<Certification, 'id' | 'type' | 'title' | 'issuer' | 'year' | 'valid_to' | 'number' | 'status'>
 
 export type GuideCredentials = {
@@ -75,6 +78,24 @@ export type GuideCredentials = {
   /** Any verified, unexpired certificate. */
   verified: boolean
   items: PublicCertification[]
+  /** Safety pledges an admin recorded, in the page's order. */
+  pledges: PledgeKind[]
+}
+
+/** NO_ALCOHOL shows "Agreed"; NO_SERIOUS_INCIDENTS shows "Declared" (docs/TRD.md §7.21.3). */
+export type PledgeKind = 'NO_ALCOHOL' | 'NO_SERIOUS_INCIDENTS'
+
+export const PLEDGES: Record<PledgeKind, { title: string; detail: string; status: string }> = {
+  NO_ALCOHOL: {
+    title: 'No alcohol or intoxicants on trek',
+    detail: 'From departure until the group is back at base',
+    status: 'Agreed',
+  },
+  NO_SERIOUS_INCIDENTS: {
+    title: 'No serious injuries or evacuations',
+    detail: 'On any trek {name} has led',
+    status: 'Declared',
+  },
 }
 
 /** PDF, JPEG or PNG up to 5 MB. */

@@ -188,9 +188,10 @@ class GuideCertificationTests extends AuthTestSupport {
         String id = create(guide, bmc);
         String verifyPath = "/api/admin/guides/" + guideId + "/certifications/" + id + "/verify";
 
-        // Pending rows never show publicly.
+        // Pending rows show publicly as pending, but never count as verified.
         mockMvc.perform(get("/api/public/guides/" + guideId + "/credentials"))
-                .andExpect(jsonPath("$.items", hasSize(0)))
+                .andExpect(jsonPath("$.items", hasSize(1)))
+                .andExpect(jsonPath("$.items[0].status").value("PENDING"))
                 .andExpect(jsonPath("$.verified").value(false))
                 .andExpect(jsonPath("$.tier").value(nullValue()));
 
@@ -219,7 +220,8 @@ class GuideCertificationTests extends AuthTestSupport {
                 .andExpect(jsonPath("$.status").value("PENDING"))
                 .andExpect(jsonPath("$.verified_at").value(nullValue()));
         mockMvc.perform(get("/api/public/guides/" + guideId + "/credentials"))
-                .andExpect(jsonPath("$.items", hasSize(0)));
+                .andExpect(jsonPath("$.items[0].status").value("PENDING"))
+                .andExpect(jsonPath("$.verified").value(false));
 
         // A new document drops it too.
         authed(post(verifyPath), admin, null).andExpect(status().isOk());
@@ -293,8 +295,9 @@ class GuideCertificationTests extends AuthTestSupport {
         authed(post("/api/admin/guides/" + guideId + "/certifications/" + bmc + "/verify"), admin, null);
         completedDepartures(track, guideId, 4);
         // Treks led before Sahyātri don't count.
-        jdbc.update("INSERT INTO guide_prior_treks (guide_id, track_id, times, created_at) VALUES (?, ?, 40, now())",
-                guideId, track);
+        jdbc.update("""
+                INSERT INTO guide_routes (id, guide_id, track_id, times_led, position, created_at, updated_at)
+                VALUES (gen_random_uuid(), ?, ?, 40, 0, now(), now())""", guideId, track);
 
         mockMvc.perform(get("/api/public/guides/" + slug + "/credentials"))
                 .andExpect(status().isOk())

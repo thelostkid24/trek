@@ -31,7 +31,11 @@ import com.sahyatri.common.storage.AvatarFiles;
 import com.sahyatri.common.storage.TrackPhotoFiles;
 import com.sahyatri.guide.dto.GuideDetailsResponse;
 import com.sahyatri.guide.dto.GuidePageExtras;
+import com.sahyatri.guide.entity.GuideRoute;
+import com.sahyatri.guide.entity.RouteAvailability;
+import com.sahyatri.guide.entity.GuideRouteKind;
 import com.sahyatri.guide.service.GuideDetailsService;
+import com.sahyatri.guide.service.GuideRecordService;
 import com.sahyatri.guide.service.OwnGuideProfileService;
 import com.sahyatri.profile.entity.TrekkerProfile;
 import com.sahyatri.profile.repository.TrekkerProfileRepository;
@@ -48,6 +52,7 @@ import java.time.format.DateTimeParseException;
 import java.util.Comparator;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -80,13 +85,14 @@ public class CatalogService {
     private final CharityProperties charity;
     private final PlannedDateService plannedDates;
     private final OwnGuideProfileService ownProfiles;
+    private final GuideRecordService records;
 
     public CatalogService(DepartureRepository departures, TrackRepository tracks, TrackPhotoRepository photos,
                           UserRepository users, TrekkerProfileRepository profiles, CatalogProperties props,
                           AvatarFiles avatars, TrackPhotoFiles photoFiles, GuideDetailsService guideDetails,
                           ReviewService reviews, TrekContentService content, SnowReportService snowReports,
                           BookingProperties bookingProps, CharityProperties charity, PlannedDateService plannedDates,
-                          OwnGuideProfileService ownProfiles) {
+                          OwnGuideProfileService ownProfiles, GuideRecordService records) {
         this.departures = departures;
         this.tracks = tracks;
         this.photos = photos;
@@ -103,6 +109,7 @@ public class CatalogService {
         this.charity = charity;
         this.plannedDates = plannedDates;
         this.ownProfiles = ownProfiles;
+        this.records = records;
     }
 
     public LocalDate today() {
@@ -207,22 +214,40 @@ public class CatalogService {
         TrekkerProfile profile = profiles.findById(id).orElse(null);
 
         GuideDetailsResponse details = guideDetails.forGuides(Set.of(id)).get(id);
-        // Completed departures with us plus the times an admin recorded from before Sahyātri.
-        Map<UUID, Long> ledByTrack = new HashMap<>();
+        GuideRecordService.PageRecord record = records.pageRecord(id);
+        // Their routes in the kept order, each with the times led before Sahyātri plus completed departures with us;
+        // then catalog treks completed with us that aren't routes yet, most-led first.
+        Map<UUID, Long> completed = new HashMap<>();
         departures.countByGuideAndTrack(Set.of(id), DepartureStatus.COMPLETED)
-                .forEach(c -> ledByTrack.merge(c.getTrackId(), c.getTimes(), Long::sum));
-        details.priorTreks().forEach(p -> ledByTrack.merge(p.trackId(), (long) p.times(), Long::sum));
-        Map<UUID, Track> ledTracks = tracks.findAllById(ledByTrack.keySet())
+                .forEach(c -> completed.merge(c.getTrackId(), c.getTimes(), Long::sum));
+        Set<UUID> trackIds = new HashSet<>(completed.keySet());
+        record.routes().stream().map(GuideRoute::getTrackId).filter(Objects::nonNull).forEach(trackIds::add);
+        Map<UUID, Track> ledTracks = tracks.findAllById(trackIds)
                 .stream().collect(Collectors.toMap(Track::getId, Function.identity()));
         GuidePageExtras extras = ownProfiles.pageExtras(id);
-        List<GuideProfile.TrekLed> treks = ledByTrack.entrySet().stream()
-                .map(e -> {
+        List<GuideProfile.TrekLed> treks = new ArrayList<>();
+        for (GuideRoute r : record.routes()) {
+            Track t = r.getTrackId() == null ? null : ledTracks.get(r.getTrackId());
+            long withUs = t == null ? 0 : completed.getOrDefault(t.getId(), 0L);
+            Long times = r.getTimesLed() == null && withUs == 0 ? null
+                    : (r.getTimesLed() == null ? 0 : r.getTimesLed()) + withUs;
+            treks.add(new GuideProfile.TrekLed(r.getId(), t == null ? null : TrackBrief.of(t),
+                    t == null ? r.getName() : t.getName(), r.getKind(), times, r.getLastLedYear(),
+                    r.getLastLedMonth(), r.isMostRecent(), r.getAvailability(), r.getSeasonFromMonth(),
+                    r.getSeasonToMonth(), r.getAvailableFrom(), t == null ? null : t.getMaxAltitudeM(),
+                    t == null ? null : t.getSeasonLabel(), r.getNote()));
+        }
+        Set<UUID> routed = record.routes().stream().map(GuideRoute::getTrackId).filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        completed.entrySet().stream()
+                .filter(e -> !routed.contains(e.getKey()))
+                .sorted(Map.Entry.<UUID, Long>comparingByValue().reversed())
+                .forEach(e -> {
                     Track t = ledTracks.get(e.getKey());
-                    return new GuideProfile.TrekLed(TrackBrief.of(t), e.getValue(), t.getMaxAltitudeM(),
-                            t.getSeasonLabel(), extras.routeNotes().get(e.getKey()));
-                })
-                .sorted(Comparator.comparingLong(GuideProfile.TrekLed::times).reversed())
-                .toList();
+                    treks.add(new GuideProfile.TrekLed(null, TrackBrief.of(t), t.getName(), GuideRouteKind.TREK,
+                            e.getValue(), null, null, false, RouteAvailability.ASK, null, null, null,
+                            t.getMaxAltitudeM(), t.getSeasonLabel(), null));
+                });
         List<DepartureSummary> upcoming = departures.findListedForGuide(id, DepartureStatus.PUBLISHED, today())
                 .stream().map(this::toSummary).toList();
         RatingSummary rating = reviews.ratings(Set.of(id)).getOrDefault(id, RatingSummary.NONE);
@@ -232,13 +257,19 @@ public class CatalogService {
         Integer returnRate = back.getTrekkers() < GuideProfile.RETURN_RATE_MIN_TREKKERS ? null
                 : (int) Math.round(100.0 * back.getReturned() / back.getTrekkers());
 
+        long treksLed = treks.stream().map(GuideProfile.TrekLed::times).filter(Objects::nonNull)
+                .mapToLong(Long::longValue).sum();
+        long recentWithUs = departures.countForGuideSince(id, DepartureStatus.COMPLETED, today().minusYears(3));
+        GuideStats.Inputs in = new GuideStats.Inputs(rating, treksLed, record.treksLast3y(), recentWithUs,
+                details.yearsLeading(), treks, record.pledges(), record.courses(), highest, returnRate, today());
+
         return new GuideProfile(guide.getId(), details.slug(), guide.getFullName(), avatars.url(guide.getAvatarKey()),
                 extras.coverUrl(), profile == null ? null : profile.getHomeCity(), profile == null ? null : profile.getBio(),
-                treks.stream().mapToLong(GuideProfile.TrekLed::times).sum(), details.yearsLeading(),
+                treksLed, details.yearsLeading(),
                 details.languages(), details.certification(), details.certificationNumber(), details.bmcInstitute(),
                 details.bmcCertificateNumber(), details.amcInstitute(), details.amcCertificateNumber(), details.quote(),
                 rating.average(), rating.count(), highest, returnRate, reviews.forGuide(id), extras.specialties(), extras.milestones(), treks,
-                upcoming);
+                upcoming, GuideStats.stats(record.stats(), in), GuideStats.trainedAt(record.courses()));
     }
 
     /**

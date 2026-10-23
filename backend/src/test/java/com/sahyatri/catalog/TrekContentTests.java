@@ -165,16 +165,14 @@ class TrekContentTests extends AuthTestSupport {
         UUID id = createDraft(admin, track, guide, today().plusDays(30), 1_045_000, 10);
         authed(post("/api/admin/departures/" + id + "/publish"), admin, null).andExpect(status().isOk());
 
-        authed(put("/api/admin/guides/" + guide + "/details"), admin, """
-                {"prior_treks":[{"track_id":"%s","times":30},{"track_id":"%s","times":40}]}"""
-                .formatted(track, other))
+        // Routes keep the admin's order; the details' prior treks are most-led first.
+        authed(put("/api/admin/guides/" + guide + "/record"), admin, """
+                {"routes":[{"track_id":"%s","times_led":40},{"track_id":"%s","times_led":30}]}"""
+                .formatted(other, track))
+                .andExpect(status().isOk());
+        authed(get("/api/admin/guides/" + guide + "/details"), admin, null)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.prior_treks[*].times", contains(40, 30)));
-        // Saving credentials without the list leaves it alone.
-        authed(put("/api/admin/guides/" + guide + "/details"), admin, """
-                {"languages":"Hindi"}""")
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.prior_treks", hasSize(2)));
 
         mockMvc.perform(get("/api/public/tracks/" + slugOf(track)))
                 .andExpect(jsonPath("$.departures[0].guide.led_this_trek").value(31));
@@ -185,22 +183,22 @@ class TrekContentTests extends AuthTestSupport {
                 .andExpect(jsonPath("$.treks[*].times", contains(40, 31)))
                 .andExpect(jsonPath("$.treks[0].track.slug").value(slugOf(other)));
 
-        authed(put("/api/admin/guides/" + guide + "/details"), admin, """
-                {"prior_treks":[{"track_id":"%s","times":3},{"track_id":"%s","times":4}]}"""
+        authed(put("/api/admin/guides/" + guide + "/record"), admin, """
+                {"routes":[{"track_id":"%s","times_led":3},{"track_id":"%s","times_led":4}]}"""
                 .formatted(track, track))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.details.fields.prior_treks").exists());
-        authed(put("/api/admin/guides/" + guide + "/details"), admin, """
-                {"prior_treks":[{"track_id":"%s","times":3}]}""".formatted(UUID.randomUUID()))
+                .andExpect(jsonPath("$.details.fields['routes[1].track_id']").exists());
+        authed(put("/api/admin/guides/" + guide + "/record"), admin, """
+                {"routes":[{"track_id":"%s","times_led":3}]}""".formatted(UUID.randomUUID()))
                 .andExpect(status().isBadRequest());
-        authed(put("/api/admin/guides/" + guide + "/details"), admin, """
-                {"prior_treks":[{"track_id":"%s","times":0}]}""".formatted(track))
+        authed(put("/api/admin/guides/" + guide + "/record"), admin, """
+                {"routes":[{"track_id":"%s","times_led":0}]}""".formatted(track))
                 .andExpect(status().isBadRequest());
 
-        authed(put("/api/admin/guides/" + guide + "/details"), admin, """
-                {"prior_treks":[]}""")
+        authed(put("/api/admin/guides/" + guide + "/record"), admin, """
+                {"routes":[]}""")
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.prior_treks", hasSize(0)));
+                .andExpect(jsonPath("$.routes", hasSize(0)));
         mockMvc.perform(get("/api/public/departures/" + id))
                 .andExpect(jsonPath("$.guide.led_this_trek").value(1));
     }

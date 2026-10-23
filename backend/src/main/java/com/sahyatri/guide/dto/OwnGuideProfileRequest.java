@@ -11,8 +11,9 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Replaces what the guide edits about themselves. Blank optional text clears it; null lists clear them. The course
- * credentials, slug and prior treks stay admin-set.
+ * Replaces what the guide edits about themselves. Blank optional text clears it; null lists clear them, except
+ * {@code routes}, which only changes the routes it names (when they can lead each, and a note). The course
+ * credentials, slug and route record stay admin-set.
  */
 public record OwnGuideProfileRequest(
         @NotBlank @Size(max = 100) String fullName,
@@ -23,5 +24,5 @@ public record OwnGuideProfileRequest(
         @Min(1950) @Max(2100) Integer leadingSince,
         @Size(max = 8) List<@NotNull UUID> specialtyIds,
         @Size(max = 30) List<@NotNull @Valid Milestone> milestones,
-        @Size(max = 50) List<@NotNull @Valid RouteNote> routeNotes) {
+        @Size(max = 50) List<@NotNull @Valid OwnRouteRequest> routes) {
 }

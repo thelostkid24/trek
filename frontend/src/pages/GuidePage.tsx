@@ -17,6 +17,7 @@ import { ReplyTimeStat } from '../components/guide/sections/ReplyTimeStat.tsx'
 import { ReviewsSection } from '../components/guide/sections/ReviewsSection.tsx'
 import { TierBadge } from '../components/guide/sections/TierBadge.tsx'
 import { feet, rupees, shortRange, weekdaysAndYear } from '../lib/format.ts'
+import { availabilityLabel, lastLed, milestoneDate } from '../lib/guideRecord.ts'
 import { Seo } from '../components/Seo.tsx'
 import { SITE_ORIGIN } from '../lib/siteLinks.ts'
 
@@ -240,8 +241,9 @@ function Header({ guide: g, owner, name, url }: { guide: GuideProfile; owner: bo
 }
 
 /** The guide's record, worked out by the API at read time; a number with nothing behind it yet stays hidden. */
+/** The numbers an admin picked (§7.21.8); without picks, the default row and the reply time. */
 function Stats({ guide: g, owner }: { guide: GuideProfile; owner: boolean }) {
-  const items: { value: ReactNode; label: string }[] = [
+  const items: { value: ReactNode; label: string }[] = g.stats ?? [
     ...(g.rating !== null
       ? [
           {
@@ -265,13 +267,13 @@ function Stats({ guide: g, owner }: { guide: GuideProfile; owner: boolean }) {
   return (
     <section aria-label="Record" className="mt-8 border-y border-paper-300 py-5">
       <div className="grid grid-cols-2 gap-x-6 gap-y-5 sm:flex sm:flex-wrap sm:gap-x-10">
-        {items.map((s) => (
-          <p key={s.label}>
+        {items.map((s, i) => (
+          <p key={i}>
             <span className="block font-mono text-2xl text-stone-900">{s.value}</span>
             <span className="block text-sm text-stone-500">{s.label}</span>
           </p>
         ))}
-        <ReplyTimeStat guide={g} owner={owner} />
+        {g.stats === null && <ReplyTimeStat guide={g} owner={owner} />}
       </div>
       {owner && <p className="mt-4 text-xs text-stone-500">These numbers update automatically from your treks and reviews.</p>}
     </section>
@@ -334,7 +336,10 @@ function About({ bio, first, owner }: { bio: string | null; first: string; owner
   )
 }
 
-/** Every trek they've led, most first; the picked one shows its top, times led, season and the guide's note. */
+/**
+ * Their routes in the kept order, then treks completed with us; the picked one shows times led, last led, when they
+ * can lead it, the top and season for a trek we list, and the guide's note (§7.21.8).
+ */
 function Routes({ treks, first }: { treks: GuideProfile['treks']; first: string }) {
   const [picked, setPicked] = useState(0)
   if (treks.length === 0) return null
@@ -347,7 +352,7 @@ function Routes({ treks, first }: { treks: GuideProfile['treks']; first: string 
       <div className="mt-4 grid gap-4 sm:grid-cols-[minmax(0,14rem)_1fr]">
         <ul className="flex gap-2 overflow-x-auto pb-1 sm:flex-col sm:overflow-visible sm:pb-0">
           {treks.map((r, i) => (
-            <li key={r.track.slug} className="shrink-0">
+            <li key={r.route_id ?? r.track?.slug ?? r.name} className="shrink-0">
               <button
                 type="button"
                 aria-pressed={r === t}
@@ -356,28 +361,32 @@ function Routes({ treks, first }: { treks: GuideProfile['treks']; first: string 
                   r === t ? 'bg-brand-900 text-white' : 'bg-white text-stone-800 ring-1 ring-paper-300 hover:ring-stone-400'
                 }`}
               >
-                <span className="font-medium">{r.track.name}</span>
-                <span className={`font-mono text-xs ${r === t ? 'text-brand-100' : 'text-stone-500'}`}>{r.times}×</span>
+                <span className="font-medium">{r.name}</span>
+                <span className={`font-mono text-xs ${r === t ? 'text-brand-100' : 'text-stone-500'}`}>{r.times !== null ? `${r.times}×` : 'Led'}</span>
               </button>
             </li>
           ))}
         </ul>
         <div className={CARD}>
-          <p className="font-serif text-2xl text-stone-900">{t.track.name}</p>
-          <p className="text-sm text-stone-500">{t.track.region}</p>
-          <dl className="mt-4 grid grid-cols-3 gap-4">
-            <RouteFact label="Top" value={t.max_altitude_m !== null ? feet(t.max_altitude_m) : '—'} />
-            <RouteFact label="Led" value={`${t.times} ${t.times === 1 ? 'time' : 'times'}`} />
-            <RouteFact label="Season" value={t.season_label ?? '—'} />
+          <p className="font-serif text-2xl text-stone-900">{t.name}</p>
+          {t.track && <p className="text-sm text-stone-500">{t.track.region}</p>}
+          <dl className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
+            <RouteFact label="Times led" value={t.times !== null ? `${t.times} ${t.times === 1 ? 'time' : 'times'}` : 'Not given'} />
+            <RouteFact label="Last led" value={lastLed(t)} />
+            <RouteFact label="Available" value={availabilityLabel(t, first)} />
+            {t.max_altitude_m !== null && <RouteFact label="Top" value={feet(t.max_altitude_m)} />}
+            {t.season_label && <RouteFact label="Season" value={t.season_label} />}
           </dl>
           {t.note && (
             <blockquote className="mt-5 border-l-2 border-laterite-400 pl-4 text-stone-700 italic">
               “{t.note}” <span className="not-italic text-stone-500">— {first}</span>
             </blockquote>
           )}
-          <Link to={`/treks/${t.track.slug}`} className="mt-5 inline-block text-sm font-medium text-brand-700 hover:text-brand-900">
-            See the {t.track.name} trek →
-          </Link>
+          {t.track && (
+            <Link to={`/treks/${t.track.slug}`} className="mt-5 inline-block text-sm font-medium text-brand-700 hover:text-brand-900">
+              See the {t.track.name} trek →
+            </Link>
+          )}
         </div>
       </div>
     </section>
@@ -408,8 +417,8 @@ function Career({ milestones, owner }: { milestones: GuideProfile['milestones'];
       ) : (
         <ol className="mt-4 divide-y divide-paper-300 border-y border-paper-300">
           {milestones.map((m, i) => (
-            <li key={i} className="grid grid-cols-[4rem_1fr] gap-4 py-3">
-              <span className="font-mono text-sm text-laterite-600">{m.year}</span>
+            <li key={i} className="grid grid-cols-[6.5rem_1fr] gap-4 py-3">
+              <span className="font-mono text-sm text-laterite-600">{milestoneDate(m)}</span>
               <span className="text-stone-800">{m.text}</span>
             </li>
           ))}

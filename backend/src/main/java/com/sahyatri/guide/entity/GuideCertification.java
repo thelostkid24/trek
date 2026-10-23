@@ -42,6 +42,9 @@ public class GuideCertification {
 
     private String number;
 
+    /** Still doing the course: shows "In course" until it's verified. */
+    private boolean inCourse;
+
     /** Private file in storage, see {@code GuideCertificateFiles}. */
     private String documentKey;
 
@@ -73,16 +76,18 @@ public class GuideCertification {
 
     /** Sets the details; returns whether anything changed (and if so, verification is dropped). */
     public boolean edit(CertificationType type, String title, String issuer, Integer year, LocalDate validTo,
-                        String number) {
+                        String number, boolean inCourse) {
         boolean changed = this.type != type || !Objects.equals(this.title, title)
                 || !Objects.equals(this.issuer, issuer) || !Objects.equals(this.year, year)
-                || !Objects.equals(this.validTo, validTo) || !Objects.equals(this.number, number);
+                || !Objects.equals(this.validTo, validTo) || !Objects.equals(this.number, number)
+                || this.inCourse != inCourse;
         this.type = type;
         this.title = title;
         this.issuer = issuer;
         this.year = year;
         this.validTo = validTo;
         this.number = number;
+        this.inCourse = inCourse;
         if (changed) {
             unverify();
         }
@@ -143,6 +148,10 @@ public class GuideCertification {
 
     public String getNumber() {
         return number;
+    }
+
+    public boolean isInCourse() {
+        return inCourse;
     }
 
     public String getDocumentKey() {

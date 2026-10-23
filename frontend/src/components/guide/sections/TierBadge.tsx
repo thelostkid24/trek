@@ -4,13 +4,15 @@ import type { GuideSectionProps } from './types.ts'
 
 /**
  * The tier chip beside the name, e.g. "Summit Guide", worked out by the server on every read (§7.21.3), and
- * "Certifications verified by Empty Valley" once any certificate is verified and unexpired.
+ * "Certifications verified by Empty Valley" once any certificate is verified and unexpired, else "Certificates being
+ * verified" while any is pending or in course.
  */
 export function TierBadge({ guide }: GuideSectionProps) {
   const credentials = useQuery({ queryKey: credentialsKey(guide.id), queryFn: () => getGuideCredentials(guide.id) })
   if (!credentials.data) return null
-  const { tier, verified } = credentials.data
-  if (!tier && !verified) return null
+  const { tier, verified, items } = credentials.data
+  const checking = !verified && items.some((c) => c.status === 'PENDING' || c.status === 'IN_COURSE')
+  if (!tier && !verified && !checking) return null
   return (
     <span className="inline-flex flex-wrap items-center gap-2">
       {tier && (
@@ -25,6 +27,12 @@ export function TierBadge({ guide }: GuideSectionProps) {
         <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-100 px-3 py-1 text-xs font-semibold text-brand-900">
           <ShieldIcon className="size-3.5 text-brand-700" />
           Certifications verified by Empty Valley
+        </span>
+      )}
+      {checking && (
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-paper-200 px-3 py-1 text-xs font-semibold text-stone-700">
+          <ShieldIcon className="size-3.5 text-stone-500" />
+          Certificates being verified
         </span>
       )}
     </span>
