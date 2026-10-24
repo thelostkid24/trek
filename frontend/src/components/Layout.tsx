@@ -94,10 +94,11 @@ export function Layout() {
         } ${HEADER_TONES[tone]}`}
       >
         <div className="mx-auto flex h-16 max-w-[90rem] items-center justify-between gap-3 px-5 sm:gap-6 sm:px-10">
-          <div className="flex items-center gap-6 xl:gap-10">
-            <Link to="/" viewTransition className="flex shrink-0 items-center gap-2 text-[1.05rem] font-semibold tracking-tight whitespace-nowrap sm:text-[1.2rem]">
-              <Logo className="h-6 w-auto" onLight={tone === 'light'} />
-              The Empty Valley
+          {/* min-w-0 + truncate: on the narrowest phones the name gives way, never the menu button. */}
+          <div className="flex min-w-0 items-center gap-6 xl:gap-10">
+            <Link to="/" viewTransition className="flex min-w-0 items-center gap-2 text-[1.05rem] font-semibold tracking-tight whitespace-nowrap sm:text-[1.2rem]">
+              <Logo className="h-6 w-auto shrink-0" onLight={tone === 'light'} />
+              <span className="truncate">The Empty Valley</span>
             </Link>
             <nav className="hidden items-center gap-5 text-sm whitespace-nowrap lg:flex xl:gap-7">
               {NAV.map((item) => (
@@ -113,8 +114,9 @@ export function Layout() {
               ))}
             </nav>
           </div>
-          <div className="flex items-center gap-2 text-sm sm:gap-5">
-            <ThemeToggle />
+          <div className="flex shrink-0 items-center gap-2 text-sm sm:gap-5">
+            {/* Below 400px there isn't room beside the name; the phone menu carries it instead. */}
+            <ThemeToggle className="hidden min-[400px]:flex" />
             <AccountLink tone={tone} />
             <button
               type="button"
@@ -139,6 +141,7 @@ export function Layout() {
                 </span>
               </NavItem>
             ))}
+            <ThemeMenuItem />
           </nav>
         )}
       </header>
@@ -164,8 +167,18 @@ const HEADER_TONES: Record<HeaderTone, string> = {
   dark: 'bg-ink-900 text-white/85',
 }
 
+/** The phone menu's theme switch, for screens too narrow to show {@link ThemeToggle} in the header. */
+function ThemeMenuItem() {
+  const { theme, toggle } = useTheme()
+  return (
+    <button type="button" onClick={toggle} className="block w-full py-3 text-left hover:text-white min-[400px]:hidden">
+      {theme === 'dark' ? 'Light theme' : 'Dark theme'}
+    </button>
+  )
+}
+
 /** Sun/moon switch between the light and dark themes. */
-function ThemeToggle() {
+function ThemeToggle({ className = 'flex' }: { className?: string }) {
   const { theme, toggle } = useTheme()
   const dark = theme === 'dark'
   return (
@@ -174,7 +187,7 @@ function ThemeToggle() {
       onClick={toggle}
       aria-label={dark ? 'Switch to light theme' : 'Switch to dark theme'}
       title={dark ? 'Light theme' : 'Dark theme'}
-      className="flex size-9 items-center justify-center rounded-full opacity-80 transition hover:opacity-100"
+      className={`${className} size-9 items-center justify-center rounded-full opacity-80 transition hover:opacity-100`}
     >
       <svg viewBox="0 0 24 24" className="size-[1.15rem]" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
         {dark ? (

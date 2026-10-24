@@ -42,6 +42,12 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
     Optional<Booking> findFirstByDepartureIdAndUserIdAndStatusIn(UUID departureId, UUID userId,
                                                                  Collection<BookingStatus> statuses);
 
+    /** Unexpired holds by this account or for this contact email, on any departure. */
+    @Query("""
+            select b from Booking b where b.status = :status and b.holdExpiresAt > :now
+            and (b.userId = :userId or lower(b.contactEmail) = :email)""")
+    List<Booking> findLiveHolds(BookingStatus status, UUID userId, String email, Instant now);
+
     @Query("select b.id from Booking b where b.status = :status and b.holdExpiresAt <= :now order by b.holdExpiresAt")
     List<UUID> findExpiredHoldIds(BookingStatus status, Instant now);
 }

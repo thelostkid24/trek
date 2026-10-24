@@ -16,11 +16,12 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * Proves a booking's contact email at checkout (§7.6): a 6-digit code goes to the address and comes back with the
- * hold. A correct code stays good until it expires, so a hold that fails for other reasons (seats just went) can be
- * retried without a new one. Questions to a guide prove a visitor's email the same way (§7.21.6); a code proves the
+ * hold. A correct code stays good until it expires or a hold uses it, so a hold that fails for other reasons (seats
+ * just went) can be retried without a new one, but one code never holds seats twice. Questions to a guide prove a visitor's email the same way (§7.21.6); a code proves the
  * address whichever wording it was sent with.
  */
 @Service
@@ -109,9 +110,11 @@ public class BookingEmailCodeService {
     /**
      * Checks the code against the latest one sent to this email, or throws. Runs in its own transaction so a wrong
      * code counts even though the booking that carried it fails.
+     *
+     * @return the code's id, for {@link #use}
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW, noRollbackFor = ApiException.class)
-    public void check(String rawEmail, String code) {
+    public UUID check(String rawEmail, String code) {
         if (code == null || code.isBlank()) {
             throw new ApiException(HttpStatus.FORBIDDEN, "EMAIL_NOT_VERIFIED",
                     "Confirm your email with the code we send to it");
@@ -121,6 +124,9 @@ public class BookingEmailCodeService {
                 .orElseThrow(BookingEmailCodeService::expired);
         if (latest.getExpiresAt().isBefore(Instant.now())) {
             throw expired();
+        }
+        if (latest.isUsed()) {
+            throw used();
         }
         if (latest.getAttempts() >= MAX_ATTEMPTS) {
             throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "EMAIL_CODE_TOO_MANY_ATTEMPTS",
@@ -132,6 +138,21 @@ public class BookingEmailCodeService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "EMAIL_CODE_INVALID", "Incorrect code",
                     Map.of("attempts_left", MAX_ATTEMPTS - latest.getAttempts()));
         }
+        return latest.getId();
+    }
+
+    /**
+     * Spends a checked code on the seat hold being made, in that hold's transaction: if the hold fails the code is
+     * still good. The row lock makes a second hold racing on the same code wait, then fail.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void use(UUID codeId) {
+        BookingEmailCode code = codes.findByIdForUpdate(codeId).orElseThrow(BookingEmailCodeService::expired);
+        if (code.isUsed()) {
+            throw used();
+        }
+        code.markUsed();
+        codes.save(code);
     }
 
     private static String normalize(String email) {
@@ -144,6 +165,10 @@ public class BookingEmailCodeService {
 
     private static ApiException expired() {
         return new ApiException(HttpStatus.GONE, "EMAIL_CODE_EXPIRED", "Code expired, request a new one");
+    }
+
+    private static ApiException used() {
+        return new ApiException(HttpStatus.GONE, "EMAIL_CODE_USED", "Code already used, request a new one");
     }
 
     private static ApiException rateLimited(Duration wait) {

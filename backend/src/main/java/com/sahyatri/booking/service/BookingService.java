@@ -117,14 +117,16 @@ public class BookingService {
      */
     @Transactional
     public BookingResponse create(UUID userId, BookingRequest req) {
-        User user = currentUser.require(userId);
+        currentUser.require(userId);
+        // Serialises this trekker's holds, so two at once can't both pass the one-live-hold check in hold().
+        User user = users.findByIdForUpdate(userId).orElseThrow();
         BookingContact contact = new BookingContact(
                 required("full_name", req.fullName(), user.getFullName()),
                 required("phone", req.phone(), user.getPhone()),
                 required("email", req.email(), user.getEmail()).toLowerCase(Locale.ROOT));
         List<TravellerRequest> travellers = travellersFor(req.seats(), req.travellers());
         if (user.getEmailVerifiedAt() == null || !contact.email().equals(user.getEmail())) {
-            emailCodes.check(contact.email(), req.emailCode());
+            emailCodes.use(emailCodes.check(contact.email(), req.emailCode()));
             adoptVerifiedEmail(user, contact.email());
         }
         return toResponse(hold(userId, req.departureId(), req.seats(), contact, travellers,
@@ -159,7 +161,9 @@ public class BookingService {
      */
     @Transactional
     public GuestBooking createForGuest(GuestBookingRequest req) {
-        emailCodes.check(req.email(), req.emailCode());
+        // Each guest is a new account, so the spent code (locked until this commits) is what stops one email holding
+        // seats again and again; hold() also refuses an email that already has a live hold.
+        emailCodes.use(emailCodes.check(req.email(), req.emailCode()));
         List<TravellerRequest> travellers = travellersFor(req.seats(), req.travellers());
         User guest = User.newGuest(req.fullName().trim());
         acquisition.apply(guest, SignupMethod.GUEST_CHECKOUT, req.acquisition());
@@ -225,6 +229,14 @@ public class BookingService {
             throw new ApiException(HttpStatus.CONFLICT, "ALREADY_BOOKED", "You already have a booking on this departure",
                     Map.of("booking_id", b.getId().toString()));
         });
+        // One unpaid hold at a time per account and per contact email, on any departure: otherwise one person could
+        // keep every seat held without paying. The booking is only named to its own account.
+        bookings.findLiveHolds(BookingStatus.HELD, userId, contact.email(), Instant.now()).stream().findFirst()
+                .ifPresent(b -> {
+                    throw new ApiException(HttpStatus.CONFLICT, "HOLD_PENDING",
+                            "Seats are already held for you; pay for or release that booking first",
+                            b.getUserId().equals(userId) ? Map.of("booking_id", b.getId().toString()) : Map.of());
+                });
         if (departure.seatsLeft() < seats) {
             throw new ApiException(HttpStatus.CONFLICT, "NOT_ENOUGH_SEATS", "Not enough seats left",
                     Map.of("seats_left", departure.seatsLeft()));
