@@ -209,7 +209,7 @@ function Footer() {
       <div className="mx-auto max-w-[90rem] px-5 pt-14 sm:px-10 sm:pt-20">
         <div className="flex flex-col gap-10 border-b border-white/10 pb-12 md:flex-row md:items-start md:justify-between">
           <div className="grid grid-cols-2 gap-10 sm:gap-20">
-            <FooterColumn title="Explore" links={[{ label: 'All treks', href: '/treks' }, ...NAV.slice(1), { label: 'Blog', href: BLOG_PATH }]} />
+            <FooterColumn title="Explore" links={[{ label: 'All treks', href: '/treks' }, ...NAV.slice(1), { label: 'Articles', href: BLOG_PATH }]} />
             <FooterColumn title="The fine print" hideTitle links={FOOTER_LINKS} />
           </div>
           <div className="flex shrink-0 flex-col items-start gap-5 md:items-end">
@@ -315,7 +315,7 @@ function AccountLink({ tone }: { tone: HeaderTone }) {
         links={[
           ...(user.role === 'TREKKER' ? [{ to: PROFILE_PATH, label: 'My profile' }] : []),
           ...(user.role === 'GUIDE' ? [{ to: '/guide/profile', label: 'My profile' }] : []),
-          { to: BLOG_PATH, label: 'Blog' },
+          { to: BLOG_PATH, label: 'Articles' },
         ]}
         onSignOut={() => {
           if (!user.guest || window.confirm(GUEST_SIGN_OUT_WARNING)) void auth.signOut()

@@ -24,6 +24,8 @@ export type Track = {
   slug: string
   name: string
   region: string
+  /** Indian state or union territory; null until an admin picks one. */
+  state: string | null
   difficulty: Difficulty
   duration_days: number
   max_altitude_m: number | null
@@ -217,7 +219,8 @@ export const updateGuideDetails = (token: string, guideId: string, body: GuideDe
 // Guide record: routes, pledges, picked stats, treks in the last 3 years (docs/TRD.md §7.21.8).
 
 /** `route_index`: for ROUTE_TIMES, the route's place in `routes`. */
-export type StatPick = { key: GuideStatKey; route_index: number | null }
+/** `value` and `label`: what a CUSTOM stat shows, as typed; null for the other kinds (docs/TRD.md §7.21.8). */
+export type StatPick = { key: GuideStatKey; route_index: number | null; value: string | null; label: string | null }
 
 export type GuideRecord = {
   treks_last_3y: number | null

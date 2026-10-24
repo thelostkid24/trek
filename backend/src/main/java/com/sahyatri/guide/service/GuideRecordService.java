@@ -130,6 +130,13 @@ public class GuideRecordService {
             if (needsRoute && p.routeIndex() >= list.size()) {
                 throw ApiException.validation("stats[" + i + "].route_index", "isn't one of the routes");
             }
+            boolean custom = p.key() == GuideStatKey.CUSTOM;
+            if (custom != (GuideRouteService.blankToNull(p.value()) != null)) {
+                throw ApiException.validation("stats[" + i + "].value", custom ? "is required" : "only goes with a custom stat");
+            }
+            if (custom != (GuideRouteService.blankToNull(p.label()) != null)) {
+                throw ApiException.validation("stats[" + i + "].label", custom ? "is required" : "only goes with a custom stat");
+            }
         }
 
         // Routes: update kept rows, add new ones, then remove the rest (their stat picks go with them).
@@ -150,7 +157,9 @@ public class GuideRecordService {
         List<GuideRoute> byIndex = routes.saveAllAndFlush(saved);
         stats.saveAllAndFlush(IntStream.range(0, picks.size()).mapToObj(i -> new GuideProfileStat(guideId, i,
                 picks.get(i).key(), picks.get(i).routeIndex() == null ? null
-                : byIndex.get(picks.get(i).routeIndex()).getId())).toList());
+                : byIndex.get(picks.get(i).routeIndex()).getId(),
+                GuideRouteService.blankToNull(picks.get(i).value()),
+                GuideRouteService.blankToNull(picks.get(i).label()))).toList());
 
         // Remove dropped pledges and add new ones; kept ones stay as recorded (who and when).
         List<GuidePledge> current = pledges.findByGuideId(guideId);
@@ -198,7 +207,8 @@ public class GuideRecordService {
             indexOf.put(rows.get(i).getId(), i);
         }
         List<StatPick> picks = stats.findByGuideIdOrderByPositionAsc(guideId).stream()
-                .map(s -> new StatPick(s.getStatKey(), s.getRouteId() == null ? null : indexOf.get(s.getRouteId())))
+                .map(s -> new StatPick(s.getStatKey(), s.getRouteId() == null ? null : indexOf.get(s.getRouteId()),
+                        s.getCustomValue(), s.getCustomLabel()))
                 .toList();
         return new GuideRecord(details.findById(guideId).map(GuideDetails::getTreksLast3y).orElse(null),
                 rows.stream().map(r -> GuideRouteService.item(r, names)).toList(), pledges.kindsFor(guideId), picks);

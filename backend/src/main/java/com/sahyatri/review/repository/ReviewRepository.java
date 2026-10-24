@@ -18,21 +18,23 @@ public interface ReviewRepository extends JpaRepository<Review, UUID> {
 
     Optional<Review> findByBookingId(UUID bookingId);
 
-    Optional<Review> findByGuideIdAndReviewerEmail(UUID guideId, String email);
+    /** Every approved review of a guide, hidden ones too (the guide's own list). */
+    @Query("select r from Review r where r.guideId = :guideId and r.approvedAt is not null order by r.createdAt desc")
+    List<Review> findApprovedForGuide(UUID guideId, Limit limit);
 
-    Optional<Review> findByGuideIdAndReviewerPhone(UUID guideId, String phone);
-
-    /** Every review of a guide, hidden ones too (the guide's own list). */
-    List<Review> findByGuideIdOrderByCreatedAtDesc(UUID guideId, Limit limit);
-
-    /** What the public sees: not hidden, from the given sources, newest first. */
+    /** What the public sees: approved and not hidden, from the given sources, newest first. */
     @Query("""
-            select r from Review r where r.guideId = :guideId and r.hiddenAt is null and r.source in :sources
+            select r from Review r where r.guideId = :guideId and r.approvedAt is not null and r.hiddenAt is null
+              and r.source in :sources
             order by r.createdAt desc""")
     Page<Review> findVisible(UUID guideId, Collection<ReviewSource> sources, Pageable page);
 
     @Query("select r from Review r order by r.createdAt desc")
     List<Review> findRecent(Limit limit);
+
+    /** Reviews from guides' own trekkers waiting for approval, newest first. */
+    @Query("select r from Review r where r.approvedAt is null order by r.createdAt desc")
+    List<Review> findWaiting(Limit limit);
 
     @Query("""
             select r from Review r where r.hiddenAt is not null or r.replyHiddenAt is not null

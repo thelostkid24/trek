@@ -36,6 +36,11 @@ public class AdminReviewController {
         return new ItemsResponse<>(reviews.list(view));
     }
 
+    @PutMapping("/{id}/approved")
+    public AdminReviewItem approve(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id) {
+        return reviews.approve(userId(jwt), id);
+    }
+
     @PutMapping("/{id}/hidden")
     public AdminReviewItem hide(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id,
                                 @Valid @RequestBody ReasonRequest req) {

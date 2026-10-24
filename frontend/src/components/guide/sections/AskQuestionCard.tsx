@@ -172,9 +172,8 @@ export function AskQuestionCard({ guide, owner }: GuideSectionProps) {
                 ? 'Sending…'
                 : codeSentTo !== null
                   ? 'Confirm and send'
-                  : 'Send through Empty Valley'}
+                  : 'Send'}
             </button>
-            <p className="text-xs text-stone-500">Your email and phone stay private; {first} replies on the site.</p>
           </div>
         </form>
       )}

@@ -93,7 +93,7 @@ public class TrackAdminService {
             throw ApiException.validation("offloading_price_paise", "only applies when offloading is available");
         }
 
-        track.update(req.slug(), req.name().trim(), req.region().trim(), req.difficulty(), req.durationDays(),
+        track.update(req.slug(), req.name().trim(), req.region().trim(), blankToNull(req.state()), req.difficulty(), req.durationDays(),
                 req.maxAltitudeM(), req.summary().trim(), req.description().trim(), req.meetingPoint().trim());
         track.updateRouteFacts(req.distanceKm(), req.baseAltitudeM(), req.highestCampM(), blankToNull(req.stay()),
                 blankToNull(req.seasonLabel()));

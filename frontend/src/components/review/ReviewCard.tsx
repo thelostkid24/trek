@@ -61,11 +61,11 @@ export function ReviewCard({
         </div>
       </div>
       {r.body && <p className="mt-3 whitespace-pre-line text-stone-700">{r.body}</p>}
-      {r.tags.length > 0 && (
+      {(r.tags.length > 0 || r.other_tag) && (
         <p className="mt-2 flex flex-wrap gap-1.5">
-          {r.tags.map((t) => (
-            <span key={t} className="rounded-full bg-paper-100 px-2 py-0.5 text-xs text-stone-600">
-              {tagLabel(t)}
+          {[...r.tags.map(tagLabel), ...(r.other_tag ? [r.other_tag] : [])].map((label) => (
+            <span key={label} className="rounded-full bg-paper-100 px-2 py-0.5 text-xs text-stone-600">
+              {label}
             </span>
           ))}
         </p>

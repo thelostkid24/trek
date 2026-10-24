@@ -26,6 +26,7 @@ import { DifficultyPill } from '../../components/catalog/DeparturePieces.tsx'
 import { SelectField, TextAreaField } from '../../components/profile/fields.tsx'
 import { toFeet, toMetres } from '../../lib/format.ts'
 import { shrinkPhoto } from '../../lib/photos.ts'
+import { INDIAN_STATES } from '../../lib/trek.ts'
 
 // Altitudes are stored in metres and typed in feet; the form keeps what was typed until it's saved.
 const ftText = (m: number | null) => (m === null ? '' : String(toFeet(m)))
@@ -53,6 +54,7 @@ const EMPTY: TrackFields = {
   slug: '',
   name: '',
   region: '',
+  state: null,
   difficulty: 'EASY',
   duration_days: 1,
   summary: '',
@@ -300,6 +302,9 @@ function TrackForm({ track, onDone }: { track: Track | null; onDone: () => void 
           hint="Lowercase words joined by hyphens, e.g. kedarkantha" />
         <TextField label="Region" name="region" required maxLength={100} value={form.region}
           onChange={(e) => set('region', e.target.value)} error={errors.region} />
+        <SelectField label="State" name="state" placeholder="Not set" value={form.state ?? ''}
+          onChange={(e) => set('state', e.target.value || null)} error={errors.state}
+          options={INDIAN_STATES.map((s) => ({ value: s, label: s }))} hint="Used by the state filter on Our Guides" />
         <SelectField label="Difficulty" name="difficulty" required value={form.difficulty}
           onChange={(e) => set('difficulty', e.target.value as Difficulty)} error={errors.difficulty}
           options={Object.entries(DIFFICULTY_LABEL).map(([value, label]) => ({ value, label }))} />

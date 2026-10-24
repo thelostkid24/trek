@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { getGuide, guideCardUrl, guidePath, type DepartureSummary, type GuideProfile } from '../api/catalog.ts'
 import { ApiError } from '../api/client.ts'
@@ -115,7 +115,6 @@ function Profile({ guide: g, departureId }: { guide: GuideProfile; departureId: 
 
         <div className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
           <div className="min-w-0 space-y-10">
-            <h2 className="font-serif text-3xl font-light tracking-tight text-stone-900 sm:text-4xl">Know your guide: {first}</h2>
             <MediaSection {...section} />
             <About bio={g.bio} first={first} owner={owner} />
             <CertificationsSection {...section} />
@@ -132,7 +131,6 @@ function Profile({ guide: g, departureId }: { guide: GuideProfile; departureId: 
             )}
             <Departures section={section} first={first} />
             <AskQuestionCard {...section} />
-            <ProfileLink guide={g} name={name} url={url} />
           </aside>
         </div>
       </div>
@@ -210,10 +208,10 @@ function Header({ guide: g, owner, name, url }: { guide: GuideProfile; owner: bo
             <img
               src={g.avatar_url}
               alt={name}
-              className="size-28 rounded-2xl object-cover ring-4 ring-paper-50 sm:size-40"
+              className="size-28 rounded-full object-cover ring-4 ring-paper-50 sm:size-40"
             />
           ) : (
-            <Avatar url={null} name={name} size="lg" className="size-28! rounded-2xl! text-4xl! ring-4! ring-paper-50! sm:size-40! sm:text-5xl!" />
+            <Avatar url={null} name={name} size="lg" className="size-28! rounded-full! text-4xl! ring-4! ring-paper-50! sm:size-40! sm:text-5xl!" />
           )}
         </div>
         <div className="min-w-0 sm:pt-5">
@@ -428,57 +426,74 @@ function Career({ milestones, owner }: { milestones: GuideProfile['milestones'];
   )
 }
 
-/** Every date the guide leads. Open seat counts are never shown (§7.21 decisions), only "Batch full". */
+/**
+ * Every date the guide leads, grouped by trek in date order: the trek's price, length and top, a link to the trek, then
+ * one row per date with Book. Open seat counts are never shown (§7.21 decisions), only "Batch full".
+ */
 function Departures({ section, first }: { section: { guide: GuideProfile; owner: boolean }; first: string }) {
-  const upcoming = section.guide.upcoming
-  const next = upcoming.find((d) => d.bookable)
+  const groups: { track: DepartureSummary['track']; dates: DepartureSummary[] }[] = []
+  for (const d of [...section.guide.upcoming].sort((a, b) => a.start_date.localeCompare(b.start_date))) {
+    const group = groups.find((g) => g.track.slug === d.track.slug)
+    if (group) group.dates.push(d)
+    else groups.push({ track: d.track, dates: [d] })
+  }
   return (
     <section aria-labelledby="departures" className={CARD}>
       <AvailabilityLink {...section} />
       <SectionLabel id="departures">Upcoming departures</SectionLabel>
-      {upcoming.length === 0 ? (
+      {groups.length === 0 ? (
         <p className="mt-3 text-sm text-stone-600">No upcoming departures with {first} right now.</p>
       ) : (
-        <ul className="mt-3 divide-y divide-paper-300">
-          {upcoming.map((d) => (
-            <UpcomingRow key={d.id} departure={d} />
+        <div className="mt-4 space-y-7">
+          {groups.map((g) => (
+            <TrekDates
+              key={g.track.slug}
+              track={g.track}
+              dates={g.dates}
+              topM={section.guide.treks.find((t) => t.track?.slug === g.track.slug)?.max_altitude_m ?? null}
+            />
           ))}
-        </ul>
-      )}
-      {next && (
-        <Link
-          to={`/book/${next.id}`}
-          className="mt-4 block rounded-full bg-brand-900 px-4 py-3 text-center font-semibold text-white hover:bg-brand-800"
-        >
-          Join {shortRange(next.start_date, next.end_date)}
-        </Link>
+        </div>
       )}
     </section>
   )
 }
 
-function UpcomingRow({ departure: d }: { departure: DepartureSummary }) {
+function TrekDates({ track, dates, topM }: { track: DepartureSummary['track']; dates: DepartureSummary[]; topM: number | null }) {
+  const prices = dates.map((d) => d.price_paise)
+  const low = Math.min(...prices)
+  const facts = [`${track.duration_days} ${track.duration_days === 1 ? 'day' : 'days'}`, topM !== null && feet(topM)].filter(Boolean)
   return (
-    <li className="py-3">
-      <div className="flex items-baseline justify-between gap-3">
-        <Link to={`/departures/${d.id}`} viewTransition className="font-medium text-stone-900 hover:text-brand-800">
-          {d.track.name}
-        </Link>
-        <span className="font-mono text-sm text-stone-900">{rupees(d.price_paise)}</span>
+    <div>
+      <div className="flex items-start justify-between gap-3">
+        <h3 className="text-xl font-medium text-stone-900">{track.name}</h3>
+        <p className="shrink-0 text-right">
+          <span className="font-mono text-lg font-semibold text-stone-900">
+            {prices.some((p) => p !== low) && <span className="text-sm font-normal text-stone-500">from </span>}
+            {rupees(low)}
+          </span>
+          <span className="block text-xs text-stone-500">per person</span>
+        </p>
       </div>
-      <div className="mt-0.5 flex items-baseline justify-between gap-3 text-sm">
-        <span className="text-stone-600">
-          {shortRange(d.start_date, d.end_date)} · {weekdaysAndYear(d.start_date, d.end_date)}
-        </span>
-        {d.bookable ? (
-          <Link to={`/book/${d.id}`} className="shrink-0 font-medium text-brand-700 hover:text-brand-900">
-            Book
-          </Link>
-        ) : (
-          <span className="shrink-0 text-stone-500">{d.seats_left === 0 ? 'Batch full' : 'Bookings closed'}</span>
-        )}
-      </div>
-    </li>
+      <p className="mt-1 text-sm text-stone-600">{facts.join(' · ')}</p>
+      <Link to={`/treks/${track.slug}`} viewTransition className="mt-2 inline-block text-sm font-semibold text-brand-800 hover:text-brand-900">
+        View {track.name} trek →
+      </Link>
+      <ul className="mt-2">
+        {dates.map((d) => (
+          <li key={d.id} className="flex items-center justify-between gap-3 py-1">
+            <span className="text-base text-stone-900">{shortRange(d.start_date, d.end_date)}</span>
+            {d.bookable ? (
+              <Link to={`/book/${d.id}`} className="-mr-3 shrink-0 rounded-full px-3 py-1 text-base font-semibold text-brand-800 hover:bg-brand-50 hover:text-brand-900">
+                Book
+              </Link>
+            ) : (
+              <span className="shrink-0 text-sm text-stone-500">{d.seats_left === 0 ? 'Batch full' : 'Bookings closed'}</span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }
 
@@ -509,34 +524,38 @@ function BookingCard({ departure: d }: { departure: DepartureSummary }) {
   )
 }
 
-/** The page's address, for the guide (or anyone) to pass on. */
-function ProfileLink({ guide: g, name, url }: { guide: GuideProfile; name: string; url: string }) {
-  return (
-    <section aria-labelledby="profile-link" className={CARD}>
-      <SectionLabel id="profile-link">Profile link</SectionLabel>
-      <p className="mt-3 truncate font-mono text-sm text-stone-800">{`${SITE_ORIGIN.replace(/^https?:\/\//, '')}${guidePath(g)}`}</p>
-      <div className="mt-4">
-        <ShareProfile name={name} url={url} />
-      </div>
-    </section>
-  )
-}
-
 /**
- * The profile's public link, for the guide to share anywhere as their trekking CV. Phones get the native share sheet;
- * elsewhere (or if sharing isn't allowed) it copies the link.
+ * The profile's public link, for the guide to share anywhere as their trekking CV: a menu of LinkedIn, Instagram (copies
+ * the link, then opens Instagram), Facebook, X, Email, the device's own share sheet ("Share via…", where the
+ * browser has one) and Copy link.
  */
 function ShareProfile({ name, url, primary = false }: { name: string; url: string; primary?: boolean }) {
+  const [open, setOpen] = useState(false)
   const [copied, setCopied] = useState(false)
-  const share = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: `${name}, trek guide`, url })
-        return
-      } catch (e) {
-        if (e instanceof DOMException && e.name === 'AbortError') return
-      }
+  const box = useRef<HTMLDivElement>(null)
+  const title = `${name}, trek guide`
+  const u = encodeURIComponent(url)
+  const t = encodeURIComponent(`${title} on The Empty Valley`)
+
+  // Closes on Escape or a click outside.
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e: MouseEvent) => {
+      if (!box.current?.contains(e.target as Node)) setOpen(false)
     }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  const copy = async () => {
+    setOpen(false)
     try {
       await navigator.clipboard.writeText(url)
       setCopied(true)
@@ -545,20 +564,167 @@ function ShareProfile({ name, url, primary = false }: { name: string; url: strin
       window.prompt('Copy this link', url)
     }
   }
+  const shareVia = async () => {
+    setOpen(false)
+    try {
+      await navigator.share({ title, url })
+    } catch {
+      // Cancelled, or not allowed here: nothing to do.
+    }
+  }
+
+  const item = 'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm text-stone-800 hover:bg-paper-100'
+  // Instagram has no share link: copy the profile link, then open Instagram to paste it into a story, post or bio.
+  const instagram = () => {
+    setOpen(false)
+    const copying = navigator.clipboard?.writeText(url)
+    window.open('https://www.instagram.com/', '_blank', 'noopener,noreferrer')
+    void copying?.then(
+      () => {
+        setCopied(true)
+        window.setTimeout(() => setCopied(false), 2000)
+      },
+      () => {},
+    )
+  }
+
+  const linkedin = { label: 'LinkedIn', href: `https://www.linkedin.com/sharing/share-offsite/?url=${u}`, icon: <LinkedInIcon /> }
+  const links = [
+    { label: 'Facebook', href: `https://www.facebook.com/sharer/sharer.php?u=${u}`, icon: <FacebookIcon /> },
+    { label: 'X', href: `https://twitter.com/intent/tweet?url=${u}&text=${t}`, icon: <XIcon /> },
+  ]
   return (
-    <button
-      type="button"
-      onClick={() => void share()}
-      className={
-        primary
-          ? 'inline-flex items-center gap-2 rounded-full bg-brand-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-800'
-          : OUTLINE_BUTTON
-      }
-    >
-      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" className="size-4" aria-hidden="true">
-        <path d="M10 13V3m0 0L6.5 6.5M10 3l3.5 3.5M4 11v4.5A1.5 1.5 0 0 0 5.5 17h9a1.5 1.5 0 0 0 1.5-1.5V11" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-      <span aria-live="polite">{copied ? 'Link copied' : 'Share profile'}</span>
-    </button>
+    <div ref={box} className="relative">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        className={
+          primary
+            ? 'inline-flex items-center gap-2 rounded-full bg-brand-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-800'
+            : OUTLINE_BUTTON
+        }
+      >
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" className="size-4" aria-hidden="true">
+          <path d="M10 13V3m0 0L6.5 6.5M10 3l3.5 3.5M4 11v4.5A1.5 1.5 0 0 0 5.5 17h9a1.5 1.5 0 0 0 1.5-1.5V11" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        <span aria-live="polite">{copied ? 'Link copied' : 'Share profile'}</span>
+      </button>
+      {open && (
+        <div className="absolute right-0 z-30 mt-2 w-52 rounded-xl bg-white p-1.5 shadow-lg ring-1 ring-paper-300">
+          <a href={linkedin.href} target="_blank" rel="noopener noreferrer" onClick={() => setOpen(false)} className={item}>
+            {linkedin.icon}
+            {linkedin.label}
+          </a>
+          <button type="button" onClick={instagram} className={item}>
+            <InstagramIcon />
+            Instagram
+          </button>
+          {links.map((l) => (
+            <a key={l.label} href={l.href} target="_blank" rel="noopener noreferrer" onClick={() => setOpen(false)} className={item}>
+              {l.icon}
+              {l.label}
+            </a>
+          ))}
+          <a href={`mailto:?subject=${encodeURIComponent(title)}&body=${u}`} onClick={() => setOpen(false)} className={item}>
+            <MailIcon />
+            Email
+          </a>
+          {'share' in navigator && (
+            <button type="button" onClick={() => void shareVia()} className={item}>
+              <ShareArrowIcon />
+              Share via…
+            </button>
+          )}
+          <div className="my-1.5 border-t border-paper-300" />
+          <button type="button" onClick={() => void copy()} className={item}>
+            <LinkIcon />
+            Copy link
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+const ICON = 'size-[18px] shrink-0'
+
+// Brand marks in their own colours (shapes from Simple Icons); the rest are thin outline icons.
+function FacebookIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className={ICON} fill="#0866FF" aria-hidden="true">
+      <path d="M9.1 23.7v-8H6.6V12h2.5v-1.6c0-4.1 1.8-6 5.9-6l2.6.3v3.3h-1.4c-1.4 0-1.9.5-1.9 1.9V12h3.8l-.6 3.7h-3.2v8.2A12 12 0 1 0 9.1 23.7z" />
+    </svg>
+  )
+}
+
+function LinkedInIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className={ICON} fill="#0A66C2" aria-hidden="true">
+      <path d="M20.45 20.45h-3.56v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.35V9h3.41v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46zM5.34 7.43a2.06 2.06 0 1 1 0-4.13 2.06 2.06 0 0 1 0 4.13zm1.78 13.02H3.56V9h3.56zM22.23 0H1.77C.79 0 0 .77 0 1.73v20.54C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.73V1.73C24 .77 23.2 0 22.22 0z" />
+    </svg>
+  )
+}
+
+function InstagramIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className={ICON} fill="none" stroke="url(#ig-share)" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+      <defs>
+        <linearGradient id="ig-share" x1="0" y1="1" x2="1" y2="0">
+          <stop offset="0" stopColor="#FEDA75" />
+          <stop offset=".3" stopColor="#FA7E1E" />
+          <stop offset=".6" stopColor="#D62976" />
+          <stop offset="1" stopColor="#4F5BD5" />
+        </linearGradient>
+      </defs>
+      <rect width="19" height="19" x="2.5" y="2.5" rx="5.5" />
+      <circle cx="12" cy="12" r="4.2" />
+      <path d="M17.4 6.6h.01" strokeWidth="2.8" />
+    </svg>
+  )
+}
+
+function XIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className={`${ICON} text-stone-900`} fill="currentColor" aria-hidden="true">
+      <path d="M18.9 1.15h3.68l-8.04 9.19L24 22.85h-7.4l-5.8-7.58-6.64 7.58H.47l8.6-9.83L0 1.15h7.6l5.24 6.93zm-1.29 19.5h2.04L6.49 3.24H4.3z" />
+    </svg>
+  )
+}
+
+const OUTLINE_ICON = {
+  viewBox: '0 0 24 24',
+  className: `${ICON} text-stone-600`,
+  fill: 'none',
+  stroke: 'currentColor',
+  strokeWidth: 1.8,
+  strokeLinecap: 'round' as const,
+  strokeLinejoin: 'round' as const,
+  'aria-hidden': true,
+}
+
+function MailIcon() {
+  return (
+    <svg {...OUTLINE_ICON}>
+      <rect width="20" height="16" x="2" y="4" rx="2" />
+      <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+    </svg>
+  )
+}
+
+function ShareArrowIcon() {
+  return (
+    <svg {...OUTLINE_ICON}>
+      <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13" />
+    </svg>
+  )
+}
+
+function LinkIcon() {
+  return (
+    <svg {...OUTLINE_ICON}>
+      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+    </svg>
   )
 }

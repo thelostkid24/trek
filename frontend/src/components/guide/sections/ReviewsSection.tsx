@@ -1,6 +1,5 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import {
   getGuideReviews,
   getReviewsSummary,
@@ -11,6 +10,7 @@ import {
 } from '../../../api/reviews.ts'
 import { SectionLabel } from '../../catalog/TrekSections.tsx'
 import { ReviewCard } from '../../review/ReviewCard.tsx'
+import { WriteReviewDialog } from '../../review/WriteReviewDialog.tsx'
 import type { GuideSectionProps } from './types.ts'
 
 const PAGE = 6
@@ -22,8 +22,8 @@ const CATEGORY_LABEL: Record<ReviewsSummary['categories'][number]['key'], string
 
 /**
  * What trekkers say (docs/TRD.md §7.21.5): the verified rating, a bar per category (five answers or more), tags
- * mentioned often, filters by source, the reviews with the guide's replies, and a link for anyone who trekked with
- * them to write one. The owner can reply from here.
+ * mentioned often, filters by source, the reviews with the guide's replies, and "Write a review" (a pop-up) for anyone
+ * who trekked with them. The owner can reply from here.
  */
 export function ReviewsSection({ guide: g, owner }: GuideSectionProps) {
   const key = g.slug ?? g.id
@@ -132,12 +132,7 @@ export function ReviewsSection({ guide: g, owner }: GuideSectionProps) {
             <span className="font-medium text-stone-900">Trekked with {first}?</span> Anyone who trekked with {first} can
             leave a review here.
           </p>
-          <Link
-            to={`/r/${key}`}
-            className="shrink-0 rounded-full bg-stone-900 px-4 py-2 text-center text-sm font-medium text-white hover:bg-stone-800"
-          >
-            Write a review
-          </Link>
+          <WriteReviewDialog guideKey={key} guideName={g.full_name ?? 'your guide'} />
         </div>
       )}
     </section>

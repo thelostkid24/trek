@@ -48,7 +48,7 @@ public class GuideReviewService {
 
     @Transactional(readOnly = true)
     public GuideReviewsResponse list(UUID guideId) {
-        List<Review> rows = reviews.findByGuideIdOrderByCreatedAtDesc(guideId, Limit.of(LIST_LIMIT));
+        List<Review> rows = reviews.findApprovedForGuide(guideId, Limit.of(LIST_LIMIT));
         Set<UUID> reported = reports.findByReporterIdAndResolvedAtIsNull(guideId).stream()
                 .map(ReviewReport::getReviewId).collect(Collectors.toSet());
         List<PublicReview> views = reviewService.publicViews(rows, true);

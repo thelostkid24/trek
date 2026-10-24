@@ -14,7 +14,8 @@ import java.util.UUID;
  * named (OWN_TREKKER, no date). {@code reply} is null when there is none or an admin hid it.
  */
 public record PublicReview(UUID id, ReviewSource source, int rating, Integer safetyRating, Integer routeRating,
-                           Integer communicationRating, Integer careRating, List<ReviewTag> tags, String body,
+                           Integer communicationRating, Integer careRating, List<ReviewTag> tags, String otherTag,
+                           String body,
                            String authorName, String trekName, LocalDate trekStartDate, Instant createdAt,
                            Reply reply) {
 
@@ -27,7 +28,7 @@ public record PublicReview(UUID id, ReviewSource source, int rating, Integer saf
         Reply reply = r.getReplyBody() == null || (r.getReplyHiddenAt() != null && !showHiddenReply) ? null
                 : new Reply(r.getReplyBody(), r.getReplyCreatedAt(), r.getReplyUpdatedAt());
         return new PublicReview(r.getId(), r.getSource(), r.getRating(), r.getSafetyRating(), r.getRouteRating(),
-                r.getCommunicationRating(), r.getCareRating(), sortedTags(r), r.getBody(), r.getAuthorName(),
+                r.getCommunicationRating(), r.getCareRating(), sortedTags(r), r.getOtherTag(), r.getBody(), r.getAuthorName(),
                 booking ? trekName : r.getTrekName(), booking ? trekStartDate : null, r.getCreatedAt(), reply);
     }
 

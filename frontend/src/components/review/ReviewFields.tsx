@@ -1,4 +1,5 @@
 import { REVIEW_TAGS, SUB_RATINGS, type ReviewTag, type SubRatings } from '../../api/reviews.ts'
+import { TextField } from '../auth/TextField.tsx'
 
 /** Shared by the booking review and the /r/{slug} form (docs/TRD.md §7.21.5). */
 
@@ -56,7 +57,23 @@ export function SubRatingFields({ value, onChange }: { value: SubRatings; onChan
   )
 }
 
-export function TagChips({ value, onChange }: { value: ReviewTag[]; onChange: (v: ReviewTag[]) => void }) {
+/**
+ * "What stood out?" chips. With `other` (the review link's form), an "Other" chip too: picking it shows a box for the
+ * reviewer's own words; `other.value` is null while "Other" is off.
+ */
+export function TagChips({
+  value,
+  onChange,
+  other,
+}: {
+  value: ReviewTag[]
+  onChange: (v: ReviewTag[]) => void
+  other?: { value: string | null; onChange: (v: string | null) => void; error?: string }
+}) {
+  const chip = (on: boolean) =>
+    `rounded-full px-3 py-1.5 text-sm ring-1 ${
+      on ? 'bg-pine-700 text-white ring-pine-700' : 'bg-white text-stone-700 ring-paper-300 hover:ring-stone-400'
+    }`
   return (
     <fieldset>
       <legend className="text-sm font-medium text-stone-800">What stood out?</legend>
@@ -69,15 +86,36 @@ export function TagChips({ value, onChange }: { value: ReviewTag[]; onChange: (v
               type="button"
               aria-pressed={on}
               onClick={() => onChange(on ? value.filter((c) => c !== t.code) : [...value, t.code])}
-              className={`rounded-full px-3 py-1.5 text-sm ring-1 ${
-                on ? 'bg-pine-700 text-white ring-pine-700' : 'bg-white text-stone-700 ring-paper-300 hover:ring-stone-400'
-              }`}
+              className={chip(on)}
             >
               {t.label}
             </button>
           )
         })}
+        {other && (
+          <button
+            type="button"
+            aria-pressed={other.value !== null}
+            onClick={() => other.onChange(other.value === null ? '' : null)}
+            className={chip(other.value !== null)}
+          >
+            Other
+          </button>
+        )}
       </div>
+      {other && other.value !== null && (
+        <div className="mt-3">
+          <TextField
+            label="What else stood out?"
+            name="other_tag"
+            maxLength={60}
+            autoFocus
+            value={other.value}
+            onChange={(e) => other.onChange(e.target.value)}
+            error={other.error}
+          />
+        </div>
+      )}
     </fieldset>
   )
 }

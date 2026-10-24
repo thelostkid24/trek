@@ -17,7 +17,8 @@ import java.util.Objects;
 
 /**
  * The guide page's stats row when an admin picked one (§7.21.8). Every value is worked out here on each read from the
- * guide's record, reviews and departures (law 8); a stat with nothing behind it is left out.
+ * guide's record, reviews and departures (law 8); a stat with nothing behind it is left out. A CUSTOM stat shows what
+ * the admin typed.
  */
 final class GuideStats {
 
@@ -108,6 +109,7 @@ final class GuideStats {
                     feet(in.highestAltitudeM()), "highest pass led", null);
             case RETURN_RATE -> in.returnRatePct() == null ? null : new GuideProfile.Stat(p.getStatKey(),
                     in.returnRatePct() + "%", "trekkers come back", null);
+            case CUSTOM -> new GuideProfile.Stat(p.getStatKey(), p.getCustomValue(), p.getCustomLabel(), null);
         };
     }
 

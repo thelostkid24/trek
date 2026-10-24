@@ -31,6 +31,7 @@ const STATS: { key: GuideStatKey; label: string }[] = [
   { key: 'ROUTE_TIMES', label: 'Times one route was led' },
   { key: 'HIGHEST_PASS', label: 'Highest pass led' },
   { key: 'RETURN_RATE', label: 'Trekkers who come back' },
+  { key: 'CUSTOM', label: 'Custom (type the key and value)' },
 ]
 
 const MAX_STATS = 7
@@ -245,7 +246,7 @@ function RecordForm({ guideId, initial, onDone }: { guideId: string; initial: Gu
 
       <fieldset>
         <legend className="text-sm font-medium text-stone-800">Stats row, in order (up to {MAX_STATS})</legend>
-        <p className="mt-0.5 text-sm text-stone-500">None picked: the page shows its default row. Values are worked out from the record, reviews and treks.</p>
+        <p className="mt-0.5 text-sm text-stone-500">None picked: the page shows its default row. Values are worked out from the record, reviews and treks, except Custom, which shows what you type and doesn't update itself.</p>
         <ol className="mt-2 space-y-2">
           {stats.map((s, i) => (
             <li key={i} className="grid grid-cols-[1fr_auto] items-end gap-2 sm:grid-cols-[1fr_1fr_auto]">
@@ -256,7 +257,10 @@ function RecordForm({ guideId, initial, onDone }: { guideId: string; initial: Gu
                 value={s.key}
                 onChange={(e) => {
                   const key = e.target.value as GuideStatKey
-                  setStats(stats.map((x, j) => (j === i ? { key, route_index: key === 'ROUTE_TIMES' ? (x.route_index ?? 0) : null } : x)))
+                  const custom = key === 'CUSTOM'
+                  setStats(stats.map((x, j) => (j === i
+                    ? { key, route_index: key === 'ROUTE_TIMES' ? (x.route_index ?? 0) : null, value: custom ? (x.value ?? '') : null, label: custom ? (x.label ?? '') : null }
+                    : x)))
                 }}
                 error={errors[`stats[${i}].key`]}
               />
@@ -270,6 +274,30 @@ function RecordForm({ guideId, initial, onDone }: { guideId: string; initial: Gu
                   error={errors[`stats[${i}].route_index`]}
                 />
               )}
+              {s.key === 'CUSTOM' && (
+                <div className="grid grid-cols-[2fr_1fr] items-end gap-2">
+                  <TextField
+                    label="Key"
+                    name={`record-stat-label-${i}`}
+                    required
+                    maxLength={80}
+                    placeholder="treks led in 3 years"
+                    value={s.label ?? ''}
+                    onChange={(e) => setStats(stats.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))}
+                    error={errors[`stats[${i}].label`]}
+                  />
+                  <TextField
+                    label="Value"
+                    name={`record-stat-value-${i}`}
+                    required
+                    maxLength={20}
+                    placeholder="21"
+                    value={s.value ?? ''}
+                    onChange={(e) => setStats(stats.map((x, j) => (j === i ? { ...x, value: e.target.value } : x)))}
+                    error={errors[`stats[${i}].value`]}
+                  />
+                </div>
+              )}
               <button type="button" onClick={() => setStats(stats.filter((_, j) => j !== i))} className="mb-2.5 text-sm text-stone-500 hover:text-stone-800 sm:col-start-3">
                 Remove
               </button>
@@ -279,7 +307,7 @@ function RecordForm({ guideId, initial, onDone }: { guideId: string; initial: Gu
         <button
           type="button"
           disabled={stats.length >= MAX_STATS}
-          onClick={() => setStats([...stats, { key: 'RATING', route_index: null }])}
+          onClick={() => setStats([...stats, { key: 'RATING', route_index: null, value: null, label: null }])}
           className="mt-2 text-sm font-semibold text-brand-800 hover:text-brand-900 disabled:opacity-40"
         >
           + Add a stat

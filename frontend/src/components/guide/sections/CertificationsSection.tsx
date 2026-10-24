@@ -131,17 +131,17 @@ function CertificationRow({ cert: c, onEdit }: { cert: PublicCertification | Cer
   )
 }
 
-/** A pledge an admin recorded from onboarding: "Agreed" or "Declared", always grey. */
+/** A pledge an admin recorded from onboarding: "Agreed" or "Declared", in green like a verified certificate. */
 function PledgeRow({ kind, first }: { kind: PledgeKind; first: string }) {
   const p = PLEDGES[kind]
   return (
     <div className="flex items-start gap-3">
-      <ShieldIcon className="mt-0.5 size-5 shrink-0 text-stone-400" />
+      <ShieldIcon className="mt-0.5 size-5 shrink-0 text-brand-700" />
       <div className="min-w-0 flex-1">
         <p className="font-medium text-stone-900">{p.title}</p>
         <p className="text-sm text-stone-600">{p.detail.replace('{name}', first)}</p>
       </div>
-      <span className="shrink-0 rounded-full bg-paper-200 px-2.5 py-0.5 text-xs font-semibold text-stone-600">{p.status}</span>
+      <span className="shrink-0 rounded-full bg-brand-100 px-2.5 py-0.5 text-xs font-semibold text-brand-900">{p.status}</span>
     </div>
   )
 }

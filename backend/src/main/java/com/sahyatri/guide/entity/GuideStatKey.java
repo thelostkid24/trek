@@ -24,5 +24,7 @@ public enum GuideStatKey {
     /** How often they've led one route; needs the route. */
     ROUTE_TIMES,
     HIGHEST_PASS,
-    RETURN_RATE
+    RETURN_RATE,
+    /** Typed in by an admin: its own value and label, stored as typed (it doesn't update itself). */
+    CUSTOM
 }

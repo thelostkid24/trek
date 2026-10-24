@@ -3,8 +3,6 @@ package com.sahyatri.review;
 import com.jayway.jsonpath.JsonPath;
 import com.sahyatri.auth.AuthTestSupport;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Mockito;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -15,7 +13,6 @@ import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -55,21 +52,15 @@ class ReviewV2Tests extends AuthTestSupport {
         return new Setup(guideToken, guideId, slug, departure, track, tokens, bookings);
     }
 
-    private String reviewEmailCode(String slug, String email) throws Exception {
-        postJson("/api/public/guides/" + slug + "/reviews/code", """
-                {"channel":"EMAIL","email":"%s"}""".formatted(email)).andExpect(status().isAccepted());
-        ArgumentCaptor<String> subject = ArgumentCaptor.forClass(String.class);
-        Mockito.verify(mailTransport, Mockito.atLeastOnce()).send(eq(email), subject.capture(), anyString());
-        return subject.getValue().substring(0, 6);
+    /** Posts a review as a guide's own trekker (no email or phone) and returns its id; it waits for approval. */
+    private UUID postOwnReview(String slug, String json) throws Exception {
+        String body = postJson("/api/public/guides/" + slug + "/reviews", json)
+                .andExpect(status().isAccepted()).andReturn().getResponse().getContentAsString();
+        return UUID.fromString(JsonPath.read(body, "$.review.id"));
     }
 
-    private UUID postOwnReview(String slug, String email, int rating) throws Exception {
-        String code = reviewEmailCode(slug, email);
-        String body = postJson("/api/public/guides/" + slug + "/reviews", """
-                {"rating":%d,"name":"Kiran Shah","email":"%s","code":"%s","trek_name":"Hampta Pass"}"""
-                .formatted(rating, email, code)).andExpect(status().isOk()).andReturn().getResponse()
-                .getContentAsString();
-        return UUID.fromString(JsonPath.read(body, "$.review.id"));
+    private void approve(String admin, UUID reviewId) throws Exception {
+        authed(put("/api/admin/reviews/" + reviewId + "/approved"), admin, null).andExpect(status().isOk());
     }
 
     @Test
@@ -117,65 +108,54 @@ class ReviewV2Tests extends AuthTestSupport {
     }
 
     @Test
-    void ownTrekkersReviewWithAnEmailCodeOncePerIdentity() throws Exception {
+    void ownTrekkersReviewWithoutAnEmailAndWaitForApproval() throws Exception {
         Setup s = completedTrek(0);
-        String email = uniqueEmail();
+        String admin = adminToken();
         String url = "/api/public/guides/" + s.slug() + "/reviews";
-        String code = reviewEmailCode(s.slug(), email);
-        String wrong = code.equals("000000") ? "111111" : "000000";
 
+        postJson(url, "{\"rating\":5}").andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.details.fields.name").exists());
         postJson(url, """
-                {"rating":5,"name":"Kiran Shah","email":"%s","code":"%s"}""".formatted(email, wrong))
+                {"rating":5,"name":"Kiran","other_tag":"%s"}""".formatted("x".repeat(61)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("EMAIL_CODE_INVALID"));
-        // Both or neither of email and phone.
-        postJson(url, """
-                {"rating":5,"name":"Kiran","email":"%s","phone":"+919812345670","code":"%s"}""".formatted(email, code))
-                .andExpect(status().isBadRequest());
-        postJson(url, """
-                {"rating":5,"name":"Kiran","code":"%s"}""".formatted(code))
-                .andExpect(status().isBadRequest());
-        postJson(url, """
-                {"rating":5,"name":"Kiran Shah","email":"%s","code":"%s","body":"Steady and calm.",
-                 "tags":["CALM_IN_BAD_WEATHER"],"care_rating":5,"trek_name":"Hampta Pass"}""".formatted(email, code))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.created").value(true))
-                .andExpect(jsonPath("$.review.source").value("OWN_TREKKER"))
-                .andExpect(jsonPath("$.review.author_name").value("Kiran"))
-                .andExpect(jsonPath("$.review.trek_name").value("Hampta Pass"))
-                .andExpect(jsonPath("$.review.trek_start_date").value(nullValue()));
-        // The same email again rewrites the one review (a correct code stays good until it expires).
-        postJson(url, """
-                {"rating":3,"name":"Kiran","email":"%s","code":"%s"}""".formatted(email.toUpperCase(), code))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.created").value(false))
-                .andExpect(jsonPath("$.review.rating").value(3));
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM reviews WHERE guide_id = ?", Long.class, s.guideId()))
+                .andExpect(jsonPath("$.details.fields.other_tag").exists());
+        postJson("/api/public/guides/no-such-guide/reviews", "{\"rating\":5,\"name\":\"Kiran\"}")
+                .andExpect(status().isNotFound());
+
+        UUID id = postOwnReview(s.slug(), """
+                {"rating":5,"name":"Kiran Shah","body":"Steady and calm.","tags":["CALM_IN_BAD_WEATHER"],
+                 "other_tag":" Great stories ","care_rating":5,"trek_name":"Hampta Pass"}""");
+        // Waiting: nowhere on the guide's page, nor in the guide's own list.
+        mockMvc.perform(get(url)).andExpect(jsonPath("$.total").value(0));
+        mockMvc.perform(get("/api/public/guides/" + s.slug() + "/reviews-summary"))
+                .andExpect(jsonPath("$.counts.own_trekker").value(0));
+        authed(get("/api/guide/reviews"), s.guideToken(), null).andExpect(jsonPath("$.items", hasSize(0)));
+        authed(get("/api/admin/reviews?view=WAITING"), admin, null)
+                .andExpect(jsonPath("$.items[?(@.review.id == '%s')].approved_at".formatted(id)).value(hasItem(nullValue())));
+
+        // Approved, it shows with the typed "Other" answer; approving again changes nothing.
+        approve(admin, id);
+        approve(admin, id);
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM audit_events WHERE action = 'REVIEW_APPROVED' AND entity_id = ?", Long.class, id))
                 .isEqualTo(1);
+        mockMvc.perform(get(url))
+                .andExpect(jsonPath("$.total").value(1))
+                .andExpect(jsonPath("$.items[0].source").value("OWN_TREKKER"))
+                .andExpect(jsonPath("$.items[0].author_name").value("Kiran"))
+                .andExpect(jsonPath("$.items[0].trek_name").value("Hampta Pass"))
+                .andExpect(jsonPath("$.items[0].trek_start_date").value(nullValue()))
+                .andExpect(jsonPath("$.items[0].other_tag").value("Great stories"));
+        authed(get("/api/admin/reviews?view=WAITING"), admin, null)
+                .andExpect(jsonPath("$.items[?(@.review.id == '%s')]".formatted(id), hasSize(0)));
 
-        // An expired code.
-        jdbc.update("UPDATE booking_email_codes SET expires_at = now() - interval '1 minute' WHERE email = ?", email);
-        postJson(url, """
-                {"rating":4,"name":"Kiran","email":"%s","code":"%s"}""".formatted(email, code))
-                .andExpect(status().isGone())
-                .andExpect(jsonPath("$.code").value("EMAIL_CODE_EXPIRED"));
-
-        // By phone instead.
-        String phone = uniquePhone();
-        postJson(url + "/code", """
-                {"channel":"PHONE","phone":"%s"}""".formatted(phone)).andExpect(status().isAccepted());
-        postJson(url, """
-                {"rating":5,"name":"Meera","phone":"%s","code":"%s"}""".formatted(phone, lastOtp(phone)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.created").value(true));
-        // An OTP is spent once.
-        postJson(url, """
-                {"rating":5,"name":"Meera","phone":"%s","code":"%s"}""".formatted(phone, lastOtp(phone)))
-                .andExpect(status().isGone());
-
-        postJson(url + "/code", "{\"channel\":\"EMAIL\"}").andExpect(status().isBadRequest());
-        postJson("/api/public/guides/no-such-guide/reviews/code", """
-                {"channel":"EMAIL","email":"%s"}""".formatted(email)).andExpect(status().isNotFound());
+        // Each post is a new review: there's no email or phone to match an earlier one by.
+        postOwnReview(s.slug(), "{\"rating\":3,\"name\":\"Kiran\"}");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM reviews WHERE guide_id = ?", Long.class, s.guideId()))
+                .isEqualTo(2);
+        authed(put("/api/admin/reviews/" + UUID.randomUUID() + "/approved"), admin, null)
+                .andExpect(status().isNotFound());
+        authed(put("/api/admin/reviews/" + id + "/approved"), s.guideToken(), null).andExpect(status().isForbidden());
     }
 
     @Test
@@ -183,15 +163,12 @@ class ReviewV2Tests extends AuthTestSupport {
         Setup s = completedTrek(1);
         authed(put(REVIEW.formatted(s.bookings().getFirst())), s.trekkers().getFirst(), """
                 {"rating":4,"safety_rating":4,"tags":["FELT_SAFE"]}""").andExpect(status().isOk());
+        String admin = adminToken();
         for (int i = 0; i < 5; i++) {
-            String email = uniqueEmail();
-            String code = reviewEmailCode(s.slug(), email);
-            postJson("/api/public/guides/" + s.slug() + "/reviews", """
-                    {"rating":1,"safety_rating":1,"tags":["FELT_SAFE"],"name":"X","email":"%s","code":"%s"}"""
-                    .formatted(email, code)).andExpect(status().isOk());
+            approve(admin, postOwnReview(s.slug(), """
+                    {"rating":1,"safety_rating":1,"tags":["FELT_SAFE"],"name":"X"}"""));
         }
         // Another published date by this guide on the same trek, so the trek and departure pages show them.
-        String admin = adminToken();
         UUID upcoming = createDraft(admin, s.trackId(), s.guideId(), today().plusDays(40), 219_900, 6);
         authed(post("/api/admin/departures/" + upcoming + "/publish"), admin, null).andExpect(status().isOk());
         String trackSlug = jdbc.queryForObject("SELECT slug FROM tracks WHERE id = ?", String.class, s.trackId());

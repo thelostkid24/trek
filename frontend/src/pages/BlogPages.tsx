@@ -69,7 +69,7 @@ export function BlogPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:py-10">
-      <Seo title="Blog" description={BLOG_DESCRIPTION} path="/blog" />
+      <Seo title="Articles" description={BLOG_DESCRIPTION} path="/blog" />
       <header>
         <h1 className="font-display text-3xl font-light tracking-[-0.02em] sm:text-4xl">From the trail</h1>
         <p className="mt-2 max-w-2xl text-sm text-stone-600 sm:text-base">
@@ -242,7 +242,7 @@ function Article({ post: p }: { post: BlogPost }) {
     '@type': 'BreadcrumbList',
     itemListElement: [
       { name: 'Home', path: '/' },
-      { name: 'Blog', path: '/blog' },
+      { name: 'Articles', path: '/blog' },
       ...trail.map((c) => ({ name: c.name, path: categoryHref(c) })),
       { name: p.title, path: `/blog/${p.slug}` },
     ].map((c, i) => ({ '@type': 'ListItem', position: i + 1, name: c.name, item: SITE_ORIGIN + c.path })),
@@ -387,7 +387,7 @@ function PostCard({ post: p }: { post: BlogPostSummary }) {
 function Breadcrumb({ trail }: { trail: BlogCategoryRef[] }) {
   return (
     <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-1.5 text-sm">
-      <Link to="/blog" className="text-brand-700 hover:text-brand-900">Blog</Link>
+      <Link to="/blog" className="text-brand-700 hover:text-brand-900">Articles</Link>
       {trail.map((c) => (
         <span key={c.id} className="flex items-center gap-1.5">
           <span aria-hidden="true" className="text-stone-400">/</span>
@@ -457,7 +457,7 @@ function Note({ children }: { children: ReactNode }) {
 function PageSkeleton() {
   return (
     <div className="mx-auto max-w-3xl space-y-4 px-4 py-10" aria-busy="true" aria-label="Loading">
-      <Seo title="Blog" />
+      <Seo title="Articles" />
       <div className="h-10 w-2/3 animate-pulse rounded-lg bg-stone-200" />
       <div className="aspect-[16/9] animate-pulse rounded-2xl bg-stone-100" />
     </div>
@@ -468,7 +468,7 @@ function Missing({ what, error }: { what: 'post' | 'category'; error: unknown })
   const missing = notFound(error)
   return (
     <section className="mx-auto max-w-md px-4 py-16 text-center">
-      <Seo title={missing ? 'Not found' : 'Blog'} noindex />
+      <Seo title={missing ? 'Not found' : 'Articles'} noindex />
       <h1 className="font-display text-2xl font-semibold">{missing ? `This ${what} isn't here` : 'Something went wrong'}</h1>
       <p className="mt-2 text-stone-600">{missing ? 'It may have moved, or not be published yet.' : messageFor(error)}</p>
       <Link to="/blog" className="mt-4 inline-block text-brand-700 underline">
