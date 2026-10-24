@@ -31,6 +31,9 @@ public class BookingEmailCode {
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
+    /** Set when a seat hold used this code; a used code proves nothing more for checkout. */
+    private Instant usedAt;
+
     protected BookingEmailCode() {
     }
 
@@ -44,6 +47,18 @@ public class BookingEmailCode {
 
     public void recordFailedAttempt() {
         attempts++;
+    }
+
+    public void markUsed() {
+        usedAt = Instant.now();
+    }
+
+    public boolean isUsed() {
+        return usedAt != null;
+    }
+
+    public UUID getId() {
+        return id;
     }
 
     public String getCodeHash() {

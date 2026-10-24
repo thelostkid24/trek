@@ -303,6 +303,8 @@ function Checkout({ departure, user }: { departure: DepartureDetail; user: User 
     },
     onSuccess: (booking) => {
       setHeld(booking)
+      // The hold spent the code; a later hold asks for a fresh one.
+      setEmailCheck(null)
       void queryClient.invalidateQueries({ queryKey: ['bookings'] })
       void queryClient.invalidateQueries({ queryKey: ['public-departure', departure.id] })
     },
@@ -327,8 +329,8 @@ function Checkout({ departure, user }: { departure: DepartureDetail; user: User 
       ? { wanted: book.variables?.length ?? participants.length, left: Number(book.error.details.seats_left ?? 0) }
       : null
   const existingBooking =
-    book.error instanceof ApiError && book.error.code === 'ALREADY_BOOKED'
-      ? String(book.error.details.booking_id ?? '')
+    book.error instanceof ApiError && ['ALREADY_BOOKED', 'HOLD_PENDING'].includes(book.error.code)
+      ? String(book.error.details.booking_id ?? '') || null
       : null
   const serverErrors = { ...fieldErrors(book.error), ...fieldErrors(save.error) }
 

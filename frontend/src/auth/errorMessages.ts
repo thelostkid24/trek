@@ -52,9 +52,11 @@ const MESSAGES: Record<string, string> = {
   DEPARTURE_NOT_BOOKABLE: "This departure isn't taking bookings any more.",
   NOT_ENOUGH_SEATS: 'Not enough seats left on this departure.',
   ALREADY_BOOKED: 'You already have a booking on this departure.',
+  HOLD_PENDING: 'Seats are already held for you, waiting for payment. Pay for that booking first, or wait up to 10 minutes for the hold to end.',
   EMAIL_NOT_VERIFIED: 'Confirm your email with the code we send to it.',
   EMAIL_CODE_INVALID: 'That code is incorrect.',
   EMAIL_CODE_EXPIRED: 'That code expired. Send a new one.',
+  EMAIL_CODE_USED: 'That code was already used. Send a new one.',
   EMAIL_CODE_TOO_MANY_ATTEMPTS: 'Too many wrong codes. Send a new one.',
   EMAIL_CODE_RATE_LIMITED: 'Please wait a moment before sending another code.',
   // Questions to a guide (§7.21.6)
