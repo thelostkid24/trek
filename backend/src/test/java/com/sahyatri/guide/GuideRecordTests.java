@@ -108,6 +108,33 @@ class GuideRecordTests extends AuthTestSupport {
     }
 
     @Test
+    void changingPledgesKeepsTheOnesLeftIn() throws Exception {
+        String firstEmail = uniqueEmail();
+        String first = tokenWithRole(firstEmail, "ADMIN");
+        String second = tokenWithRole(uniqueEmail(), "ADMIN");
+        UUID guideId = guideUser();
+        String path = "/api/admin/guides/" + guideId + "/record";
+
+        authed(put(path), first, """
+                {"pledges":["NO_ALCOHOL"]}""").andExpect(status().isOk());
+        // Another admin adds the second pledge: the first stays, still recorded by whoever recorded it.
+        authed(put(path), second, """
+                {"pledges":["NO_ALCOHOL","NO_SERIOUS_INCIDENTS"]}""")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.pledges", contains("NO_ALCOHOL", "NO_SERIOUS_INCIDENTS")));
+        assertThat(jdbc.queryForObject("""
+                SELECT recorded_by FROM guide_pledges WHERE guide_id = ? AND kind = 'NO_ALCOHOL'""",
+                UUID.class, guideId)).isEqualTo(userIdByEmail(firstEmail));
+
+        authed(put(path), second, """
+                {"pledges":["NO_SERIOUS_INCIDENTS"]}""")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.pledges", contains("NO_SERIOUS_INCIDENTS")));
+        mockMvc.perform(get("/api/public/guides/" + guideId + "/credentials"))
+                .andExpect(jsonPath("$.pledges", contains("NO_SERIOUS_INCIDENTS")));
+    }
+
+    @Test
     void recordIsChecked() throws Exception {
         String admin = adminToken();
         UUID guideId = guideUser();

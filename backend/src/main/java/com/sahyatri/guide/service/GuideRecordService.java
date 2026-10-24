@@ -152,11 +152,14 @@ public class GuideRecordService {
                 picks.get(i).key(), picks.get(i).routeIndex() == null ? null
                 : byIndex.get(picks.get(i).routeIndex()).getId())).toList());
 
-        Set<PledgeKind> oldPledges = pledges.findByGuideId(guideId).stream().map(GuidePledge::getKind)
+        // Remove dropped pledges and add new ones; kept ones stay as recorded (who and when).
+        List<GuidePledge> current = pledges.findByGuideId(guideId);
+        Set<PledgeKind> oldPledges = current.stream().map(GuidePledge::getKind)
                 .collect(Collectors.toCollection(() -> EnumSet.noneOf(PledgeKind.class)));
         if (!oldPledges.equals(newPledges)) {
-            pledges.deleteForGuide(guideId);
-            pledges.saveAllAndFlush(newPledges.stream().map(k -> new GuidePledge(guideId, k, adminId)).toList());
+            pledges.deleteAll(current.stream().filter(p -> !newPledges.contains(p.getKind())).toList());
+            pledges.saveAllAndFlush(newPledges.stream().filter(k -> !oldPledges.contains(k))
+                    .map(k -> new GuidePledge(guideId, k, adminId)).toList());
             audit.record(adminId, "GUIDE_PLEDGES_RECORDED", "USER", guideId,
                     Map.of("before", oldPledges.stream().map(Enum::name).sorted().toList(),
                             "after", newPledges.stream().map(Enum::name).sorted().toList()));
