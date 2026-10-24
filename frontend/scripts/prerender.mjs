@@ -34,7 +34,7 @@ const STATIC_PAGES = [
   },
   {
     path: '/blog',
-    title: 'Blog',
+    title: 'Articles',
     description: 'Trail notes from the Himalaya: trek guides, snow and season updates, and stories from our small-batch treks in Uttarakhand.',
   },
   {

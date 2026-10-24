@@ -31,6 +31,8 @@ export type PublicReview = SubRatings & {
   source: ReviewSource
   rating: number
   tags: ReviewTag[]
+  /** A reviewer's own answer to "What stood out?", after picking "Other". */
+  other_tag: string | null
   body: string | null
   author_name: string
   trek_name: string | null
@@ -60,24 +62,19 @@ export const getGuideReviews = (key: string, source: ReviewSource | null, page =
     `/api/public/guides/${encodeURIComponent(key)}/reviews?page=${page}&size=${size}${source ? `&source=${source}` : ''}`,
   )
 
-export type CodeSent = { expires_in: number; resend_after: number }
-
-export const sendReviewCode = (key: string, body: { channel: 'EMAIL' | 'PHONE'; email?: string; phone?: string }) =>
-  apiFetch<CodeSent>(`/api/public/guides/${encodeURIComponent(key)}/reviews/code`, { method: 'POST', body })
-
+/** No email or phone: the review waits for an admin to approve it (docs/TRD.md §7.21.5). */
 export type OwnTrekkerReviewRequest = SubRatings & {
   rating: number
   tags: ReviewTag[]
+  /** What they typed after picking "Other" under "What stood out?". */
+  other_tag: string | null
   body: string | null
   name: string
   trek_name: string | null
-  email?: string
-  phone?: string
-  code: string
 }
 
 export const postOwnTrekkerReview = (key: string, body: OwnTrekkerReviewRequest) =>
-  apiFetch<{ review: PublicReview; created: boolean }>(`/api/public/guides/${encodeURIComponent(key)}/reviews`, {
+  apiFetch<{ review: PublicReview }>(`/api/public/guides/${encodeURIComponent(key)}/reviews`, {
     method: 'POST',
     body,
   })
@@ -122,7 +119,7 @@ export const reportReview = (token: string, id: string, reason: string) =>
 
 // Admin.
 
-export type AdminReviewView = 'RECENT' | 'REPORTED' | 'HIDDEN'
+export type AdminReviewView = 'WAITING' | 'RECENT' | 'REPORTED' | 'HIDDEN'
 
 export type AdminReviewItem = {
   review: PublicReview
@@ -130,6 +127,8 @@ export type AdminReviewItem = {
   guide_name: string | null
   guide_slug: string | null
   reviewer_contact: string | null
+  /** Null while a review from a guide's own trekker waits for approval. */
+  approved_at: string | null
   hidden_at: string | null
   hidden_reason: string | null
   reply_hidden_at: string | null
@@ -141,6 +140,9 @@ export const getAdminReviews = (token: string, view: AdminReviewView) =>
   apiFetch<{ items: AdminReviewItem[] }>(`/api/admin/reviews?view=${view}`, { token })
 
 const adminPath = (id: string, reply: boolean) => `/api/admin/reviews/${id}${reply ? '/reply' : ''}/hidden`
+
+export const approveReview = (token: string, id: string) =>
+  apiFetch<AdminReviewItem>(`/api/admin/reviews/${id}/approved`, { method: 'PUT', token })
 
 export const hideReview = (token: string, id: string, reply: boolean, reason: string) =>
   apiFetch<AdminReviewItem>(adminPath(id, reply), { method: 'PUT', token, body: { reason } })

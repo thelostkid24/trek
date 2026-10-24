@@ -14,6 +14,7 @@ public record TrackResponse(
         String slug,
         String name,
         String region,
+        String state,
         Difficulty difficulty,
         int durationDays,
         Integer maxAltitudeM,
@@ -38,7 +39,7 @@ public record TrackResponse(
         Instant updatedAt) {
 
     public static TrackResponse of(Track t, TrackPhotoFiles photoFiles) {
-        return new TrackResponse(t.getId(), t.getSlug(), t.getName(), t.getRegion(), t.getDifficulty(),
+        return new TrackResponse(t.getId(), t.getSlug(), t.getName(), t.getRegion(), t.getState(), t.getDifficulty(),
                 t.getDurationDays(), t.getMaxAltitudeM(), t.getSummary(), t.getDescription(), t.getMeetingPoint(),
                 t.getDistanceKm(), t.getBaseAltitudeM(), t.getHighestCampM(), t.getStay(), t.getSeasonLabel(),
                 t.getPickupDrop(), t.getCloakroom(), t.getOffloading(), t.getOffloadingPricePaise(), t.getInsurancePricePaise(), t.getTransportPricePaise(),

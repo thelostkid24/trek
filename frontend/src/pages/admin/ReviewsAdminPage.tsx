@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
+  approveReview,
   dismissReports,
   getAdminReviews,
   hideReview,
@@ -14,18 +15,20 @@ import { Button, ErrorNote, Loading, Panel } from '../../components/admin/AdminU
 import { ReviewCard } from '../../components/review/ReviewCard.tsx'
 
 const VIEWS: { value: AdminReviewView; label: string }[] = [
+  { value: 'WAITING', label: 'Waiting' },
   { value: 'REPORTED', label: 'Reported' },
   { value: 'RECENT', label: 'Recent' },
   { value: 'HIDDEN', label: 'Hidden' },
 ]
 
 /**
- * /admin/reviews (docs/TRD.md §7.21.5): reviews and guide replies go live at once; here an admin hides or unhides
- * them with a reason (audit-logged) and closes guides' reports.
+ * /admin/reviews (docs/TRD.md §7.21.5): reviews from a guide's own trekkers wait here until an admin approves them;
+ * booking reviews and guide replies go live at once. An admin also hides or unhides them with a reason (audit-logged)
+ * and closes guides' reports.
  */
 export function ReviewsAdminPage() {
   const { withAuth } = useAuth()
-  const [view, setView] = useState<AdminReviewView>('REPORTED')
+  const [view, setView] = useState<AdminReviewView>('WAITING')
   const reviews = useQuery({
     queryKey: ['admin-reviews', view],
     queryFn: () => withAuth((token) => getAdminReviews(token, view)),
@@ -78,9 +81,11 @@ function Moderation({ item }: { item: AdminReviewItem }) {
     return queryClient.invalidateQueries({ queryKey: ['admin-reviews'] })
   }
   const act = useMutation({
-    mutationFn: (a: { kind: 'hide' | 'unhide' | 'dismiss'; reply: boolean }) =>
+    mutationFn: (a: { kind: 'approve' | 'hide' | 'unhide' | 'dismiss'; reply: boolean }) =>
       withAuth((token) =>
-        a.kind === 'hide'
+        a.kind === 'approve'
+          ? approveReview(token, item.review.id)
+          : a.kind === 'hide'
           ? hideReview(token, item.review.id, a.reply, reason.trim())
           : a.kind === 'unhide'
             ? unhideReview(token, item.review.id, a.reply)
@@ -106,6 +111,7 @@ function Moderation({ item }: { item: AdminReviewItem }) {
           Reported by {r.reporter_name ?? 'the guide'}: {r.reason}
         </p>
       ))}
+      {!item.approved_at && <p className="rounded-lg bg-amber-100 px-3 py-2 text-amber-800">Waiting for approval: not on the guide's page yet.</p>}
       {item.hidden_reason && <p className="text-laterite-600">Review hidden: {item.hidden_reason}</p>}
       {item.reply_hidden_reason && <p className="text-laterite-600">Reply hidden: {item.reply_hidden_reason}</p>}
       <ErrorNote error={act.error} />
@@ -123,6 +129,9 @@ function Moderation({ item }: { item: AdminReviewItem }) {
         </form>
       ) : (
         <div className="flex flex-wrap gap-2">
+          {!item.approved_at && (
+            <Button disabled={act.isPending} onClick={() => act.mutate({ kind: 'approve', reply: false })}>Approve</Button>
+          )}
           {item.hidden_at ? (
             <Button tone="secondary" disabled={act.isPending} onClick={() => act.mutate({ kind: 'unhide', reply: false })}>Unhide review</Button>
           ) : (

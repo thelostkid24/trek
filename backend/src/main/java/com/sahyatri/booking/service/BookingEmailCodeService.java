@@ -67,24 +67,6 @@ public class BookingEmailCodeService {
                 — The Empty Valley team""".formatted(action));
     }
 
-    /**
-     * The same code, proving the email of someone reviewing a guide they trekked with off-platform (§7.21.5). Shares
-     * the limits above; a code proves the address whichever form asked for it.
-     */
-    @Transactional
-    public EmailCodeResponse sendForReview(String rawEmail, String guideName) {
-        return sendCode(rawEmail, "%s is your code to review " + guideName.replace("%", "%%"), """
-                Hi,
-
-                Enter this code to confirm your email and post your review of %s on The Empty Valley:
-
-                %%s
-
-                It works for 10 minutes. If you didn't ask for it, you can ignore this email.
-
-                — The Empty Valley team""".formatted(guideName.replace("%", "%%")));
-    }
-
     private EmailCodeResponse sendCode(String rawEmail, String subjectFormat, String bodyFormat) {
         String email = normalize(rawEmail);
         Instant now = Instant.now();

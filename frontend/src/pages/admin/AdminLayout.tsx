@@ -6,7 +6,7 @@ const TABS = [
   { to: '/admin/tracks', label: 'Tracks', end: false },
   { to: '/admin/content', label: 'Page content', end: false },
   { to: '/admin/guides', label: 'Guides', end: false },
-  { to: '/admin/blog', label: 'Blog', end: false },
+  { to: '/admin/blog', label: 'Articles', end: false },
   { to: '/admin/insights', label: 'Insights', end: false },
   { to: '/admin/reviews', label: 'Reviews', end: false },
   { to: '/admin/questions', label: 'Questions', end: false },

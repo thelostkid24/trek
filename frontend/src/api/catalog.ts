@@ -22,6 +22,7 @@ export type TrackBrief = {
   slug: string
   name: string
   region: string
+  state: string | null
   difficulty: Difficulty
   duration_days: number
 }
@@ -261,6 +262,7 @@ export type GuideStatKey =
   | 'ROUTE_TIMES'
   | 'HIGHEST_PASS'
   | 'RETURN_RATE'
+  | 'CUSTOM'
 
 /** A departure as listed under its trek in the catalog. Contract: docs/TRD.md §7.9. */
 export type CatalogDeparture = {

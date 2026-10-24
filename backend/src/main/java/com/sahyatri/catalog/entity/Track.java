@@ -34,6 +34,8 @@ public class Track {
     @Column(nullable = false)
     private String region;
 
+    private String state;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Difficulty difficulty;
@@ -121,11 +123,12 @@ public class Track {
         updatedAt = Instant.now();
     }
 
-    public void update(String slug, String name, String region, Difficulty difficulty, int durationDays,
+    public void update(String slug, String name, String region, String state, Difficulty difficulty, int durationDays,
                        Integer maxAltitudeM, String summary, String description, String meetingPoint) {
         this.slug = slug;
         this.name = name;
         this.region = region;
+        this.state = state;
         this.difficulty = difficulty;
         this.durationDays = durationDays;
         this.maxAltitudeM = maxAltitudeM;
@@ -183,6 +186,10 @@ public class Track {
 
     public String getRegion() {
         return region;
+    }
+
+    public String getState() {
+        return state;
     }
 
     public Difficulty getDifficulty() {

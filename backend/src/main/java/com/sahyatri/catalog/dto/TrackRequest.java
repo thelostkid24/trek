@@ -26,6 +26,7 @@ public record TrackRequest(
         String slug,
         @NotBlank @Size(max = 100) String name,
         @NotBlank @Size(max = 100) String region,
+        @Size(max = 60) String state,
         @NotNull Difficulty difficulty,
         @NotNull @Min(1) @Max(7) Integer durationDays,
         @Min(1) @Max(9000) Integer maxAltitudeM,

@@ -122,6 +122,37 @@ class GuideListTests extends AuthTestSupport {
     }
 
     @Test
+    void aTreksStateShowsOnTheGuideList() throws Exception {
+        String admin = adminToken();
+        UUID track = createTrack(admin, 2);
+        UUID guideId = guideUser();
+        String slug = jdbc.queryForObject("SELECT slug FROM tracks WHERE id = ?", String.class, track);
+        authed(put("/api/admin/guides/" + guideId + "/record"), admin, """
+                {"routes":[{"track_id":"%s","times_led":4}]}""".formatted(track)).andExpect(status().isOk());
+        mockMvc.perform(get("/api/public/guides"))
+                .andExpect(jsonPath(guide(guideId) + ".treks[0].state", contains((Object) null)));
+
+        authed(put("/api/admin/tracks/" + track), admin, trackJson(slug, "\"state\":\" Uttarakhand \","))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.state").value("Uttarakhand"));
+        mockMvc.perform(get("/api/public/guides"))
+                .andExpect(jsonPath(guide(guideId) + ".treks[0].state", contains("Uttarakhand")));
+
+        authed(put("/api/admin/tracks/" + track), admin, trackJson(slug, "\"state\":\"" + "x".repeat(61) + "\","))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.details.fields.state").exists());
+        authed(put("/api/admin/tracks/" + track), admin, trackJson(slug, ""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.state").doesNotExist());
+    }
+
+    private static String trackJson(String slug, String state) {
+        return """
+                {"slug":"%s","name":"Rajmachi Fort","region":"Lonavala",%s"difficulty":"EASY","duration_days":2,
+                 "summary":"s","description":"d","meeting_point":"m"}""".formatted(slug, state);
+    }
+
+    @Test
     void trekkersAreNotGuides() throws Exception {
         String email = uniqueEmail();
         emailTrekker(email);

@@ -32,7 +32,8 @@ public class ReviewQueries {
     public Map<String, Long> visibleCounts(UUID guideId) {
         Map<String, Long> counts = new HashMap<>();
         jdbc.query("""
-                SELECT source, count(*) AS n FROM reviews WHERE guide_id = :guideId AND hidden_at IS NULL
+                SELECT source, count(*) AS n FROM reviews
+                WHERE guide_id = :guideId AND hidden_at IS NULL AND approved_at IS NOT NULL
                 GROUP BY source""", Map.of("guideId", guideId),
                 rs -> {
                     counts.put(rs.getString("source"), rs.getLong("n"));

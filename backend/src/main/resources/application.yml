@@ -114,13 +114,10 @@ app:
       - patterns: [/api/public/bookings, /api/public/bookings/email-code]
         methods: [POST]
         per-minute: 5
-      # Off-platform reviews (§7.21.5): codes and posts per IP; codes are also limited per address.
-      - patterns: [/api/public/guides/*/reviews/code]
-        methods: [POST]
-        per-minute: 5
+      # Off-platform reviews (§7.21.5): no email or phone behind them, so few posts per IP; each waits for approval.
       - patterns: [/api/public/guides/*/reviews]
         methods: [POST]
-        per-minute: 10
+        per-minute: 3
       # Visitor questions to a guide (§7.21.6); each email also has its own code and daily question caps.
       - patterns: [/api/public/questions/email-code, /api/public/guides/*/questions, /api/public/questions/*/messages]
         methods: [POST]

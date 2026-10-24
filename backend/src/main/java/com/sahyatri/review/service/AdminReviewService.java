@@ -23,13 +23,14 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * Review moderation (§7.21.5). Everything goes live at once; an admin can hide a review or a guide's reply with a
- * stored reason, and unhide it. Every change is audit-logged and closes the review's open reports.
+ * Review moderation (§7.21.5). Reviews from bookings go live at once; reviews from a guide's own trekkers wait until an
+ * admin approves them. An admin can hide a review or a guide's reply with a stored reason, and unhide it. Every change
+ * is audit-logged and closes the review's open reports.
  */
 @Service
 public class AdminReviewService {
 
-    public enum View { RECENT, REPORTED, HIDDEN }
+    public enum View { WAITING, RECENT, REPORTED, HIDDEN }
 
     static final int LIST_LIMIT = 100;
 
@@ -52,11 +53,23 @@ public class AdminReviewService {
     public List<AdminReviewItem> list(View view) {
         Limit limit = Limit.of(LIST_LIMIT);
         List<Review> rows = switch (view) {
+            case WAITING -> reviews.findWaiting(limit);
             case RECENT -> reviews.findRecent(limit);
             case REPORTED -> reviews.findReported(limit);
             case HIDDEN -> reviews.findHidden(limit);
         };
         return items(rows);
+    }
+
+    /** Shows a waiting review on the guide's page. Approving twice changes nothing. */
+    @Transactional
+    public AdminReviewItem approve(UUID adminId, UUID reviewId) {
+        Review r = require(reviewId);
+        if (r.getApprovedAt() != null) {
+            return items(List.of(r)).getFirst();
+        }
+        r.approve(Instant.now());
+        return changed(adminId, r, "REVIEW_APPROVED", Map.of());
     }
 
     @Transactional
@@ -143,7 +156,8 @@ public class AdminReviewService {
                     .map(p -> new AdminReviewItem.Report(p.getReason(), reporters.get(p.getReporterId()),
                             p.getCreatedAt()))
                     .toList();
-            out.add(new AdminReviewItem(views.get(i), r.getGuideId(), guide[0], guide[1], contact, r.getHiddenAt(),
+            out.add(new AdminReviewItem(views.get(i), r.getGuideId(), guide[0], guide[1], contact, r.getApprovedAt(),
+                    r.getHiddenAt(),
                     r.getHiddenReason(), r.getReplyHiddenAt(), r.getReplyHiddenReason(), rs));
         }
         return out;

@@ -108,6 +108,40 @@ class GuideRecordTests extends AuthTestSupport {
     }
 
     @Test
+    void aCustomStatShowsWhatTheAdminTyped() throws Exception {
+        String admin = adminToken();
+        UUID guideId = guideUser();
+        String path = "/api/admin/guides/" + guideId + "/record";
+
+        authed(put(path), admin, """
+                {"stats":[{"key":"RATING"},{"key":"CUSTOM","value":" 21 ","label":" treks led in 3 years "}]}""")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.stats[1].key").value("CUSTOM"))
+                .andExpect(jsonPath("$.stats[1].value").value("21"))
+                .andExpect(jsonPath("$.stats[1].label").value("treks led in 3 years"))
+                .andExpect(jsonPath("$.stats[0].value").value(nullValue()));
+        mockMvc.perform(get("/api/public/guides/" + guideId))
+                .andExpect(jsonPath("$.stats[*].value", contains("New", "21")))
+                .andExpect(jsonPath("$.stats[1].label").value("treks led in 3 years"));
+        authed(get(path), admin, null)
+                .andExpect(jsonPath("$.stats[1].value").value("21"))
+                .andExpect(jsonPath("$.stats[1].label").value("treks led in 3 years"));
+
+        authed(put(path), admin, """
+                {"stats":[{"key":"CUSTOM","value":"21","label":"  "}]}""")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.details.fields['stats[0].label']").exists());
+        authed(put(path), admin, """
+                {"stats":[{"key":"RATING","value":"5"}]}""")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.details.fields['stats[0].value']").exists());
+        authed(put(path), admin, """
+                {"stats":[{"key":"CUSTOM","value":"%s","label":"x"}]}""".formatted("9".repeat(21)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.details.fields['stats[0].value']").exists());
+    }
+
+    @Test
     void changingPledgesKeepsTheOnesLeftIn() throws Exception {
         String firstEmail = uniqueEmail();
         String first = tokenWithRole(firstEmail, "ADMIN");

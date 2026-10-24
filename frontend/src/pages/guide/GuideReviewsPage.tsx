@@ -105,7 +105,7 @@ function AskForReview({ data: d }: { data: GuideReviews }) {
           </div>
           {who === 'OWN' && (
             <p className="mt-2 text-xs text-stone-500">
-              Their reviews show as "Group verified" and don't count in your rating.
+              Their reviews show as "Group verified" once we've checked them, and don't count in your rating.
             </p>
           )}
         </fieldset>

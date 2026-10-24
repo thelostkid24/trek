@@ -1,7 +1,5 @@
 package com.sahyatri.review.controller;
 
-import com.sahyatri.booking.dto.EmailCodeResponse;
-import com.sahyatri.review.dto.OwnTrekkerCodeRequest;
 import com.sahyatri.review.dto.OwnTrekkerReviewRequest;
 import com.sahyatri.review.dto.OwnTrekkerReviewResponse;
 import com.sahyatri.review.dto.ReviewPage;
@@ -67,13 +65,8 @@ public class ReviewController {
         return reviews.summary(reviews.requireGuide(key).getId());
     }
 
-    @PostMapping("/api/public/guides/{key}/reviews/code")
-    @ResponseStatus(HttpStatus.ACCEPTED)
-    public EmailCodeResponse sendCode(@PathVariable String key, @Valid @RequestBody OwnTrekkerCodeRequest req) {
-        return ownTrekkers.sendCode(key, req);
-    }
-
     @PostMapping("/api/public/guides/{key}/reviews")
+    @ResponseStatus(HttpStatus.ACCEPTED)
     public OwnTrekkerReviewResponse submit(@PathVariable String key, @Valid @RequestBody OwnTrekkerReviewRequest req) {
         return ownTrekkers.submit(key, req);
     }

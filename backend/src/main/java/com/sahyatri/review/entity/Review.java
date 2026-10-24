@@ -94,6 +94,12 @@ public class Review {
 
     private String replyHiddenReason;
 
+    /** When an admin approved it; null = waiting (OWN_TREKKER only, §7.21.5). */
+    private Instant approvedAt;
+
+    /** What the reviewer typed after picking "Other" under "What stood out?". */
+    private String otherTag;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -114,16 +120,15 @@ public class Review {
         this.authorName = authorName;
         this.createdAt = Instant.now();
         this.updatedAt = createdAt;
+        this.approvedAt = createdAt;
     }
 
-    /** A review from the guide's own trekker, proven by exactly one of email or phone. */
-    public static Review ownTrekker(UUID guideId, String email, String phone) {
+    /** A review from the guide's own trekker, waiting for an admin to approve it. */
+    public static Review ownTrekker(UUID guideId) {
         Review r = new Review();
         r.id = UUID.randomUUID();
         r.source = ReviewSource.OWN_TREKKER;
         r.guideId = guideId;
-        r.reviewerEmail = email;
-        r.reviewerPhone = phone;
         r.createdAt = Instant.now();
         r.updatedAt = r.createdAt;
         return r;
@@ -174,6 +179,22 @@ public class Review {
         replyUpdatedAt = null;
         replyHiddenAt = null;
         replyHiddenReason = null;
+    }
+
+    public void approve(Instant at) {
+        approvedAt = at;
+    }
+
+    public void setOtherTag(String otherTag) {
+        this.otherTag = otherTag;
+    }
+
+    public Instant getApprovedAt() {
+        return approvedAt;
+    }
+
+    public String getOtherTag() {
+        return otherTag;
     }
 
     public void hide(String reason, Instant at) {
