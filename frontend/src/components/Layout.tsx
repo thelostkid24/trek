@@ -19,6 +19,13 @@ const NAV = [
   { label: 'FAQs', href: '/#faqs' },
 ]
 
+/** The strip above the header, on every page. Change it when the season changes; null removes it. */
+const SEASON_BANNER: { text: string; cta: string; href: string } | null = {
+  text: 'Winter treks',
+  cta: 'Bookings open',
+  href: '/treks?season=WINTER',
+}
+
 const FOOTER_LINKS = [
   { label: 'Cancellation policy', href: SITE_LINKS.cancellations },
   { label: 'Contact', href: SITE_LINKS.contact },
@@ -93,6 +100,25 @@ export function Layout() {
           home ? 'fixed inset-x-0' : 'sticky'
         } ${HEADER_TONES[tone]}`}
       >
+        {/* Folds away once the page scrolls, so the sticky header (and what sits under it) stays 4rem tall. */}
+        {SEASON_BANNER && (
+          <div className={`grid transition-[grid-template-rows] duration-300 ${scrolled ? 'grid-rows-[0fr]' : 'grid-rows-[1fr]'}`}>
+            <Link
+              to={SEASON_BANNER.href}
+              viewTransition
+              tabIndex={scrolled ? -1 : undefined}
+              aria-hidden={scrolled || undefined}
+              className="group min-h-0 overflow-hidden bg-laterite-600 text-center text-sm text-white"
+            >
+              <span className="flex items-center justify-center gap-2 px-4 py-2">
+                <span className="italic">{SEASON_BANNER.text}</span>
+                <span aria-hidden="true">·</span>
+                <span className="font-semibold tracking-wide uppercase">{SEASON_BANNER.cta}</span>
+                <span aria-hidden="true" className="transition-transform group-hover:translate-x-0.5">→</span>
+              </span>
+            </Link>
+          </div>
+        )}
         <div className="mx-auto flex h-16 max-w-[90rem] items-center justify-between gap-3 px-5 sm:gap-6 sm:px-10">
           {/* min-w-0 + truncate: on the narrowest phones the name gives way, never the menu button. */}
           <div className="flex min-w-0 items-center gap-6 xl:gap-10">

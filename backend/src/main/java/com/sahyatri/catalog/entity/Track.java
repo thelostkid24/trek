@@ -1,11 +1,15 @@
 package com.sahyatri.catalog.entity;
 
 import jakarta.persistence.CascadeType;
+import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
 import jakarta.persistence.PreUpdate;
@@ -14,7 +18,9 @@ import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 /** A route. Departures are dated runs of a track. */
@@ -92,6 +98,15 @@ public class Track {
     @Column(nullable = false)
     private boolean listed;
 
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "track_seasons", joinColumns = @JoinColumn(name = "track_id"))
+    @Column(name = "season")
+    @Enumerated(EnumType.STRING)
+    private Set<Season> seasons = EnumSet.noneOf(Season.class);
+
+    /** Place in the home page's "This season" row, 1 first; null keeps the trek off the home page. */
+    private Integer homeOrder;
+
     @OneToMany(mappedBy = "track", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("dayNumber")
     private List<TrackItineraryDay> itinerary = new ArrayList<>();
@@ -154,6 +169,12 @@ public class Track {
         this.offloadingPricePaise = offloadingPricePaise;
         this.insurancePricePaise = insurancePricePaise;
         this.transportPricePaise = transportPricePaise;
+    }
+
+    public void updateSeasons(Set<Season> seasons, Integer homeOrder) {
+        this.seasons.clear();
+        this.seasons.addAll(seasons);
+        this.homeOrder = homeOrder;
     }
 
     public void setListed(boolean listed) {
@@ -230,6 +251,15 @@ public class Track {
 
     public String getStay() {
         return stay;
+    }
+
+    /** In {@link Season} order. */
+    public List<Season> getSeasons() {
+        return seasons.stream().sorted().toList();
+    }
+
+    public Integer getHomeOrder() {
+        return homeOrder;
     }
 
     public String getSeasonLabel() {

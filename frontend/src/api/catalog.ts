@@ -11,6 +11,17 @@ export const MAX_GROUP_SIZE = 10
 export type Difficulty = 'EASY' | 'EASY_MODERATE' | 'MODERATE' | 'CHALLENGING'
 export type DepartureStatus = 'DRAFT' | 'PUBLISHED' | 'CANCELLED' | 'EXPIRED' | 'COMPLETED'
 
+/** When a trek runs, for the Season filter on /treks. Listed in this order (docs/TRD.md §7.9). */
+export type Season = 'WINTER' | 'SPRING' | 'SUMMER' | 'MONSOON' | 'AUTUMN'
+
+export const SEASON_LABEL: Record<Season, string> = {
+  WINTER: 'Winter',
+  SPRING: 'Spring',
+  SUMMER: 'Summer',
+  MONSOON: 'Monsoon',
+  AUTUMN: 'Autumn',
+}
+
 export const DIFFICULTY_LABEL: Record<Difficulty, string> = {
   EASY: 'Easy',
   EASY_MODERATE: 'Easy to moderate',
@@ -286,6 +297,9 @@ export type CatalogTrek = {
   summary: string
   max_altitude_m: number | null
   season_label: string | null
+  seasons: Season[]
+  /** Place in the home page's "This season" row, 1 first; null keeps it off the home page. */
+  home_order: number | null
   cover_url: string | null
   departures: CatalogDeparture[]
 }
