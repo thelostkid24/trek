@@ -55,6 +55,9 @@ public class GuideDetails {
     @Column(nullable = false)
     private boolean routeVerified;
 
+    /** Admin-set "Batches led"; null = worked out from their routes and departures (§7.17). */
+    private Integer batchesLed;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -77,7 +80,7 @@ public class GuideDetails {
 
     public void update(Integer leadingSince, String languages, String certification, String certificationNumber,
                        String bmcInstitute, String bmcCertificateNumber, String amcInstitute,
-                       String amcCertificateNumber, String quote, boolean routeVerified) {
+                       String amcCertificateNumber, String quote, boolean routeVerified, Integer batchesLed) {
         this.leadingSince = leadingSince;
         this.languages = languages;
         this.certification = certification;
@@ -88,6 +91,7 @@ public class GuideDetails {
         this.amcCertificateNumber = amcCertificateNumber;
         this.quote = quote;
         this.routeVerified = routeVerified;
+        this.batchesLed = batchesLed;
     }
 
     /** What the guide edits about themselves; the course fields stay admin-set. */
@@ -143,6 +147,10 @@ public class GuideDetails {
 
     public boolean isRouteVerified() {
         return routeVerified;
+    }
+
+    public Integer getBatchesLed() {
+        return batchesLed;
     }
 
     public String getQuote() {

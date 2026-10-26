@@ -30,6 +30,8 @@ export function OwnTrekkerReviewForm({
   const [body, setBody] = useState('')
   const [name, setName] = useState('')
   const [trek, setTrek] = useState(initialTrek)
+  /** Set by a submit with no rating or name, so the form can say what's missing. */
+  const [tried, setTried] = useState(false)
 
   const post = useMutation({
     mutationFn: () =>
@@ -59,20 +61,24 @@ export function OwnTrekkerReviewForm({
   const submit = (e: FormEvent) => {
     e.preventDefault()
     if (rating > 0 && name.trim()) post.mutate()
+    else setTried(true)
   }
 
   return (
     <form onSubmit={submit} className="space-y-6">
       <div className="flex flex-col items-center gap-1">
         <StarPicker label="Rating" value={rating} onChange={setRating} />
-        <p className="text-xs text-stone-500">{rating === 0 ? 'Tap a star' : `${rating} out of 5`}</p>
+        <p className={`text-xs ${tried && rating === 0 ? 'font-medium text-laterite-600' : 'text-stone-500'}`}>
+          {rating === 0 ? (tried ? 'Tap a star to rate your trek' : 'Tap a star') : `${rating} out of 5`}
+        </p>
       </div>
       <SubRatingFields value={subs} onChange={setSubs} />
       <TagChips value={tags} onChange={setTags} other={{ value: other, onChange: setOther, error: errors.other_tag }} />
       <TextAreaField label="A few words (optional)" name="body" maxLength={2000} rows={3} value={body}
         onChange={(e) => setBody(e.target.value)} error={errors.body} />
       <TextField label="Your name" name="name" maxLength={60} value={name} autoComplete="given-name"
-        onChange={(e) => setName(e.target.value)} error={errors.name} hint="Only your first name is shown." />
+        onChange={(e) => setName(e.target.value)} error={errors.name ?? (tried && !name.trim() ? 'Add your name' : undefined)}
+        hint="Only your first name is shown." />
       <TextField label="Which trek? (optional)" name="trek_name" maxLength={100} value={trek}
         onChange={(e) => setTrek(e.target.value)} error={errors.trek_name} />
       {post.error && Object.keys(errors).length === 0 && (
@@ -80,7 +86,7 @@ export function OwnTrekkerReviewForm({
       )}
       <button
         type="submit"
-        disabled={rating === 0 || !name.trim() || post.isPending}
+        disabled={post.isPending}
         className="w-full rounded-full bg-pine-700 px-4 py-3 text-sm font-medium text-white hover:bg-pine-600 disabled:opacity-50"
       >
         {post.isPending ? 'Submitting…' : 'Submit'}

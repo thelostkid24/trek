@@ -54,8 +54,9 @@ final class GuideStats {
 
     private static GuideProfile.Stat stat(GuideProfileStat p, Inputs in) {
         return switch (p.getStatKey()) {
+            // No reviews yet: hidden; the page's "New here" badge says it instead.
             case RATING -> in.rating().count() == 0 || in.rating().average() == null
-                    ? new GuideProfile.Stat(p.getStatKey(), "New", "no reviews yet", null)
+                    ? null
                     : new GuideProfile.Stat(p.getStatKey(), String.format(Locale.ROOT, "%.1f★", in.rating().average()),
                     plural(in.rating().count(), "review", "reviews"), null);
             case TREKS_LED -> in.treksLed() == 0 ? null : new GuideProfile.Stat(p.getStatKey(),

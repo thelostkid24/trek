@@ -7,7 +7,8 @@ import jakarta.validation.constraints.Size;
 /**
  * Replaces a guide's credentials. Blank text clears a field. How often they led each trek before Sahyātri is in their
  * record (§7.21.8). {@code routeVerified}: show "Route verified" on the guides list whatever their treks led (§7.17);
- * left out, it's false.
+ * left out, it's false. {@code batchesLed}: the "Batches led" number on the guides list and their page; null works it
+ * out from their routes and departures.
  */
 public record GuideDetailsRequest(
         @Min(1950) @Max(2100) Integer leadingSince,
@@ -19,5 +20,6 @@ public record GuideDetailsRequest(
         @Size(max = 160) String amcInstitute,
         @Size(max = 60) String amcCertificateNumber,
         @Size(max = 240) String quote,
-        Boolean routeVerified) {
+        Boolean routeVerified,
+        @Min(0) @Max(10000) Integer batchesLed) {
 }

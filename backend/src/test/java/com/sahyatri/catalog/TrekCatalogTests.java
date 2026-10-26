@@ -73,6 +73,22 @@ class TrekCatalogTests extends AuthTestSupport {
     }
 
     @Test
+    void theWinterTreksAreListedWithTheirPages() throws Exception {
+        for (String slug : new String[] {"dayara-bugyal", "brahmatal", "nag-tibba"}) {
+            mockMvc.perform(get("/api/public/tracks"))
+                    .andExpect(jsonPath(trek(slug) + ".seasons[*]", hasItem("WINTER")));
+        }
+        mockMvc.perform(get("/api/public/tracks/nag-tibba"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.track.duration_days").value(2))
+                .andExpect(jsonPath("$.track.itinerary", hasSize(2)))
+                .andExpect(jsonPath("$.content.FAQ[*].title", hasItem("Can I do the Nag Tibba trek in a weekend from Delhi?")));
+        mockMvc.perform(get("/api/public/tracks/brahmatal"))
+                .andExpect(jsonPath("$.track.max_altitude_m").value(3840))
+                .andExpect(jsonPath("$.track.itinerary", hasSize(6)));
+    }
+
+    @Test
     void listingNeedsAnAdminAndAValue() throws Exception {
         String admin = adminToken();
         UUID track = createTrack(admin, 1);

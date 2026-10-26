@@ -428,6 +428,9 @@ function DetailsFields({ guideId, initial, onDone }: { guideId: string; initial:
       <TextField label="Leading treks since" name="leading_since" type="number" min={1950} max={new Date().getFullYear()}
         value={form.leading_since ?? ''} onChange={(e) => setForm((f) => ({ ...f, leading_since: e.target.value ? Number(e.target.value) : null }))}
         error={errors.leading_since} hint="Year. The page shows “6 years leading”." />
+      <TextField label="Batches led" name="batches_led" type="number" min={0} max={10000}
+        value={form.batches_led ?? ''} onChange={(e) => setForm((f) => ({ ...f, batches_led: e.target.value ? Number(e.target.value) : null }))}
+        error={errors.batches_led} hint="Shown on Our Guides and their page. Leave empty to count it from their routes." />
       <TextField label="Languages" name="languages" maxLength={120} value={form.languages ?? ''} onChange={text('languages')}
         error={errors.languages} hint="E.g. Hindi, Garhwali, English" />
       <datalist id="mountaineering-institutes">

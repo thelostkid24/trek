@@ -270,8 +270,9 @@ public class CatalogService {
         Integer returnRate = back.getTrekkers() < GuideProfile.RETURN_RATE_MIN_TREKKERS ? null
                 : (int) Math.round(100.0 * back.getReturned() / back.getTrekkers());
 
-        long treksLed = treks.stream().map(GuideProfile.TrekLed::times).filter(Objects::nonNull)
-                .mapToLong(Long::longValue).sum();
+        // An admin's "Batches led" wins over the sum of their routes (§7.17).
+        long treksLed = details.batchesLed() != null ? details.batchesLed()
+                : treks.stream().map(GuideProfile.TrekLed::times).filter(Objects::nonNull).mapToLong(Long::longValue).sum();
         long recentWithUs = departures.countForGuideSince(id, DepartureStatus.COMPLETED, today().minusYears(3));
         GuideStats.Inputs in = new GuideStats.Inputs(rating, treksLed, record.treksLast3y(), recentWithUs,
                 details.yearsLeading(), treks, record.pledges(), record.courses(), highest, returnRate, today());
@@ -283,7 +284,7 @@ public class CatalogService {
                 details.bmcCertificateNumber(), details.amcInstitute(), details.amcCertificateNumber(), details.quote(),
                 rating.average(), rating.count(), highest, returnRate, reviews.forGuide(id), extras.specialties(), extras.milestones(), treks,
                 upcoming, GuideStats.stats(record.stats(), in), GuideStats.trainedAt(record.courses()),
-                !certified(Set.of(id)).isEmpty());
+                !certified(Set.of(id)).isEmpty(), guide.getCreatedAt());
     }
 
     /**
@@ -340,6 +341,9 @@ public class CatalogService {
                             .sorted(Map.Entry.<UUID, Long>comparingByValue().reversed())
                             .forEach(e -> routeNames.add(ledTracks.get(e.getKey()).getName()));
                     GuideDetailsResponse gd = details.get(g.getId());
+                    if (gd.batchesLed() != null) {
+                        treksLed = gd.batchesLed();
+                    }
                     RatingSummary rating = ratings.getOrDefault(g.getId(), RatingSummary.NONE);
                     TrekkerProfile home = homes.get(g.getId());
                     return new GuideListItem(g.getId(), gd.slug(), g.getFullName(), avatars.url(g.getAvatarKey()),

@@ -5,7 +5,7 @@ package com.sahyatri.guide.entity;
  * stored.
  */
 public enum GuideStatKey {
-    /** The rating and review count, or "New · no reviews yet". */
+    /** The rating and review count; hidden until the first review. */
     RATING,
     /** Treks led, with us and before (the sum of the routes). */
     TREKS_LED,

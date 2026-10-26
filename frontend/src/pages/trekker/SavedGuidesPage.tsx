@@ -15,9 +15,9 @@ export function SavedGuidesPage() {
 
   return (
     <div className="px-5 py-8 sm:px-10 sm:py-10">
-      <h1 className="sr-only">Saved guides</h1>
+      <h1 className="sr-only">My fav heroes</h1>
       {list.isPending ? (
-        <div className="h-40 animate-pulse rounded-(--card-radius) bg-paper-200" aria-busy="true" aria-label="Loading saved guides" />
+        <div className="h-40 animate-pulse rounded-(--card-radius) bg-paper-200" aria-busy="true" aria-label="Loading my fav heroes" />
       ) : list.isError ? (
         <p className="text-stone-700">{messageFor(list.error)}</p>
       ) : items.length === 0 ? (
@@ -68,7 +68,7 @@ function SavedGuideCard({ guide: g }: { guide: SavedGuide }) {
         type="button"
         onClick={() => remove.mutate()}
         disabled={remove.isPending}
-        aria-label={`Remove ${name} from saved guides`}
+        aria-label={`Remove ${name} from My fav heroes`}
         className="shrink-0 text-sm text-stone-500 hover:text-laterite-600 disabled:opacity-50"
       >
         Remove

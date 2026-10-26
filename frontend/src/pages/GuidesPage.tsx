@@ -5,11 +5,11 @@ import { guidePath, listGuides, type GuideListItem } from '../api/catalog.ts'
 import { messageFor } from '../auth/errorMessages.ts'
 import { Avatar } from '../components/Avatar.tsx'
 import { Seo } from '../components/Seo.tsx'
-import { isCertified } from '../lib/trek.ts'
+import { SITE_LINKS } from '../lib/siteLinks.ts'
 
 /** Cards per page. */
 const PAGE_SIZE = 12
-/** "Route verified" shows once a guide has led more than this many treks. */
+/** Past this many treks led, "Route verified" says so in its tip. */
 const ROUTE_VERIFIED_AFTER = 7
 
 /** /guides — every guide who leads with us, those with dates coming up first. Contract: docs/TRD.md §7.17. */
@@ -161,6 +161,7 @@ export function GuidesPage() {
           )}
 
           {pages > 1 && <Pages page={page} pages={pages} onGo={goTo} />}
+          {page === pages && <JoiningSoon />}
         </>
       )}
     </div>
@@ -170,57 +171,79 @@ export function GuidesPage() {
 function GuideCard({ guide: g }: { guide: GuideListItem }) {
   const name = g.full_name ?? 'Local guide'
   const first = g.full_name?.trim().split(/\s+/)[0] ?? 'profile'
+  const who = first === 'profile' ? 'This guide' : first
   const ledEnough = g.treks_led > ROUTE_VERIFIED_AFTER
-  const routeVerified = ledEnough || g.route_verified
 
   return (
-    <li className="group flex flex-col items-center gap-3.5 rounded-xl bg-white px-4 pt-[26px] pb-[18px] text-center ring-1 ring-stone-200 transition hover:ring-brand-800">
+    // The whole card opens the profile through the name link's overlay; the tags' "i" buttons sit above it.
+    <li className="group relative flex cursor-pointer flex-col items-center gap-3.5 rounded-xl bg-white px-4 pt-[26px] pb-[18px] text-center ring-1 ring-stone-200 transition hover:-translate-y-0.5 hover:shadow-lg hover:shadow-stone-900/5 hover:ring-brand-800 has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-brand-600">
+      {g.review_count === 0 && (
+        <span className="absolute top-3 left-3 rounded-md bg-laterite-100 px-2 py-0.5 text-[11px] font-bold tracking-[0.08em] text-laterite-600 uppercase">
+          New
+        </span>
+      )}
       <Avatar url={g.avatar_url} name={name} size="lg" />
       <div className="flex flex-col gap-0.5">
         <h2 className="font-display text-xl leading-[26px] font-semibold tracking-[-0.01em] text-stone-900">
-          <Link to={guidePath(g)} viewTransition className="underline-offset-[3px] group-hover:underline">
+          <Link to={guidePath(g)} viewTransition className="underline-offset-[3px] outline-none group-hover:underline after:absolute after:inset-0 after:rounded-xl">
             {name}
           </Link>
         </h2>
         {g.home_city && <p className="text-[13px] leading-[18px] text-stone-600">{g.home_city}</p>}
       </div>
 
-      <div className="flex min-h-5 w-full justify-center gap-1">
-        {isCertified(g) && (
-          <InfoTag icon={<ShieldIcon />} label="Certified">
-            <b className="font-semibold">Certified:</b> {first === 'profile' ? 'This guide' : first} has completed
-            mountaineering training at a recognised institute, like NIM. We checked the certificate before listing them.
-          </InfoTag>
-        )}
-        {routeVerified && (
-          <InfoTag icon={<PeaksIcon />} label="Route verified">
-            <b className="font-semibold">Route verified:</b> {first === 'profile' ? 'This guide' : first}{' '}
-            {ledEnough
-              ? `has led more than ${ROUTE_VERIFIED_AFTER} treks with us.`
-              : 'knows the routes they lead. Our team has checked them.'}
-          </InfoTag>
-        )}
+      <div className="relative z-10 flex min-h-5 w-full justify-center gap-1">
+        <InfoTag icon={<ShieldIcon />} label="Certified">
+          <b className="font-semibold">Certified:</b> {who} has completed mountaineering training at a recognised
+          institute, like NIM. We checked the certificate before listing them.
+        </InfoTag>
+        <InfoTag icon={<PeaksIcon />} label="Route verified">
+          <b className="font-semibold">Route verified:</b> {who}{' '}
+          {ledEnough ? `has led more than ${ROUTE_VERIFIED_AFTER} treks with us.` : 'knows the routes they lead. Our team has checked them.'}
+        </InfoTag>
       </div>
 
-      <dl className="grid w-full grid-cols-3 divide-x divide-stone-200 border-y border-stone-200">
+      <dl className="grid w-full grid-cols-2 divide-x divide-stone-200 border-y border-stone-200">
         <Stat label="Years" value={g.years_leading} />
         <Stat label="Batches led" value={g.treks_led || null} />
-        {/* No reviews yet reads "New", as on the guide page. */}
-        <Stat label="Reviews" value={g.review_count || 'New'} />
       </dl>
 
-      <Link
-        to={guidePath(g)}
-        viewTransition
-        aria-label={`View ${name}'s profile`}
-        className="mt-auto flex min-h-[46px] w-full items-center justify-center gap-2 rounded-lg bg-brand-900 text-[15px] font-semibold text-white transition group-hover:bg-brand-950 hover:bg-brand-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+      <span
+        aria-hidden="true"
+        className="mt-auto flex min-h-[46px] w-full items-center justify-center gap-2 rounded-lg bg-brand-900 text-[15px] font-semibold text-white transition group-hover:bg-brand-950"
       >
         View {first}
-        <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <svg viewBox="0 0 24 24" className="size-4 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M5 12h14M13 6l6 6-6 6" />
         </svg>
-      </Link>
+      </span>
     </li>
+  )
+}
+
+/** Under the cards: faceless avatars and a line saying more guides are on the way. No count. */
+function JoiningSoon() {
+  return (
+    <div className="mt-8 flex flex-col items-center gap-4 rounded-xl bg-stone-100 px-5 py-5 text-center sm:flex-row sm:text-left">
+      <div className="flex shrink-0 -space-x-3" aria-hidden="true">
+        {[0, 1, 2, 3, 4].map((i) => (
+          <span key={i} className="flex size-11 items-end justify-center overflow-hidden rounded-full bg-stone-200 ring-2 ring-stone-100">
+            <svg viewBox="0 0 24 24" className="size-9 text-stone-400" fill="currentColor">
+              <circle cx="12" cy="9" r="4.5" />
+              <path d="M3 24c0-5 4-8.5 9-8.5s9 3.5 9 8.5z" />
+            </svg>
+          </span>
+        ))}
+        <span className="flex size-11 items-center justify-center rounded-full bg-brand-900 text-xl text-white ring-2 ring-stone-100">+</span>
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="font-display text-lg font-semibold text-stone-900">More mountain heroes are joining soon</p>
+        <p className="text-sm text-stone-600">We’re checking their certificates and routes ourselves right now.</p>
+      </div>
+      <Link to={SITE_LINKS.vision} viewTransition className="shrink-0 text-sm font-semibold text-brand-800 underline underline-offset-4 hover:text-brand-950">
+        How we verify →
+      </Link>
+    </div>
   )
 }
 
@@ -235,12 +258,18 @@ function Stat({ label, value }: { label: string; value: number | string | null }
   )
 }
 
-/** A small tag whose "i" opens an explanation above it: on hover or focus, or on tap on a phone. */
+/**
+ * A small tag whose "i" explains it in a tip above: shown while the pointer is over the tag or the "i" has keyboard
+ * focus, and toggled by a tap on a phone. Moving the pointer away closes it, even after a click.
+ */
 function InfoTag({ icon, label, children }: { icon: ReactNode; label: string; children: ReactNode }) {
   const [open, setOpen] = useState(false)
   const tipId = useId()
   return (
-    <span className="group/tip relative inline-flex shrink-0 items-center gap-1 rounded whitespace-nowrap bg-brand-50 px-1.5 text-[11px] leading-5 font-semibold text-brand-800">
+    <span
+      onMouseLeave={() => setOpen(false)}
+      className="group/tip relative inline-flex shrink-0 items-center gap-1 rounded whitespace-nowrap bg-brand-50 px-1.5 text-[11px] leading-5 font-semibold text-brand-800"
+    >
       {icon}
       {label}
       <button
@@ -248,7 +277,10 @@ function InfoTag({ icon, label, children }: { icon: ReactNode; label: string; ch
         aria-label={`What does ${label} mean?`}
         aria-describedby={tipId}
         aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
+        onClick={(e) => {
+          e.preventDefault()
+          setOpen((o) => !o)
+        }}
         onBlur={() => setOpen(false)}
         className="ml-0.5 inline-flex size-[15px] cursor-help items-center justify-center rounded-full border-[1.2px] border-current font-serif text-[10px] leading-none font-bold italic hover:border-brand-800 hover:bg-brand-800 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
       >
@@ -257,7 +289,7 @@ function InfoTag({ icon, label, children }: { icon: ReactNode; label: string; ch
       <span
         id={tipId}
         role="tooltip"
-        className={`pointer-events-none absolute bottom-[calc(100%+10px)] left-1/2 z-20 w-59 -translate-x-1/2 rounded-lg bg-stone-950 px-3 py-2.5 text-left text-xs leading-[18px] font-normal text-stone-100 transition-opacity after:absolute after:top-full after:left-1/2 after:-ml-1.5 after:border-6 after:border-transparent after:border-t-stone-950 group-focus-within/tip:opacity-100 group-hover/tip:opacity-100 ${
+        className={`pointer-events-none absolute bottom-[calc(100%+10px)] left-1/2 z-20 w-59 -translate-x-1/2 rounded-lg bg-stone-950 px-3 py-2.5 text-left text-xs leading-[18px] font-normal whitespace-normal text-stone-100 transition-opacity after:absolute after:top-full after:left-1/2 after:-ml-1.5 after:border-6 after:border-transparent after:border-t-stone-950 group-hover/tip:opacity-100 group-has-[:focus-visible]/tip:opacity-100 ${
           open ? 'opacity-100' : 'opacity-0'
         }`}
       >
