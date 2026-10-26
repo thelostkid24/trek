@@ -189,7 +189,7 @@ public class CatalogService {
         }
         return trackById.values().stream().map(t -> new CatalogTrek(t.getSlug(), t.getName(), t.getRegion(),
                 t.getDifficulty(), t.getDurationDays(), t.getSummary(), t.getMaxAltitudeM(), t.getSeasonLabel(),
-                covers.get(t.getId()), byTrack.getOrDefault(t.getId(), List.of()).stream()
+                t.getSeasons(), t.getHomeOrder(), covers.get(t.getId()), byTrack.getOrDefault(t.getId(), List.of()).stream()
                         .map(d -> new CatalogDeparture(d.getId(), d.getStartDate(), d.getEndDate(), d.getPricePaise(),
                                 d.getMaxGroupSize(), d.seatsLeft(), isBookable(d), guideBrief(d)))
                         .toList()))

@@ -1,6 +1,7 @@
 package com.sahyatri.catalog.dto;
 
 import com.sahyatri.catalog.entity.Difficulty;
+import com.sahyatri.catalog.entity.Season;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
@@ -15,6 +16,7 @@ import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Create or replace a track. Text is trimmed in the service. Route facts, services and the itinerary are optional; an
@@ -38,6 +40,8 @@ public record TrackRequest(
         @Min(1) @Max(9000) Integer highestCampM,
         @Size(max = 120) String stay,
         @Size(max = 60) String seasonLabel,
+        Set<@NotNull Season> seasons,
+        @Min(1) @Max(99) Integer homeOrder,
         @Size(max = 120) String pickupDrop,
         Boolean cloakroom,
         Boolean offloading,

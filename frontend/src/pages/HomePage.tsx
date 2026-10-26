@@ -15,11 +15,8 @@ import hero1 from '../assets/hero/hero-1.jpg'
 import hero2 from '../assets/hero/hero-2.jpg'
 import hero3 from '../assets/hero/hero-3.jpg'
 import hero4 from '../assets/hero/hero-4.jpg'
-import dayaraBugyal from '../assets/treks/dayara-bugyal.jpg'
-import harKiDun from '../assets/treks/har-ki-dun.jpg'
-import sarPass from '../assets/treks/sar-pass.jpg'
 
-/** Same query (and cache) as /treks, so opening "See all treks" from here is instant. */
+/** Same query (and cache) as /treks, so opening "View more treks" from here is instant. */
 const useCatalog = () => useQuery({ queryKey: ['public-catalog'], queryFn: listCatalog })
 
 export function HomePage() {
@@ -223,38 +220,27 @@ function HeroSlides() {
   )
 }
 
-/** How many treks the home page shows; the rest are a tap away on /treks. */
+/** Before any trek has a home order set in Admin, the row falls back to this many catalog treks. */
 const HOME_TREKS = 5
 
-/**
- * Treks we're preparing that aren't in the catalog yet: shown as "Upcoming" cards that don't open anything. One
- * drops out on its own once a trek with the same slug is added in Admin.
- */
 /** Every trek in the catalog is in Uttarakhand; the cards name the state, not the trailhead. */
 const TREK_STATE = 'Uttarakhand'
 
-/** `cover` is shown top-aligned so the peaks stay in the crop. */
-const PLANNED_TREKS: { slug: string; name: string; facts: string; state: string; cover?: string }[] = [
-  { slug: 'har-ki-dun', name: 'Har Ki Dun', facts: '7 days · 11,700 ft', state: TREK_STATE, cover: harKiDun },
-  { slug: 'sar-pass', name: 'Sar Pass', facts: '5 days · 13,800 ft', state: 'Himachal Pradesh', cover: sarPass },
-  { slug: 'dayara-bugyal', name: 'Dayara Bugyal', facts: '6 days · 12,000 ft', state: TREK_STATE, cover: dayaraBugyal },
-  { slug: 'kuari-pass', name: 'Kuari Pass', facts: '6 days · 12,516 ft', state: TREK_STATE },
-]
-
 /**
- * A short row of treks, bookable ones first, then listed ones without dates, then planned ones (dimmed unless they have a photo); arrows (or a swipe) move along it and
- * "See all treks" leads to the catalog. Each card shares a view-transition name with the trek page hero, so opening
- * a card grows it into the hero. The trek is fetched before navigating (usually already warm from hover) so the
- * hero exists when the new page is snapshotted.
+ * This season's treks, in the order set in Admin ("Home page order"); everything else is on /treks behind "View more
+ * treks". Arrows (or a swipe) move along the row. Each card shares a view-transition name with the trek page hero, so
+ * opening a card grows it into the hero. The trek is fetched before navigating (usually already warm from hover) so
+ * the hero exists when the new page is snapshotted.
  */
 function Destinations() {
   const catalog = useCatalog()
   const all = catalog.data?.items ?? []
-  const listed = [...all.filter((t) => t.departures.length > 0), ...all.filter((t) => t.departures.length === 0)]
-  const planned = PLANNED_TREKS.filter((p) => !all.some((t) => t.slug === p.slug || t.slug.startsWith(`${p.slug}-`)))
-  const treks = listed.slice(0, HOME_TREKS)
-  const plannedShown = planned.slice(0, Math.max(0, HOME_TREKS - treks.length))
-  const cards = treks.length + plannedShown.length
+  const ordered = all.filter((t) => t.home_order !== null).sort((a, b) => a.home_order! - b.home_order!)
+  const treks =
+    ordered.length > 0
+      ? ordered
+      : [...all.filter((t) => t.departures.length > 0), ...all.filter((t) => t.departures.length === 0)].slice(0, HOME_TREKS)
+  const cards = treks.length
   const { ref, ...reveal } = useInView<HTMLUListElement>()
   const row = useRef<HTMLUListElement | null>(null)
   const [edges, setEdges] = useState({ start: true, end: false })
@@ -278,8 +264,8 @@ function Destinations() {
       <Container>
         <div className="flex flex-wrap items-end justify-between gap-6">
           <div>
-            <Eyebrow>This season</Eyebrow>
-            <h2 className="mt-4 text-4xl font-light tracking-[-0.02em] sm:text-5xl">Where we’re walking</h2>
+            <Eyebrow>Where we’re walking</Eyebrow>
+            <h2 className="mt-4 text-4xl font-light tracking-[-0.02em] sm:text-5xl">This season</h2>
           </div>
           {cards > 1 && (
             <div className="flex gap-2">
@@ -326,9 +312,6 @@ function Destinations() {
             {treks.map((t, i) => (
               <DestinationCard key={t.slug} trek={t} reveal={reveal} delay={i * 90} />
             ))}
-            {plannedShown.map((p, i) => (
-              <PlannedCard key={p.slug} trek={p} reveal={reveal} delay={(treks.length + i) * 90} />
-            ))}
           </ul>
         )}
 
@@ -337,7 +320,7 @@ function Destinations() {
           viewTransition
           className="group mt-8 inline-flex items-center gap-2 border-b border-current pb-1 text-sm font-medium text-ink-900"
         >
-          See all treks
+          View more treks
           <Arrow className="size-4 transition-transform group-hover:translate-x-1" />
         </Link>
       </Container>
@@ -411,40 +394,6 @@ function DestinationCard({
           <p className="mt-0.5 text-sm text-white/75">{TREK_STATE}</p>
         </div>
       </Link>
-    </li>
-  )
-}
-
-/** A trek that isn't bookable or listed yet. Not a link: there's no page to open. */
-function PlannedCard({
-  trek,
-  reveal,
-  delay,
-}: {
-  trek: (typeof PLANNED_TREKS)[number]
-  reveal: { inView: boolean; settled: boolean }
-  delay: number
-}) {
-  return (
-    <li style={staggerStyle(reveal, delay)} className={`${CARD_WIDTH} ${revealClass(reveal.inView)}`}>
-      <div
-        className={`relative isolate flex aspect-[4/5] flex-col justify-between overflow-hidden rounded-[1.5rem] bg-brand-950 p-5 text-white ${trek.cover ? '' : 'opacity-70'}`}
-      >
-        {trek.cover ? (
-          <img src={trek.cover} alt="" loading="lazy" className="absolute inset-0 -z-10 size-full object-cover object-top" />
-        ) : (
-          <Ridgeline className="absolute inset-0 -z-10 size-full" />
-        )}
-        <div className="absolute inset-0 -z-10 bg-gradient-to-t from-ink-950/90 via-ink-950/20 to-ink-950/30" aria-hidden="true" />
-        <span className="self-start rounded-full border border-white/25 bg-ink-950/40 px-3 py-1 text-[0.65rem] font-medium tracking-[0.18em] text-white/80 uppercase backdrop-blur-sm">
-          Upcoming
-        </span>
-        <div>
-          <h3 className="text-xl leading-tight font-normal tracking-[-0.01em]">{trek.name}</h3>
-          <p className="mt-2 text-sm text-white/75">{trek.facts}</p>
-          <p className="mt-0.5 text-sm text-white/75">{trek.state}</p>
-        </div>
-      </div>
     </li>
   )
 }

@@ -85,4 +85,42 @@ class TrekCatalogTests extends AuthTestSupport {
         authed(put("/api/admin/tracks/" + track + "/listed"), emailTrekker(uniqueEmail()), "{\"listed\":true}")
                 .andExpect(status().isForbidden());
     }
+
+    private static String seasonJson(String slug, String seasons, Object homeOrder) {
+        return """
+                {"slug":"%s","name":"Kedarkantha","region":"Sankri","difficulty":"EASY","duration_days":1,
+                 "summary":"Snow summit","description":"A winter climb.","meeting_point":"Dehradun",
+                 "seasons":%s,"home_order":%s}""".formatted(slug, seasons, homeOrder);
+    }
+
+    @Test
+    void seasonsAndHomeOrderAreSetInTheTrekFormAndShownInTheCatalog() throws Exception {
+        String admin = adminToken();
+        UUID track = createTrack(admin, 1);
+        String slug = slugOf(track);
+        authed(put("/api/admin/tracks/" + track + "/listed"), admin, "{\"listed\":true}").andExpect(status().isOk());
+        mockMvc.perform(get("/api/public/tracks"))
+                .andExpect(jsonPath(trek(slug) + ".seasons", contains(empty())))
+                .andExpect(jsonPath(trek(slug) + ".home_order", contains((Object) null)));
+
+        authed(put("/api/admin/tracks/" + track), admin, seasonJson(slug, "[\"SPRING\",\"WINTER\"]", 2))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.seasons", contains("WINTER", "SPRING")))
+                .andExpect(jsonPath("$.home_order").value(2));
+        mockMvc.perform(get("/api/public/tracks"))
+                .andExpect(jsonPath(trek(slug) + ".seasons[*]", contains("WINTER", "SPRING")))
+                .andExpect(jsonPath(trek(slug) + ".home_order", contains(2)));
+
+        // Leaving them out clears both.
+        authed(put("/api/admin/tracks/" + track), admin, seasonJson(slug, "null", "null"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.seasons", empty()))
+                .andExpect(jsonPath("$.home_order").value((Object) null));
+
+        authed(put("/api/admin/tracks/" + track), admin, seasonJson(slug, "[\"WINTER\"]", 0))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.details.fields.home_order").exists());
+        authed(put("/api/admin/tracks/" + track), admin, seasonJson(slug, "[\"WINTERS\"]", 1))
+                .andExpect(status().isBadRequest());
+    }
 }

@@ -1,6 +1,7 @@
 package com.sahyatri.catalog.dto;
 
 import com.sahyatri.catalog.entity.Difficulty;
+import com.sahyatri.catalog.entity.Season;
 import com.sahyatri.catalog.entity.Track;
 import com.sahyatri.common.storage.TrackPhotoFiles;
 
@@ -26,6 +27,8 @@ public record TrackResponse(
         Integer highestCampM,
         String stay,
         String seasonLabel,
+        List<Season> seasons,
+        Integer homeOrder,
         String pickupDrop,
         Boolean cloakroom,
         Boolean offloading,
@@ -42,7 +45,7 @@ public record TrackResponse(
         return new TrackResponse(t.getId(), t.getSlug(), t.getName(), t.getRegion(), t.getState(), t.getDifficulty(),
                 t.getDurationDays(), t.getMaxAltitudeM(), t.getSummary(), t.getDescription(), t.getMeetingPoint(),
                 t.getDistanceKm(), t.getBaseAltitudeM(), t.getHighestCampM(), t.getStay(), t.getSeasonLabel(),
-                t.getPickupDrop(), t.getCloakroom(), t.getOffloading(), t.getOffloadingPricePaise(), t.getInsurancePricePaise(), t.getTransportPricePaise(),
+                t.getSeasons(), t.getHomeOrder(), t.getPickupDrop(), t.getCloakroom(), t.getOffloading(), t.getOffloadingPricePaise(), t.getInsurancePricePaise(), t.getTransportPricePaise(),
                 t.isListed(), t.getItinerary().stream().map(ItineraryDay::of).toList(),
                 t.getPhotos().stream().map(p -> TrackPhotoResponse.of(p, photoFiles)).toList(),
                 t.getCreatedAt(), t.getUpdatedAt());

@@ -14,7 +14,7 @@ import {
   type TrackInput,
 } from '../../api/admin.ts'
 import type { Items, TrackPhoto } from '../../api/catalog.ts'
-import { DIFFICULTY_LABEL, PHOTO_LICENCE_LABEL, type Difficulty, type PhotoLicence } from '../../api/catalog.ts'
+import { DIFFICULTY_LABEL, PHOTO_LICENCE_LABEL, SEASON_LABEL, type Difficulty, type PhotoLicence, type Season } from '../../api/catalog.ts'
 import { fieldErrors } from '../../auth/errorMessages.ts'
 import { useAuth } from '../../auth/useAuth.ts'
 import { Button, ErrorNote, Loading, Panel } from '../../components/admin/AdminUi.tsx'
@@ -63,6 +63,8 @@ const EMPTY: TrackFields = {
   distance_km: null,
   stay: null,
   season_label: null,
+  seasons: [],
+  home_order: null,
   pickup_drop: null,
   cloakroom: null,
   offloading: null,
@@ -327,6 +329,31 @@ function TrackForm({ track, onDone }: { track: Track | null; onDone: () => void 
         <TextField label="Season" name="season_label" maxLength={60} value={form.season_label ?? ''}
           onChange={(e) => set('season_label', textOrNull(e.target.value))} error={errors.season_label}
           hint="Shown on the trek photo, e.g. Snow trek · Dec–Apr" />
+        <fieldset className="sm:col-span-2">
+          <legend className="text-sm font-medium text-stone-800">Runs in</legend>
+          <div className="mt-2 flex flex-wrap gap-x-5 gap-y-2">
+            {(Object.keys(SEASON_LABEL) as Season[]).map((season) => (
+              <label key={season} className="flex cursor-pointer items-center gap-2 text-sm text-stone-700">
+                <input
+                  type="checkbox"
+                  name="seasons"
+                  value={season}
+                  checked={form.seasons.includes(season)}
+                  onChange={(e) =>
+                    set('seasons', e.target.checked ? [...form.seasons, season] : form.seasons.filter((x) => x !== season))
+                  }
+                  className="size-4 accent-brand-800"
+                />
+                {SEASON_LABEL[season]}
+              </label>
+            ))}
+          </div>
+          <p className="mt-1 text-xs text-stone-500">Used by the Season filter on Our Treks.</p>
+          {errors.seasons && <p className="mt-1 text-sm text-laterite-600">{errors.seasons}</p>}
+        </fieldset>
+        <TextField label="Home page order" name="home_order" type="number" min={1} max={99} value={form.home_order ?? ''}
+          onChange={(e) => set('home_order', numberOrNull(e.target.value))} error={errors.home_order}
+          hint="1 shows first in “This season” on the home page. Leave empty to keep it off the home page." />
         <TextField label="Meeting point" name="meeting_point" required maxLength={300} value={form.meeting_point}
           onChange={(e) => set('meeting_point', e.target.value)} error={errors.meeting_point}
           hint="Sent to trekkers with their booking." />

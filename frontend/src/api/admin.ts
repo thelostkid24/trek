@@ -11,6 +11,7 @@ import type {
   Items,
   PhotoLicence,
   PlannedDate,
+  Season,
   SnowReport,
   Snowfall,
   TrackPhoto,
@@ -37,6 +38,10 @@ export type Track = {
   highest_camp_m: number | null
   stay: string | null
   season_label: string | null
+  /** Seasons it runs in, for the Season filter on /treks. */
+  seasons: Season[]
+  /** Place in the home page's "This season" row, 1 first; null keeps it off the home page. */
+  home_order: number | null
   pickup_drop: string | null
   cloakroom: boolean | null
   offloading: boolean | null
