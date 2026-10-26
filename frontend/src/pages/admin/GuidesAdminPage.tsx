@@ -399,6 +399,19 @@ function DetailsFields({ guideId, initial, onDone }: { guideId: string; initial:
         <TextAreaField label="In their own words" name="quote" maxLength={240} rows={2} value={form.quote ?? ''}
           onChange={text('quote')} error={errors.quote} hint="One or two lines, shown in quotes." />
       </div>
+      <label className="flex items-start gap-2 text-sm text-stone-700 sm:col-span-2">
+        <input
+          type="checkbox"
+          name="route_verified"
+          checked={form.route_verified}
+          onChange={(e) => setForm((f) => ({ ...f, route_verified: e.target.checked }))}
+          className="mt-0.5 size-4 rounded border-stone-300"
+        />
+        <span>
+          Route verified
+          <span className="block text-stone-500">Shows the tag on Our Guides. Guides who’ve led more than 7 treks get it anyway.</span>
+        </span>
+      </label>
       {save.error && Object.keys(errors).length === 0 && (
         <div className="sm:col-span-2">
           <ErrorNote error={save.error} />

@@ -318,6 +318,8 @@ export type GuideListItem = GuideBrief &
     upcoming: number
     /** Every route they lead, listed or not, in the kept order, then treks completed with us (§7.21.8). */
     routes: string[]
+    /** An admin marked them "Route verified"; the list also shows it past ROUTE_VERIFIED_AFTER treks led. */
+    route_verified: boolean
   }
 
 export type Items<T> = { items: T[] }

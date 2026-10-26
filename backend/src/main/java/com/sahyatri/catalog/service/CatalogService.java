@@ -348,7 +348,7 @@ public class CatalogService {
                             gd.amcInstitute(), gd.amcCertificateNumber(), gd.quote(),
                             treksLed, rating.average(),
                             rating.count(), treks, upcoming.getOrDefault(g.getId(), 0L), routeNames,
-                            certifiedIds.contains(g.getId()));
+                            certifiedIds.contains(g.getId()), gd.routeVerified());
                 })
                 .sorted(Comparator.comparing((GuideListItem g) -> g.upcoming() == 0)
                         .thenComparing(Comparator.comparingLong(GuideListItem::treksLed).reversed()))

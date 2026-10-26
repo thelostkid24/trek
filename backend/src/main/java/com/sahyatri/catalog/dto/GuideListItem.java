@@ -8,7 +8,8 @@ import java.util.UUID;
  * they've led (most often first) and how many upcoming dates they lead. {@code treksLed} adds every route's times led
  * before Sahyātri, listed or not, to departures completed with us, as the guide page does. {@code routes}: the names
  * of their routes in the kept order, then catalog treks completed with us that aren't routes (§7.21.8).
- * {@code certified}: a verified certificate still valid today (§7.21.3). Computed at read time (law 8).
+ * {@code certified}: a verified certificate still valid today (§7.21.3). {@code routeVerified}: an admin marked them
+ * "Route verified" (§7.12); the list also shows it past 7 treks led. Computed at read time (law 8).
  */
 public record GuideListItem(
         UUID id,
@@ -31,5 +32,6 @@ public record GuideListItem(
         List<TrackBrief> treks,
         long upcoming,
         List<String> routes,
-        boolean certified) {
+        boolean certified,
+        boolean routeVerified) {
 }
