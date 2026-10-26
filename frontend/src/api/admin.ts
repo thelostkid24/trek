@@ -204,6 +204,8 @@ export type GuideDetails = {
   amc_institute: string | null
   amc_certificate_number: string | null
   quote: string | null
+  /** Shows "Route verified" on the guides list whatever their treks led (docs/TRD.md §7.17). */
+  route_verified: boolean
   /** Catalog treks with times led before Sahyātri, most-led first (read-only; set in the record). */
   prior_treks: { track_id: string; times: number }[]
 }

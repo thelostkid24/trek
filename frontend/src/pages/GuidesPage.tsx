@@ -170,7 +170,8 @@ export function GuidesPage() {
 function GuideCard({ guide: g }: { guide: GuideListItem }) {
   const name = g.full_name ?? 'Local guide'
   const first = g.full_name?.trim().split(/\s+/)[0] ?? 'profile'
-  const routeVerified = g.treks_led > ROUTE_VERIFIED_AFTER
+  const ledEnough = g.treks_led > ROUTE_VERIFIED_AFTER
+  const routeVerified = ledEnough || g.route_verified
 
   return (
     <li className="group flex flex-col items-center gap-3.5 rounded-xl bg-white px-4 pt-[26px] pb-[18px] text-center ring-1 ring-stone-200 transition hover:ring-brand-800">
@@ -193,8 +194,10 @@ function GuideCard({ guide: g }: { guide: GuideListItem }) {
         )}
         {routeVerified && (
           <InfoTag icon={<PeaksIcon />} label="Route verified">
-            <b className="font-semibold">Route verified:</b> {first === 'profile' ? 'This guide' : first} has led
-            more than {ROUTE_VERIFIED_AFTER} treks with us.
+            <b className="font-semibold">Route verified:</b> {first === 'profile' ? 'This guide' : first}{' '}
+            {ledEnough
+              ? `has led more than ${ROUTE_VERIFIED_AFTER} treks with us.`
+              : 'knows the routes they lead. Our team has checked them.'}
           </InfoTag>
         )}
       </div>

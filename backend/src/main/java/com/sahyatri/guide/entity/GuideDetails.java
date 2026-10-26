@@ -51,6 +51,10 @@ public class GuideDetails {
     @Column(name = "treks_last_3y")
     private Integer treksLast3y;
 
+    /** Admin-set: shows "Route verified" on the guides list whatever their treks led (§7.17). */
+    @Column(nullable = false)
+    private boolean routeVerified;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -73,7 +77,7 @@ public class GuideDetails {
 
     public void update(Integer leadingSince, String languages, String certification, String certificationNumber,
                        String bmcInstitute, String bmcCertificateNumber, String amcInstitute,
-                       String amcCertificateNumber, String quote) {
+                       String amcCertificateNumber, String quote, boolean routeVerified) {
         this.leadingSince = leadingSince;
         this.languages = languages;
         this.certification = certification;
@@ -83,6 +87,7 @@ public class GuideDetails {
         this.amcInstitute = amcInstitute;
         this.amcCertificateNumber = amcCertificateNumber;
         this.quote = quote;
+        this.routeVerified = routeVerified;
     }
 
     /** What the guide edits about themselves; the course fields stay admin-set. */
@@ -134,6 +139,10 @@ public class GuideDetails {
 
     public String getAmcCertificateNumber() {
         return amcCertificateNumber;
+    }
+
+    public boolean isRouteVerified() {
+        return routeVerified;
     }
 
     public String getQuote() {

@@ -122,6 +122,25 @@ class GuideListTests extends AuthTestSupport {
     }
 
     @Test
+    void anAdminMarksAGuideRouteVerified() throws Exception {
+        String admin = adminToken();
+        UUID guideId = guideUser();
+        mockMvc.perform(get("/api/public/guides"))
+                .andExpect(jsonPath(guide(guideId) + ".route_verified", contains(false)));
+
+        authed(put("/api/admin/guides/" + guideId + "/details"), admin, """
+                {"languages":"Hindi","route_verified":true}""")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.route_verified").value(true));
+        mockMvc.perform(get("/api/public/guides"))
+                .andExpect(jsonPath(guide(guideId) + ".route_verified", contains(true)));
+
+        // A save that leaves it out turns it off, like every other field.
+        authed(put("/api/admin/guides/" + guideId + "/details"), admin, """
+                {"languages":"Hindi"}""").andExpect(jsonPath("$.route_verified").value(false));
+    }
+
+    @Test
     void aTreksStateShowsOnTheGuideList() throws Exception {
         String admin = adminToken();
         UUID track = createTrack(admin, 2);
