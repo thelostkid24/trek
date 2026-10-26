@@ -159,32 +159,45 @@ public class OwnGuideProfileService {
         return get(avatars.clear(requireGuide(guideId)).getId());
     }
 
-    /** A 3:1 centre crop at 1800×600, re-encoded like every other upload; the old file is deleted. */
     @Transactional
     public OwnGuideProfile uploadCover(UUID guideId, MultipartFile file) {
         User guide = requireGuide(guideId);
-        byte[] jpeg = toCoverJpeg(Images.read(file));
-        UUID key = UUID.randomUUID();
-        storage.put(GuideCoverFiles.storageKey(key), jpeg);
-        GuideDetails d = slugs.ensure(guideId, guide.getFullName());
-        String previous = d.getCoverKey();
-        d.setCoverKey(key.toString());
-        details.saveAndFlush(d);
-        deleteCoverQuietly(previous);
+        replaceCover(guide, file);
         return toResponse(guide);
     }
 
     @Transactional
     public OwnGuideProfile removeCover(UUID guideId) {
         User guide = requireGuide(guideId);
-        GuideDetails d = slugs.ensure(guideId, guide.getFullName());
+        clearCover(guide);
+        return toResponse(guide);
+    }
+
+    /**
+     * A 3:1 centre crop at 1800×600, re-encoded like every other upload; the old file is deleted. Also used by admins
+     * (§7.12), who look the guide up themselves.
+     */
+    @Transactional
+    public void replaceCover(User guide, MultipartFile file) {
+        byte[] jpeg = toCoverJpeg(Images.read(file));
+        UUID key = UUID.randomUUID();
+        storage.put(GuideCoverFiles.storageKey(key), jpeg);
+        GuideDetails d = slugs.ensure(guide.getId(), guide.getFullName());
+        String previous = d.getCoverKey();
+        d.setCoverKey(key.toString());
+        details.saveAndFlush(d);
+        deleteCoverQuietly(previous);
+    }
+
+    @Transactional
+    public void clearCover(User guide) {
+        GuideDetails d = slugs.ensure(guide.getId(), guide.getFullName());
         String previous = d.getCoverKey();
         if (previous != null) {
             d.setCoverKey(null);
             details.saveAndFlush(d);
             deleteCoverQuietly(previous);
         }
-        return toResponse(guide);
     }
 
     /** The parts of the guide's own profile the public page shows. Read-only; no row is created. */
