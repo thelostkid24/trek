@@ -1445,6 +1445,22 @@ Added 2026-10-26. Supersedes the parts of §7.10, §7.17, §7.21 and §7.21.8 it
 - Review form (`OwnTrekkerReviewForm`): Submit stays clickable; without a star or a name it says "Tap a star to rate your trek" / "Add your name" instead of sitting greyed out.
 - Tests: `TrekCatalogTests.theWinterTreksAreListedWithTheirPages`, `GuideListTests.anAdminSetsAGuidesBatchesLed`, `GuideRecordTests` (no RATING stat without reviews).
 
+### 7.23 26 Oct follow-ups: admin gallery, fixed header, months to March
+Added 2026-10-26. Supersedes the header part of §7.22.
+
+| Method & path | Auth | Request | Success | Errors |
+|---|---|---|---|---|
+| `GET /api/admin/guides/{id}/media` | ADMIN | — | `200 { items: [GuideMediaItem] }` (§7.21.4) | `404 GUIDE_NOT_FOUND` |
+| `POST /api/admin/guides/{id}/media/photos` | ADMIN | multipart `file`, optional `caption` | `201 GuideMediaItem` | `400 UNSUPPORTED_IMAGE`, `404 GUIDE_NOT_FOUND`, `409 TOO_MANY_MEDIA` |
+| `DELETE /api/admin/guides/{id}/media/{mediaId}` | ADMIN | — | `204` | `404 MEDIA_NOT_FOUND` |
+
+- Same rows and files as the guide's own gallery (§7.21.4): limits, re-encoding and order are shared, and the guide sees what an admin added. Frontend: Admin → Guides → Gallery (`GalleryPanel` in `GuidesAdminPage.tsx`): thumbnails with remove, "Add photos" takes several files at once (each shrunk with `shrinkPhoto` and uploaded in turn), "N of 20 places left".
+- Header (`components/Layout.tsx`): the season strip sits inside the sticky (home: fixed) header on every page and stays while the page scrolls; it never folds. `--header-h` in `index.css` (6.25rem: strip 2.25rem + bar 4rem) sets the sticky offsets and `scroll-mt` of sections, sidebars and the trek page's section nav.
+- Home "This season" cards: "Booking open" is a solid laterite pill with a pulsing white dot (still with `prefers-reduced-motion`).
+- Guide page: Upcoming departures is tinted green with a green outline and shadow; Book is a filled button.
+- `/treks` Month filter lists every month from this one through the next March, plus any later month with dates; a month with no dates yet says "Dates for <Mon YYYY> open soon."
+- Tests: `GuideMediaTests.anAdminManagesAGuidesGallery`.
+
 ## 8. Running locally
 
 ```bash

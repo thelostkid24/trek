@@ -43,8 +43,10 @@ export function TreksPage() {
     setParams(next, { replace: true })
   }
 
+  // Every month from now to the end of the winter season, so a month shows before its dates are published,
+  // plus any later month that already has dates.
   const months = useMemo(() => {
-    const keys = new Set(treks.flatMap((t) => t.departures.map((d) => monthKey(d.start_date))))
+    const keys = new Set([...seasonMonths(new Date()), ...treks.flatMap((t) => t.departures.map((d) => monthKey(d.start_date)))])
     return [...keys].sort()
   }, [treks])
 
@@ -118,7 +120,11 @@ export function TreksPage() {
             {treks.length === 0 ? 'The first treks are on their way' : 'Nothing matches those filters'}
           </p>
           <p className="mt-1 text-sm text-stone-600">
-            {treks.length === 0 ? 'Our guides are planning the season. Check back soon.' : 'Try a different season, month or grade.'}
+            {treks.length === 0
+              ? 'Our guides are planning the season. Check back soon.'
+              : month
+                ? `Dates for ${monthLabel(month)} open soon. Try another month, or see every trek.`
+                : 'Try a different season, month or grade.'}
           </p>
         </Note>
       ) : (
@@ -130,6 +136,26 @@ export function TreksPage() {
       )}
     </div>
   )
+}
+
+/** The month the winter season ends in (March). */
+const SEASON_END_MONTH = 3
+
+/** "YYYY-MM" keys from this month through the next March. */
+function seasonMonths(today: Date): string[] {
+  const keys: string[] = []
+  let year = today.getFullYear()
+  let month = today.getMonth() + 1
+  const endYear = month > SEASON_END_MONTH ? year + 1 : year
+  while (year < endYear || month <= SEASON_END_MONTH) {
+    keys.push(`${year}-${String(month).padStart(2, '0')}`)
+    month += 1
+    if (month > 12) {
+      month = 1
+      year += 1
+    }
+  }
+  return keys
 }
 
 function TrekCard({ trek }: { trek: CatalogTrek }) {

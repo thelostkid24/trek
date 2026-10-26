@@ -123,7 +123,7 @@ function Profile({ guide: g, departureId }: { guide: GuideProfile; departureId: 
             <ReviewsSection {...section} />
           </div>
 
-          <aside className="space-y-5 lg:sticky lg:top-20">
+          <aside className="space-y-5 lg:sticky lg:top-[calc(var(--header-h)+1rem)]">
             {booking && (
               <div className="hidden lg:block">
                 <BookingCard departure={booking} />
@@ -482,7 +482,8 @@ function Departures({ section, first }: { section: { guide: GuideProfile; owner:
     else groups.push({ track: d.track, dates: [d] })
   }
   return (
-    <section aria-labelledby="departures" className={CARD}>
+    // The one place to book from this page, so it stands out from the plain cards around it.
+    <section aria-labelledby="departures" className="rounded-2xl bg-brand-50 p-5 shadow-lg shadow-brand-900/10 ring-2 ring-brand-700 sm:p-6">
       <AvailabilityLink {...section} />
       <SectionLabel id="departures">Upcoming departures</SectionLabel>
       {groups.length === 0 ? (
@@ -528,7 +529,7 @@ function TrekDates({ track, dates, topM }: { track: DepartureSummary['track']; d
           <li key={d.id} className="flex items-center justify-between gap-3 py-1">
             <span className="text-base text-stone-900">{shortRange(d.start_date, d.end_date)}</span>
             {d.bookable ? (
-              <Link to={`/book/${d.id}`} className="-mr-3 shrink-0 rounded-full px-3 py-1 text-base font-semibold text-brand-800 hover:bg-brand-50 hover:text-brand-900">
+              <Link to={`/book/${d.id}`} className="shrink-0 rounded-full bg-brand-900 px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-brand-950">
                 Book
               </Link>
             ) : (

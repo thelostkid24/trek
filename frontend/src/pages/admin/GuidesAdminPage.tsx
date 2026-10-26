@@ -3,8 +3,10 @@ import { useState, type FormEvent } from 'react'
 import {
   changeGuideSlug,
   createGuideSpecialty,
+  deleteGuideGalleryItem,
   deleteGuideSpecialty,
   getGuideDetails,
+  getGuideGallery,
   getGuideProfile,
   listGuides,
   listGuideSpecialties,
@@ -14,11 +16,13 @@ import {
   updateGuideDetails,
   updateGuideProfile,
   uploadGuideCover,
+  uploadGuideGalleryPhoto,
   uploadGuidePhoto,
   type GuideDetailsInput,
   type GuideProfile,
 } from '../../api/admin.ts'
 import { AVATAR_TYPES } from '../../api/account.ts'
+import { MAX_MEDIA } from '../../api/guideMedia.ts'
 import { fieldErrors } from '../../auth/errorMessages.ts'
 import { useAuth } from '../../auth/useAuth.ts'
 import { ErrorNote, Loading, Panel, Button } from '../../components/admin/AdminUi.tsx'
@@ -29,13 +33,14 @@ import { Avatar } from '../../components/Avatar.tsx'
 import { TextAreaField } from '../../components/profile/fields.tsx'
 import { shrinkPhoto } from '../../lib/photos.ts'
 
-type PanelKind = 'profile' | 'credentials' | 'certificates' | 'record'
+type PanelKind = 'profile' | 'credentials' | 'certificates' | 'record' | 'gallery'
 
 const PANELS: { panel: PanelKind; label: string }[] = [
   { panel: 'profile', label: 'Profile' },
   { panel: 'credentials', label: 'Credentials' },
   { panel: 'certificates', label: 'Certificates' },
   { panel: 'record', label: 'Record' },
+  { panel: 'gallery', label: 'Gallery' },
 ]
 
 export function GuidesAdminPage() {
@@ -117,6 +122,7 @@ export function GuidesAdminPage() {
                 {open?.id === g.id && open.panel === 'credentials' && <DetailsForm guideId={g.id} onDone={() => setOpen(null)} />}
                 {open?.id === g.id && open.panel === 'certificates' && <GuideCertificatesPanel guideId={g.id} />}
                 {open?.id === g.id && open.panel === 'record' && <GuideRecordPanel guideId={g.id} onDone={() => setOpen(null)} />}
+                {open?.id === g.id && open.panel === 'gallery' && <GalleryPanel guideId={g.id} />}
               </li>
             ))}
           </ul>
@@ -189,6 +195,84 @@ function SpecialtiesPanel() {
       </form>
       {(add.error || remove.error) && !fieldErrors(add.error).name && <ErrorNote error={add.error ?? remove.error} />}
     </Panel>
+  )
+}
+
+/**
+ * The photos on the guide's page (§7.21.4), the same list the guide edits from their own page. Several files can be
+ * picked at once; each is shrunk and uploaded in turn. Videos, captions and order stay with the guide.
+ */
+function GalleryPanel({ guideId }: { guideId: string }) {
+  const { withAuth } = useAuth()
+  const queryClient = useQueryClient()
+  const key = ['admin-guide-gallery', guideId]
+  const items = useQuery({ queryKey: key, queryFn: () => withAuth((token) => getGuideGallery(token, guideId)) })
+  const refresh = () => void queryClient.invalidateQueries({ queryKey: key })
+  const upload = useMutation({
+    mutationFn: async (files: File[]) => {
+      for (const file of files) {
+        const jpeg = await shrinkPhoto(file)
+        await withAuth((token) => uploadGuideGalleryPhoto(token, guideId, jpeg))
+      }
+    },
+    onSettled: refresh,
+  })
+  const remove = useMutation({
+    mutationFn: (id: string) => withAuth((token) => deleteGuideGalleryItem(token, guideId, id)),
+    onSuccess: refresh,
+  })
+
+  if (items.isPending) return <Loading />
+  if (items.isError) return <ErrorNote error={items.error} />
+  const room = MAX_MEDIA - items.data.length
+  return (
+    <div className="mt-3 rounded-xl border border-stone-200 p-4">
+      {items.data.length === 0 ? (
+        <p className="text-sm text-stone-600">No photos or videos yet.</p>
+      ) : (
+        <ul className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+          {items.data.map((m) => (
+            <li key={m.id} className="relative">
+              <img src={m.url ?? m.thumbnail_url ?? ''} alt={m.caption ?? ''} className="aspect-square w-full rounded-lg object-cover" />
+              <button
+                type="button"
+                aria-label="Remove this photo"
+                disabled={remove.isPending}
+                onClick={() => {
+                  if (window.confirm('Remove this from their page?')) remove.mutate(m.id)
+                }}
+                className="absolute top-1 right-1 rounded-full bg-black/60 px-2 text-sm text-white hover:bg-black/80"
+              >
+                ✕
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="mt-3 flex flex-wrap items-center gap-4">
+        <label className={`text-sm font-medium ${room > 0 ? 'cursor-pointer text-brand-800 hover:text-brand-950' : 'text-stone-400'}`}>
+          {upload.isPending ? 'Uploading…' : 'Add photos'}
+          <input
+            type="file"
+            multiple
+            accept={AVATAR_TYPES.join(',')}
+            className="sr-only"
+            disabled={upload.isPending || room <= 0}
+            onChange={(e) => {
+              const files = [...(e.target.files ?? [])].slice(0, room)
+              e.target.value = ''
+              if (files.length > 0) upload.mutate(files)
+            }}
+          />
+        </label>
+        <span className="text-xs text-stone-500">{room} of {MAX_MEDIA} places left. Shown in “Photos” on their page.</span>
+      </div>
+      {(upload.error || remove.error) && (
+        <div className="mt-3">
+          <ErrorNote error={upload.error ?? remove.error} />
+        </div>
+      )}
+    </div>
   )
 }
 

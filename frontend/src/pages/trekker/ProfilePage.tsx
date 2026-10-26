@@ -117,7 +117,7 @@ function SectionNav() {
 
   return (
     <nav aria-label="Profile sections" className="hidden lg:block">
-      <div className="sticky top-28">
+      <div className="sticky top-[calc(var(--header-h)+3rem)]">
         <p className="text-[0.7rem] font-medium tracking-[0.12em] text-stone-500 uppercase">On this page</p>
         <div className="relative mt-3 border-l border-paper-300">
           <span

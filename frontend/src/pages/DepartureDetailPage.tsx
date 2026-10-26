@@ -87,7 +87,7 @@ function Detail({ departure: d }: { departure: DepartureDetail }) {
           </div>
         </header>
 
-        <aside className="hidden lg:sticky lg:top-20 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:block lg:self-start">
+        <aside className="hidden lg:sticky lg:top-[calc(var(--header-h)+1rem)] lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:block lg:self-start">
           <SelectionCard departure={d} />
         </aside>
 
