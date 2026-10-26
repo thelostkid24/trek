@@ -251,7 +251,7 @@ export const getGuideRecord = (token: string, guideId: string) =>
 export const updateGuideRecord = (token: string, guideId: string, body: GuideRecordInput) =>
   apiFetch<GuideRecord>(`/api/admin/guides/${guideId}/record`, { method: 'PUT', token, body })
 
-// Guide profile: name, photo, home city and bio, set by an admin (docs/TRD.md §7.12).
+// Guide profile: name, photo, cover, home city and bio, set by an admin (docs/TRD.md §7.12).
 
 export type GuideProfile = {
   guide_id: string
@@ -259,6 +259,8 @@ export type GuideProfile = {
   slug: string
   full_name: string | null
   avatar_url: string | null
+  /** 3:1 cover at the top of their page, or null. */
+  cover_url: string | null
   home_city: string | null
   bio: string | null
 }
@@ -279,6 +281,16 @@ export function uploadGuidePhoto(token: string, guideId: string, file: Blob) {
 
 export const removeGuidePhoto = (token: string, guideId: string) =>
   apiFetch<GuideProfile>(`/api/admin/guides/${guideId}/avatar`, { method: 'DELETE', token })
+
+/** Cropped to 3:1 by the server, as when the guide uploads it. */
+export function uploadGuideCover(token: string, guideId: string, file: Blob) {
+  const body = new FormData()
+  body.append('file', file, 'cover.jpg')
+  return apiFetch<GuideProfile>(`/api/admin/guides/${guideId}/cover`, { method: 'PUT', token, body })
+}
+
+export const removeGuideCover = (token: string, guideId: string) =>
+  apiFetch<GuideProfile>(`/api/admin/guides/${guideId}/cover`, { method: 'DELETE', token })
 
 /** A new profile address; the old one keeps working (docs/TRD.md §7.21). */
 export const changeGuideSlug = (token: string, guideId: string, slug: string) =>

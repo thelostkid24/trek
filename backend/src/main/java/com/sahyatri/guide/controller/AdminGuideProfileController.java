@@ -56,4 +56,14 @@ public class AdminGuideProfileController {
     public GuideProfileResponse removePhoto(@PathVariable UUID id) {
         return profiles.removePhoto(id);
     }
+
+    @PutMapping(path = "/cover", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public GuideProfileResponse uploadCover(@PathVariable UUID id, @RequestPart("file") MultipartFile file) {
+        return profiles.uploadCover(id, file);
+    }
+
+    @DeleteMapping("/cover")
+    public GuideProfileResponse removeCover(@PathVariable UUID id) {
+        return profiles.removeCover(id);
+    }
 }

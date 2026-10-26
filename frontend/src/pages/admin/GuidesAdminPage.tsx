@@ -9,9 +9,11 @@ import {
   listGuides,
   listGuideSpecialties,
   promoteGuide,
+  removeGuideCover,
   removeGuidePhoto,
   updateGuideDetails,
   updateGuideProfile,
+  uploadGuideCover,
   uploadGuidePhoto,
   type GuideDetailsInput,
   type GuideProfile,
@@ -191,8 +193,8 @@ function SpecialtiesPanel() {
 }
 
 /**
- * The guide's name, photo, home town and bio as the trek, departure and guide pages show them (docs/TRD.md §7.12),
- * and their profile address (§7.21). The guide edits the same fields from /guide/profile.
+ * The guide's name, photo, cover, home town and bio as the trek, departure and guide pages show them (docs/TRD.md
+ * §7.12), and their profile address (§7.21). The guide edits the same fields from /guide/profile.
  */
 function ProfileForm({ guideId, onDone }: { guideId: string; onDone: () => void }) {
   const { withAuth } = useAuth()
@@ -210,6 +212,7 @@ function ProfileFields({ guideId, initial, onDone }: { guideId: string; initial:
   const queryClient = useQueryClient()
   const [form, setForm] = useState({ full_name: initial.full_name ?? '', home_city: initial.home_city ?? '', bio: initial.bio ?? '' })
   const [photo, setPhoto] = useState(initial.avatar_url)
+  const [cover, setCover] = useState(initial.cover_url)
   const [slug, setSlug] = useState(initial.slug)
   const saved = (data: GuideProfile) => {
     queryClient.setQueryData(['admin-guide-profile', guideId], data)
@@ -237,6 +240,23 @@ function ProfileFields({ guideId, initial, onDone }: { guideId: string; initial:
     mutationFn: () => withAuth((token) => removeGuidePhoto(token, guideId)),
     onSuccess: (data) => {
       setPhoto(null)
+      saved(data)
+    },
+  })
+  const uploadCover = useMutation({
+    mutationFn: async (file: File) => {
+      const jpeg = await shrinkPhoto(file)
+      return withAuth((token) => uploadGuideCover(token, guideId, jpeg))
+    },
+    onSuccess: (data) => {
+      setCover(data.cover_url)
+      saved(data)
+    },
+  })
+  const removeCover = useMutation({
+    mutationFn: () => withAuth((token) => removeGuideCover(token, guideId)),
+    onSuccess: (data) => {
+      setCover(null)
       saved(data)
     },
   })
@@ -282,6 +302,42 @@ function ProfileFields({ guideId, initial, onDone }: { guideId: string; initial:
       {(upload.error || remove.error) && (
         <div className="sm:col-span-2">
           <ErrorNote error={upload.error ?? remove.error} />
+        </div>
+      )}
+      <div className="sm:col-span-2">
+        <div className="overflow-hidden rounded-lg bg-stone-100">
+          {cover ? (
+            <img src={cover} alt="Their cover" className="aspect-[3/1] w-full object-cover" />
+          ) : (
+            <div className="flex aspect-[3/1] items-center justify-center text-sm text-stone-500">No cover photo yet</div>
+          )}
+        </div>
+        <div className="mt-2 flex flex-wrap items-center gap-4">
+          <label className="cursor-pointer text-sm font-medium text-brand-800 hover:text-brand-950">
+            {uploadCover.isPending ? 'Uploading…' : cover ? 'Change cover' : 'Add cover photo'}
+            <input
+              type="file"
+              accept={AVATAR_TYPES.join(',')}
+              className="sr-only"
+              disabled={uploadCover.isPending}
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                e.target.value = ''
+                if (file) uploadCover.mutate(file)
+              }}
+            />
+          </label>
+          {cover && (
+            <button type="button" onClick={() => removeCover.mutate()} disabled={removeCover.isPending} className="text-sm text-stone-500 hover:text-stone-800">
+              Remove cover
+            </button>
+          )}
+          <span className="text-xs text-stone-500">The banner on their page. Wide landscape shots work best; we crop to 3:1.</span>
+        </div>
+      </div>
+      {(uploadCover.error || removeCover.error) && (
+        <div className="sm:col-span-2">
+          <ErrorNote error={uploadCover.error ?? removeCover.error} />
         </div>
       )}
       <div className="flex flex-col gap-2 sm:col-span-2 sm:flex-row sm:items-end">

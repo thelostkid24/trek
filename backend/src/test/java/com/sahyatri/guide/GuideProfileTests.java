@@ -89,6 +89,35 @@ class GuideProfileTests extends AuthTestSupport {
                 .andExpect(status().isForbidden());
     }
 
+    @Test
+    void adminSetsTheCoverPhoto() throws Exception {
+        String admin = adminToken();
+        UUID guide = guideUser();
+        String cover = "/api/admin/guides/" + guide + "/cover";
+
+        String body = authed(multipart(HttpMethod.PUT, cover)
+                .file(new MockMultipartFile("file", "valley.png", "image/png", png())), admin, null)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.cover_url", startsWith("http")))
+                .andReturn().getResponse().getContentAsString();
+        String url = JsonPath.read(body, "$.cover_url");
+        authed(get("/api/admin/guides/" + guide + "/profile"), admin, null).andExpect(jsonPath("$.cover_url").value(url));
+        mockMvc.perform(get("/api/public/guides/" + guide)).andExpect(jsonPath("$.cover_url").value(url));
+
+        authed(delete(cover), admin, null)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.cover_url").value(nullValue()));
+        mockMvc.perform(get("/api/public/guides/" + guide)).andExpect(jsonPath("$.cover_url").value(nullValue()));
+
+        // Only for guides, and only by admins.
+        String trekkerEmail = uniqueEmail();
+        emailTrekker(trekkerEmail);
+        authed(delete("/api/admin/guides/" + userIdByEmail(trekkerEmail) + "/cover"), admin, null)
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("GUIDE_NOT_FOUND"));
+        authed(delete(cover), emailTrekker(uniqueEmail()), null).andExpect(status().isForbidden());
+    }
+
     private static byte[] png() throws Exception {
         BufferedImage img = new BufferedImage(400, 500, BufferedImage.TYPE_INT_RGB);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
