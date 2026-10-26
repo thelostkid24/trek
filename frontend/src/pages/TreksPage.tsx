@@ -3,10 +3,12 @@ import { useMemo, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
   DIFFICULTY_LABEL,
+  SEASON_LABEL,
   listCatalog,
   type CatalogDeparture,
   type CatalogTrek,
   type Difficulty,
+  type Season,
 } from '../api/catalog.ts'
 import { messageFor } from '../auth/errorMessages.ts'
 import { DifficultyPill } from '../components/catalog/DeparturePieces.tsx'
@@ -23,12 +25,13 @@ const GRADES: { grade: Difficulty; label: string }[] = [
 ]
 
 /** A filter select, filled in once something is picked. */
-/** /treks — every trek we run, filtered by grade and month. Contract: docs/TRD.md §7.9. */
+/** /treks — every trek we run, filtered by season, month and grade. Contract: docs/TRD.md §7.9. */
 export function TreksPage() {
   const [params, setParams] = useSearchParams()
   const catalog = useQuery({ queryKey: ['public-catalog'], queryFn: listCatalog })
   const treks = useMemo(() => catalog.data?.items ?? [], [catalog.data])
 
+  const season = params.get('season') as Season | null
   const grade = params.get('grade') as Difficulty | null
   const month = params.get('month')
 
@@ -46,6 +49,7 @@ export function TreksPage() {
   }, [treks])
 
   const matching = treks
+    .filter((t) => !season || t.seasons.includes(season))
     .filter((t) => !grade || t.difficulty === grade)
     .map((t) => (month ? { ...t, departures: t.departures.filter((d) => monthKey(d.start_date) === month) } : t))
     // A month filter is about dates, so treks with none left drop out.
@@ -63,9 +67,16 @@ export function TreksPage() {
       </header>
 
       <div className="mt-6 flex flex-wrap items-center gap-2">
-        <Chip on={!grade && !month} onClick={() => setParams(new URLSearchParams(), { replace: true })}>
+        <Chip on={!season && !grade && !month} onClick={() => setParams(new URLSearchParams(), { replace: true })}>
           All
         </Chip>
+        <FilterSelect label="Season" value={season} onChange={(v) => setParam('season', v)}>
+          {(Object.keys(SEASON_LABEL) as Season[]).map((key) => (
+            <option key={key} value={key}>
+              {SEASON_LABEL[key]}
+            </option>
+          ))}
+        </FilterSelect>
         {months.length > 0 && (
           <FilterSelect label="Month" value={month} onChange={(v) => setParam('month', v)}>
             {months.map((key) => (
@@ -107,7 +118,7 @@ export function TreksPage() {
             {treks.length === 0 ? 'The first treks are on their way' : 'Nothing matches those filters'}
           </p>
           <p className="mt-1 text-sm text-stone-600">
-            {treks.length === 0 ? 'Our guides are planning the season. Check back soon.' : 'Try a different month or grade.'}
+            {treks.length === 0 ? 'Our guides are planning the season. Check back soon.' : 'Try a different season, month or grade.'}
           </p>
         </Note>
       ) : (
@@ -203,7 +214,7 @@ function seatNote(d: CatalogDeparture) {
   return ''
 }
 
-/** A month or grade dropdown that looks like the chips: no native box, our own chevron. Empty value = no filter. */
+/** A season, month or grade dropdown that looks like the chips: no native box, our own chevron. Empty value = no filter. */
 function FilterSelect({ label, value, onChange, children }: { label: string; value: string | null; onChange: (value: string | null) => void; children: ReactNode }) {
   const on = value !== null
   return (

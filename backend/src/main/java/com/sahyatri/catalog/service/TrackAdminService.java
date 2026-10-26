@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -99,6 +100,7 @@ public class TrackAdminService {
                 blankToNull(req.seasonLabel()));
         track.updateServices(blankToNull(req.pickupDrop()), req.cloakroom(), req.offloading(),
                 req.offloadingPricePaise(), req.insurancePricePaise(), req.transportPricePaise());
+        track.updateSeasons(req.seasons() == null ? Set.of() : req.seasons(), req.homeOrder());
         track.clearItinerary();
         tracks.saveAndFlush(track);
         itinerary.forEach(day -> track.addItineraryDay(day.summary().trim()).setDetails(blankToNull(day.description()),
