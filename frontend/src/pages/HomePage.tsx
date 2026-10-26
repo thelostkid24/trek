@@ -260,7 +260,7 @@ function Destinations() {
   }
 
   return (
-    <section id="treks" className="scroll-mt-16 py-20 sm:py-28">
+    <section id="treks" className="scroll-mt-(--header-h) py-20 sm:py-28">
       <Container>
         <div className="flex flex-wrap items-end justify-between gap-6">
           <div>
@@ -381,7 +381,12 @@ function DestinationCard({
 
         {/* A listed trek without dates yet carries no badge; the empty span keeps the words at the bottom. */}
         {next ? (
-          <span className="self-start rounded-full border border-brand-300/50 bg-brand-950/40 px-3 py-1 text-[0.65rem] font-medium tracking-[0.18em] text-brand-200 uppercase backdrop-blur-sm">
+          // Solid and bright so it reads against snow photos, with a pulsing dot like a live sign.
+          <span className="inline-flex items-center gap-2 self-start rounded-full bg-laterite-500 px-3.5 py-1.5 whitespace-nowrap text-[0.7rem] font-semibold tracking-[0.16em] text-white uppercase shadow-lg shadow-ink-950/30 ring-1 ring-white/40">
+            <span className="relative flex size-2" aria-hidden="true">
+              <span className="absolute inline-flex size-full animate-ping rounded-full bg-white/80 motion-reduce:animate-none" />
+              <span className="relative inline-flex size-2 rounded-full bg-white" />
+            </span>
             Booking open
           </span>
         ) : (
@@ -446,7 +451,7 @@ function StepIcon({ children }: { children: ReactNode }) {
 function HowItWorks() {
   const { ref, ...steps } = useInView<HTMLOListElement>()
   return (
-    <section id="how-it-works" className="scroll-mt-16 py-20 sm:py-28">
+    <section id="how-it-works" className="scroll-mt-(--header-h) py-20 sm:py-28">
       <Container>
         <div className="mx-auto max-w-3xl text-center">
           <div className="flex justify-center">
@@ -504,7 +509,7 @@ const WHY_US = [
 
 function WhyChooseUs() {
   return (
-    <section id="why-us" className="scroll-mt-16 py-20 sm:py-28">
+    <section id="why-us" className="scroll-mt-(--header-h) py-20 sm:py-28">
       <Container>
         <h2 className="text-center text-4xl font-light tracking-[-0.02em] sm:text-5xl">Why choose The Empty Valley</h2>
         <ul className="mt-12 grid divide-y divide-paper-300 sm:mt-16 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
@@ -525,7 +530,7 @@ function WhyChooseUs() {
 
 function Faq() {
   return (
-    <section id="faqs" className="scroll-mt-16 py-20 sm:py-28">
+    <section id="faqs" className="scroll-mt-(--header-h) py-20 sm:py-28">
       <Container className="grid gap-10 lg:grid-cols-[1fr_1.4fr] lg:gap-20">
         <div>
           <Eyebrow>FAQs</Eyebrow>

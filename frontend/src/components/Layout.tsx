@@ -85,26 +85,6 @@ export function Layout() {
   const home = location.pathname === '/'
   const scrolled = useScrolledPast(24)
   const tone: HeaderTone = menuOpen ? 'dark' : home && !scrolled ? 'clear' : 'light'
-  // On the home page the header is fixed over the hero, so the strip folds away on scroll. Elsewhere it sits above the
-  // sticky header and simply scrolls off: folding it there changed the page's height, which moved the scroll position
-  // back over the threshold and made the header jump open and shut on short pages.
-  const banner = SEASON_BANNER && (
-    <Link
-      to={SEASON_BANNER.href}
-      viewTransition
-      tabIndex={home && scrolled ? -1 : undefined}
-      aria-hidden={(home && scrolled) || undefined}
-      className="group block min-h-0 overflow-hidden bg-laterite-600 text-center font-grotesk text-sm text-white"
-    >
-      <span className="flex items-center justify-center gap-2 px-4 py-2">
-        <span className="italic">{SEASON_BANNER.text}</span>
-        <span aria-hidden="true">·</span>
-        <span className="font-semibold tracking-wide uppercase">{SEASON_BANNER.cta}</span>
-        <span aria-hidden="true" className="transition-transform group-hover:translate-x-0.5">→</span>
-      </span>
-    </Link>
-  )
-
   return (
     <div className="flex min-h-dvh flex-col">
       {/* First stop for keyboard users: jumps past the header and menu. Hidden until it has focus. */}
@@ -114,16 +94,26 @@ export function Layout() {
       >
         Skip to content
       </a>
-      {!home && banner}
       <header
         className={`site-header top-0 z-20 font-grotesk transition-[background-color,color,box-shadow] duration-500 ${
           home ? 'fixed inset-x-0' : 'sticky'
         } ${HEADER_TONES[tone]}`}
       >
-        {home && banner && (
-          <div className={`grid transition-[grid-template-rows] duration-300 ${scrolled ? 'grid-rows-[0fr]' : 'grid-rows-[1fr]'}`}>
-            {banner}
-          </div>
+        {/* Stays with the header while the page scrolls. It never folds away: changing the header's height on scroll
+            moved the page under it and made the header jump on short pages. */}
+        {SEASON_BANNER && (
+          <Link
+            to={SEASON_BANNER.href}
+            viewTransition
+            className="group block bg-laterite-600 text-center text-sm text-white"
+          >
+            <span className="flex items-center justify-center gap-2 px-4 py-2">
+              <span className="italic">{SEASON_BANNER.text}</span>
+              <span aria-hidden="true">·</span>
+              <span className="font-semibold tracking-wide uppercase">{SEASON_BANNER.cta}</span>
+              <span aria-hidden="true" className="transition-transform group-hover:translate-x-0.5">→</span>
+            </span>
+          </Link>
         )}
         <div className="mx-auto flex h-16 max-w-[90rem] items-center justify-between gap-3 px-5 sm:gap-6 sm:px-10">
           {/* min-w-0 + truncate: on the narrowest phones the name gives way, never the menu button. */}

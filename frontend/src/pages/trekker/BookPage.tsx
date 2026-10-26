@@ -632,7 +632,7 @@ function Checkout({ departure, user }: { departure: DepartureDetail; user: User 
           </section>
         </div>
 
-        <aside className="rounded-2xl border border-stone-200 bg-white p-5 sm:p-6 lg:sticky lg:top-20">
+        <aside className="rounded-2xl border border-stone-200 bg-white p-5 sm:p-6 lg:sticky lg:top-[calc(var(--header-h)+1rem)]">
           <h2 className="font-display text-lg font-semibold">₹ Payment summary</h2>
           <dl className="mt-3 space-y-2 text-sm">
             <div className="flex justify-between gap-3">

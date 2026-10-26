@@ -22,7 +22,7 @@ export function SectionLabel({ id, children, aside }: { id?: string; children: R
 /** A page section that tabs can jump to; clears the sticky header and tab bar. */
 export function TrekSection({ id, label, aside, children }: { id: string; label: string; aside?: ReactNode; children: ReactNode }) {
   return (
-    <section id={id} aria-labelledby={`${id}-heading`} className="scroll-mt-36 border-t border-paper-300 pt-8 first:border-0 first:pt-0">
+    <section id={id} aria-labelledby={`${id}-heading`} className="scroll-mt-[calc(var(--header-h)+5rem)] border-t border-paper-300 pt-8 first:border-0 first:pt-0">
       <SectionLabel id={`${id}-heading`} aside={aside}>
         {label}
       </SectionLabel>
@@ -79,7 +79,7 @@ export function TabBar({ tabs }: { tabs: { id: string; label: string }[] }) {
   }, [tabs])
 
   return (
-    <nav aria-label="Trek sections" className="sticky top-16 z-10 -mx-4 bg-paper-50/95 px-4 py-2 backdrop-blur sm:mx-0 sm:px-0">
+    <nav aria-label="Trek sections" className="sticky top-(--header-h) z-10 -mx-4 bg-paper-50/95 px-4 py-2 backdrop-blur sm:mx-0 sm:px-0">
       <ul className="flex overflow-x-auto rounded-full bg-brand-900 p-1 text-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {tabs.map((t) => (
           <li key={t.id} className="shrink-0">

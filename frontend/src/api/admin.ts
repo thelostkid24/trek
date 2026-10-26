@@ -1,3 +1,4 @@
+import type { GuideMediaItem } from './guideMedia.ts'
 import { apiFetch } from './client'
 import type { PledgeKind } from './certifications.ts'
 import type { RouteItem } from './guide.ts'
@@ -345,3 +346,17 @@ export const snowReportApi = (area: 'admin' | 'guide'): SnowReportApi => ({
 /** Treks the signed-in guide can report on. */
 export const listGuideTracks = (token: string) =>
   apiFetch<Items<{ id: string; slug: string; name: string }>>('/api/guide/tracks', { token })
+
+// A guide's gallery, managed by an admin (docs/TRD.md §7.21.4, §7.23).
+
+export const getGuideGallery = (token: string, guideId: string) =>
+  apiFetch<{ items: GuideMediaItem[] }>(`/api/admin/guides/${guideId}/media`, { token }).then((r) => r.items)
+
+export function uploadGuideGalleryPhoto(token: string, guideId: string, file: Blob) {
+  const body = new FormData()
+  body.append('file', file, 'photo.jpg')
+  return apiFetch<GuideMediaItem>(`/api/admin/guides/${guideId}/media/photos`, { method: 'POST', token, body })
+}
+
+export const deleteGuideGalleryItem = (token: string, guideId: string, id: string) =>
+  apiFetch<void>(`/api/admin/guides/${guideId}/media/${id}`, { method: 'DELETE', token })

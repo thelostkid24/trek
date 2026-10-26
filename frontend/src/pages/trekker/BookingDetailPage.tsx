@@ -524,7 +524,7 @@ function HeldCheckout({ booking: b, offered, children }: { booking: Booking; off
         </form>
       </div>
 
-      <aside className="rounded-(--card-radius) border border-laterite-400/50 bg-laterite-100/60 p-5 lg:sticky lg:top-24">
+      <aside className="rounded-(--card-radius) border border-laterite-400/50 bg-laterite-100/60 p-5 lg:sticky lg:top-[calc(var(--header-h)+2rem)]">
         <div className="flex items-baseline justify-between gap-2">
           <h2 className="font-display text-lg font-medium text-stone-900">{expired ? 'Your hold has ended' : 'Seats held for you'}</h2>
           {!expired && (
@@ -658,7 +658,7 @@ function CancelSection({ booking, onKeep }: { booking: Booking; onKeep: () => vo
   const tiers = booking.refund_policy ?? []
 
   return (
-    <section id="cancel" className="scroll-mt-20 rounded-(--card-radius) border border-paper-300 bg-paper-50 p-5 sm:p-7">
+    <section id="cancel" className="scroll-mt-[calc(var(--header-h)+1rem)] rounded-(--card-radius) border border-paper-300 bg-paper-50 p-5 sm:p-7">
       <h2 className="font-display text-xl font-medium text-stone-900">Change of plans?</h2>
       <p className="mt-1 text-sm text-stone-600">
         Your batch is confirmed and runs on these dates whatever the numbers. If you cancel, your seats go back to the

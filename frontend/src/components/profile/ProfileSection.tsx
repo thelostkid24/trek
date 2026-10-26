@@ -20,7 +20,7 @@ export function ProfileSection({
   return (
     <section
       id={id}
-      className="profile-card group/section relative scroll-mt-24 rounded-(--card-radius) border border-paper-300 bg-paper-50 transition-[border-color,box-shadow] duration-300 focus-within:border-pine-600/30 focus-within:shadow-[0_10px_30px_-18px_rgb(23_28_35/0.3)]"
+      className="profile-card group/section relative scroll-mt-[calc(var(--header-h)+2rem)] rounded-(--card-radius) border border-paper-300 bg-paper-50 transition-[border-color,box-shadow] duration-300 focus-within:border-pine-600/30 focus-within:shadow-[0_10px_30px_-18px_rgb(23_28_35/0.3)]"
     >
       <span
         aria-hidden="true"

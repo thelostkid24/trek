@@ -1,5 +1,7 @@
 package com.sahyatri.guide.service;
 
+import com.sahyatri.auth.entity.Role;
+import com.sahyatri.auth.repository.UserRepository;
 import com.sahyatri.catalog.service.TrackPhotoService;
 import com.sahyatri.common.exception.ApiException;
 import com.sahyatri.common.storage.FileStorage;
@@ -40,13 +42,23 @@ public class GuideMediaService {
     private final GuideSlugService slugs;
     private final FileStorage storage;
     private final GuideMediaFiles files;
+    private final UserRepository users;
 
     public GuideMediaService(GuideMediaRepository media, GuideSlugService slugs, FileStorage storage,
-                             GuideMediaFiles files) {
+                             GuideMediaFiles files, UserRepository users) {
         this.media = media;
         this.slugs = slugs;
         this.storage = storage;
         this.files = files;
+        this.users = users;
+    }
+
+    /** For an admin managing someone's gallery: 404 unless the id is a guide's. */
+    @Transactional(readOnly = true)
+    public void requireGuide(UUID guideId) {
+        users.findById(guideId)
+                .filter(u -> u.getRole() == Role.GUIDE)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "GUIDE_NOT_FOUND", "Guide not found"));
     }
 
     @Transactional(readOnly = true)

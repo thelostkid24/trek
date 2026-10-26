@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.startsWith;
@@ -174,6 +175,34 @@ class GuideMediaTests extends AuthTestSupport {
         String trekker = emailTrekker(uniqueEmail());
         authed(get("/api/guide/media"), trekker, null).andExpect(status().isForbidden());
         mockMvc.perform(get("/api/guide/media")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void anAdminManagesAGuidesGallery() throws Exception {
+        String admin = adminToken();
+        String email = uniqueEmail();
+        String guide = tokenWithRole(email, "GUIDE");
+        UUID guideId = userIdByEmail(email);
+        String base = "/api/admin/guides/" + guideId + "/media";
+
+        String id = JsonPath.read(authed(multipart(base + "/photos")
+                .file(new MockMultipartFile("file", "photo.png", "image/png", png(40, 30))), admin, null)
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.kind").value("PHOTO"))
+                .andReturn().getResponse().getContentAsString(), "$.id");
+        authed(get(base), admin, null).andExpect(jsonPath("$.items[*].id", contains(id)));
+        authed(get("/api/guide/media"), guide, null).andExpect(jsonPath("$.items[*].id", contains(id)));
+        mockMvc.perform(get("/api/public/guides/" + guideId + "/media")).andExpect(jsonPath("$.items", hasSize(1)));
+
+        authed(delete(base + "/" + id), admin, null).andExpect(status().isNoContent());
+        authed(get(base), admin, null).andExpect(jsonPath("$.items", hasSize(0)));
+
+        String trekkerEmail = uniqueEmail();
+        emailTrekker(trekkerEmail);
+        authed(get("/api/admin/guides/" + userIdByEmail(trekkerEmail) + "/media"), admin, null)
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("GUIDE_NOT_FOUND"));
+        authed(get(base), guide, null).andExpect(status().isForbidden());
     }
 
     private ResultActions uploadPhoto(String token, byte[] bytes, String caption) throws Exception {
