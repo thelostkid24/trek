@@ -58,7 +58,7 @@ public class GuideDetailsService {
         d.update(req.leadingSince(), blankToNull(req.languages()), blankToNull(req.certification()),
                 blankToNull(req.certificationNumber()), blankToNull(req.bmcInstitute()),
                 blankToNull(req.bmcCertificateNumber()), blankToNull(req.amcInstitute()),
-                blankToNull(req.amcCertificateNumber()), blankToNull(req.quote()), req.routeVerified());
+                blankToNull(req.amcCertificateNumber()), blankToNull(req.quote()), Boolean.TRUE.equals(req.routeVerified()));
         return GuideDetailsResponse.of(guideId, details.saveAndFlush(d), priorFor(guideId), today());
     }
 

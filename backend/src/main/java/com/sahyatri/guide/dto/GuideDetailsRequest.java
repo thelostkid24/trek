@@ -19,5 +19,5 @@ public record GuideDetailsRequest(
         @Size(max = 160) String amcInstitute,
         @Size(max = 60) String amcCertificateNumber,
         @Size(max = 240) String quote,
-        boolean routeVerified) {
+        Boolean routeVerified) {
 }
