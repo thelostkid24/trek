@@ -127,12 +127,6 @@ function UpcomingTrek({ booking: b }: { booking: Booking }) {
           <Link to={detail} className="rounded-full bg-pine-600 px-4 py-2 text-sm font-medium text-white hover:bg-pine-700">
             {b.status === 'HELD' ? 'Complete payment' : 'Manage booking'}
           </Link>
-          <Link
-            to={`/account/gear?booking=${b.id}`}
-            className="rounded-full border border-pine-600/60 bg-paper-50 px-4 py-2 text-sm font-medium text-pine-700 hover:border-pine-600"
-          >
-            Rent gear
-          </Link>
           {b.status === 'CONFIRMED' && (
             <MoreMenu label="More options for this booking" items={[{ label: 'Request cancellation', to: `${detail}?cancel=1` }]} />
           )}

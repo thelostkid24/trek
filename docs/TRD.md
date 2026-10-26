@@ -247,6 +247,12 @@ NULL everywhere = not captured (rows made before V11, or nothing sent). Tracking
 ### 6.31 Route verified override — `V40__guide_route_verified.sql`
 - **`guide_profiles`** — adds `route_verified BOOLEAN NOT NULL DEFAULT false`: an admin marks the guide "Route verified" on `/guides` whatever their treks led (§7.12, §7.17).
 
+### 6.32 Winter treks — `V41__winter_treks.sql`
+- Data only, no schema: inserts Dayara Bugyal (`dayara-bugyal`), Brahmatal (`brahmatal`) and Nag Tibba (`nag-tibba`) as listed `tracks` with their itinerary days, What's included / not included and FAQs (`trek_content_items`), and `track_seasons` (all three WINTER; Dayara and Nag Tibba also SPRING and AUTUMN, Brahmatal AUTUMN). Copy is from the "trek-info" content pages. Each insert is skipped if a trek with that slug already exists; admins edit them like any other trek (§7.22).
+
+### 6.33 Batches led override — `V42__guide_batches_led.sql`
+- **`guide_profiles`** — adds `batches_led INT NULL CHECK 0..10000`: the "Batches led" number an admin sets for a guide. Null = worked out from their routes and completed departures, as before (§7.12, §7.17, §7.22).
+
 ## 7. Feature log
 Each feature appends: scope, endpoints, tables, screens, tests.
 
@@ -1025,8 +1031,8 @@ Gear rental and its payment, add-ons after booking (they're chosen at checkout, 
 
 | Method & path | Request | Success | Errors |
 |---|---|---|---|
-| `GET /api/admin/guides/{id}/details` | — | `200 { guide_id, leading_since, years_leading, languages, certification, certification_number, bmc_institute, bmc_certificate_number, amc_institute, amc_certificate_number, quote, route_verified, prior_treks: [{ track_id, times }] }` (all null and `[]` until saved; `prior_treks` read-only, from the catalog routes with times in `guide_routes`, most-led first) | `404 GUIDE_NOT_FOUND` |
-| `PUT /api/admin/guides/{id}/details` | `{ leading_since (1950..this year), languages ≤ 120, certification ≤ 160, certification_number ≤ 60, bmc_institute ≤ 160, bmc_certificate_number ≤ 60, amc_institute ≤ 160, amc_certificate_number ≤ 60, quote ≤ 240, route_verified (boolean, left out = false) }`, blank clears. Times led before Sahyātri are set in the record (§7.21.8). | `200` as above | `400 VALIDATION_FAILED`, `404 GUIDE_NOT_FOUND` |
+| `GET /api/admin/guides/{id}/details` | — | `200 { guide_id, leading_since, years_leading, languages, certification, certification_number, bmc_institute, bmc_certificate_number, amc_institute, amc_certificate_number, quote, route_verified, batches_led, prior_treks: [{ track_id, times }] }` (all null and `[]` until saved; `prior_treks` read-only, from the catalog routes with times in `guide_routes`, most-led first) | `404 GUIDE_NOT_FOUND` |
+| `PUT /api/admin/guides/{id}/details` | `{ leading_since (1950..this year), languages ≤ 120, certification ≤ 160, certification_number ≤ 60, bmc_institute ≤ 160, bmc_certificate_number ≤ 60, amc_institute ≤ 160, amc_certificate_number ≤ 60, quote ≤ 240, route_verified (boolean, left out = false), batches_led (0..10000, left out = null = worked out) }`, blank clears. Times led before Sahyātri are set in the record (§7.21.8). | `200` as above | `400 VALIDATION_FAILED`, `404 GUIDE_NOT_FOUND` |
 | `GET /api/admin/guides/{id}/profile` | — | `200 { guide_id, slug, full_name, avatar_url, cover_url, home_city, bio }` | `404 GUIDE_NOT_FOUND` |
 | `PUT /api/admin/guides/{id}/profile` | `{ full_name (1..100, required), home_city ≤ 100, bio ≤ 2000 }`, blank clears the optional ones | `200` as above | `400 VALIDATION_FAILED`, `404 GUIDE_NOT_FOUND` |
 | `PUT /api/admin/guides/{id}/avatar` | multipart `file` (JPEG/PNG ≤ 5 MB; stored as a 512×512 centre crop, like `/api/account/avatar`) | `200` as above | `400 UNSUPPORTED_IMAGE`, `404 GUIDE_NOT_FOUND`, `413 FILE_TOO_LARGE` |
@@ -1427,6 +1433,17 @@ Tables in §6.25–§6.27. Added 2026-10-23 for the four guide packets (Mankesh 
 - The link card (§7.21.2), with picks: "<trained_at joined by &> trained · <n> yrs · <first picked stat's `brief`>" (`brief`: "Kedarkantha 50×", "21 treks", "8 routes"); without picks, unchanged.
 - Frontend: Admin → Guides → Record (`components/admin/GuideRecordPanel.tsx`): treks in the last 3 years; routes (a catalog trek or a typed name, peak or trek, times before, last led year and month, most recent, availability and note via `RoutePlanFields`; move up, remove); the two pledges; up to seven stats (ROUTE_TIMES picks a route; "Custom" shows a Key box, e.g. "treks led in 3 years", and a Value box, e.g. "21"). The guide page's "Routes <first name> leads" lists names with "N×" or "Led"; the picked one shows Times led, Last led ("Sep 2026", "Most recent trek", "Not given"), Available ("Any time (Mar–Oct)", "From 15 Nov 2026", "Not open yet", "Ask <first name>"), and Top and Season for a catalog trek, the note, and the trek link. Career dates read as above. Wording in `lib/guideRecord.ts`.
 - Tests: `GuideRecordTests`, `OwnGuideProfileTests`, `GuideCertificationTests`, `TrekContentTests`.
+
+### 7.22 26 Oct changes: winter treks, guide cards, guide page
+Added 2026-10-26. Supersedes the parts of §7.10, §7.17, §7.21 and §7.21.8 it names.
+- Treks: Dayara Bugyal, Brahmatal and Nag Tibba are listed with their pages and sit under Winter on `/treks` with Kedarkantha and Kuari Pass (§6.32). The "Winter treks · Bookings open" strip links to `/treks?season=WINTER`.
+- Header (`components/Layout.tsx`): off the home page the season strip sits above the sticky header and scrolls away with the page; only the home page's fixed header folds it on scroll. Folding it inside a sticky header changed the page height, which pulled the scroll position back over the threshold and made the header jump on short pages.
+- Our Guides cards (`pages/GuidesPage.tsx`): the whole card opens `/guides/:id` (the name link's overlay) and lifts with a green outline on hover; every card shows both "Certified" and "Route verified"; the tip shows while the pointer is over the tag or the "i" has keyboard focus, a tap toggles it, and moving away closes it; the stats row is Years · Batches led (no Reviews column); a "NEW" tag sits top-left while `review_count` is 0. After the last page: faceless avatars, "More mountain heroes are joining soon", "We're checking their certificates and routes ourselves right now." and "How we verify →" (Our Vision).
+- Batches led: Admin → Guides → Credentials has "Batches led" (`batches_led`, §6.33). When set, it is `treks_led` on `GuideListItem` and `GuideProfile` (the TREKS_LED stat and default row too); empty, it's worked out as before.
+- Guide page (`pages/GuidePage.tsx`): the photo opens full size in a dialog (close button or Escape). With no reviews, a "NEW HERE" badge sits under the photo with "Joined The Empty Valley in <Mon YYYY>" (`GuideProfile.joined_at`, the account's `created_at`). The RATING stat is left out until the first review, so "New · no reviews yet" no longer shows. In "Routes <first name> leads" every trek shows Available "As per dates published" (links to the trek page, or `/treks` for a route we don't list) and Top (feet, or "Not given"); Season is gone; the link at the bottom is "See the <trek> trek →", or "See the related treks →" to `/treks`.
+- Account: the "Saved guides" tab is "My fav heroes". Gear rental is hidden until it has photos and prices: no Gear tab, no "Rent gear" on bookings, and `/account/gear` redirects to `/account/bookings` (`GearPage.tsx` stays for later).
+- Review form (`OwnTrekkerReviewForm`): Submit stays clickable; without a star or a name it says "Tap a star to rate your trek" / "Add your name" instead of sitting greyed out.
+- Tests: `TrekCatalogTests.theWinterTreksAreListedWithTheirPages`, `GuideListTests.anAdminSetsAGuidesBatchesLed`, `GuideRecordTests` (no RATING stat without reviews).
 
 ## 8. Running locally
 

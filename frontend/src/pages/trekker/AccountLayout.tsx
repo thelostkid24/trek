@@ -8,9 +8,8 @@ import { maskPhone } from '../../lib/format.ts'
 const NAV = [
   { to: '/account/bookings', label: 'My treks' },
   { to: PROFILE_PATH, label: 'My profile' },
-  { to: '/account/gear', label: 'Gear' },
   { to: '/account/questions', label: 'Questions' },
-  { to: '/account/saved-guides', label: 'Saved guides' },
+  { to: '/account/saved-guides', label: 'My fav heroes' },
 ]
 
 const joinedFormat = new Intl.DateTimeFormat('en-IN', { month: 'long', year: 'numeric' })

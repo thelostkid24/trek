@@ -17,7 +17,7 @@ import { ReplyTimeStat } from '../components/guide/sections/ReplyTimeStat.tsx'
 import { ReviewsSection } from '../components/guide/sections/ReviewsSection.tsx'
 import { TierBadge } from '../components/guide/sections/TierBadge.tsx'
 import { feet, rupees, shortRange, weekdaysAndYear } from '../lib/format.ts'
-import { availabilityLabel, lastLed, milestoneDate } from '../lib/guideRecord.ts'
+import { lastLed, milestoneDate } from '../lib/guideRecord.ts'
 import { Seo } from '../components/Seo.tsx'
 import { SITE_ORIGIN } from '../lib/siteLinks.ts'
 
@@ -203,15 +203,19 @@ function Header({ guide: g, owner, name, url }: { guide: GuideProfile; owner: bo
     <header className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
       {/* Top-aligned, so the photo's negative margin lifts it over the cover's edge (with items-end it wouldn't). */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-6">
-        <div className="relative -mt-14 shrink-0 sm:-mt-20">
+        <div className="relative -mt-14 flex shrink-0 flex-col items-center sm:-mt-20">
           {g.avatar_url ? (
-            <img
-              src={g.avatar_url}
-              alt={name}
-              className="size-28 rounded-full object-cover ring-4 ring-paper-50 sm:size-40"
-            />
+            <PhotoViewer url={g.avatar_url} name={name} />
           ) : (
             <Avatar url={null} name={name} size="lg" className="size-28! rounded-full! text-4xl! ring-4! ring-paper-50! sm:size-40! sm:text-5xl!" />
+          )}
+          {g.review_count === 0 && (
+            <>
+              <span className="-mt-4 rounded-full bg-brand-900 px-3 py-1 text-[11px] font-bold tracking-[0.12em] text-white uppercase ring-2 ring-paper-50">
+                New here
+              </span>
+              <span className="mt-1.5 text-xs text-stone-500">Joined The Empty Valley in {joinedFormat.format(new Date(g.joined_at))}</span>
+            </>
           )}
         </div>
         <div className="min-w-0 sm:pt-5">
@@ -235,6 +239,42 @@ function Header({ guide: g, owner, name, url }: { guide: GuideProfile; owner: bo
         <ShareProfile name={name} url={url} primary />
       </div>
     </header>
+  )
+}
+
+const joinedFormat = new Intl.DateTimeFormat('en-IN', { month: 'short', year: 'numeric' })
+
+/** The profile photo; a click opens it full size over the page. Escape or the close button shuts it. */
+function PhotoViewer({ url, name }: { url: string; name: string }) {
+  const dialog = useRef<HTMLDialogElement>(null)
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => dialog.current?.showModal()}
+        aria-label={`Open ${name}'s photo`}
+        className="cursor-zoom-in rounded-full transition hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-600"
+      >
+        <img src={url} alt={name} className="size-28 rounded-full object-cover ring-4 ring-paper-50 sm:size-40" />
+      </button>
+      <dialog
+        ref={dialog}
+        aria-label={`${name}'s photo`}
+        className="m-auto max-h-[90dvh] max-w-[min(90vw,48rem)] overflow-visible bg-transparent p-0 backdrop:bg-black/80"
+      >
+        <img src={url} alt={name} className="max-h-[90dvh] w-auto rounded-2xl object-contain" />
+        <button
+          type="button"
+          onClick={() => dialog.current?.close()}
+          aria-label="Close photo"
+          className="absolute -top-3 -right-3 flex size-9 items-center justify-center rounded-full bg-white text-stone-900 shadow-lg hover:bg-stone-100"
+        >
+          <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+            <path d="M6 6l12 12M18 6 6 18" />
+          </svg>
+        </button>
+      </dialog>
+    </>
   )
 }
 
@@ -335,8 +375,8 @@ function About({ bio, first, owner }: { bio: string | null; first: string; owner
 }
 
 /**
- * Their routes in the kept order, then treks completed with us; the picked one shows times led, last led, when they
- * can lead it, the top and season for a trek we list, and the guide's note (§7.21.8).
+ * Their routes in the kept order, then treks completed with us; the picked one shows times led, last led, a link to the
+ * trek's published dates, the top, the guide's note and the trek's page (§7.21.8).
  */
 function Routes({ treks, first }: { treks: GuideProfile['treks']; first: string }) {
   const [picked, setPicked] = useState(0)
@@ -371,27 +411,31 @@ function Routes({ treks, first }: { treks: GuideProfile['treks']; first: string 
           <dl className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
             <RouteFact label="Times led" value={t.times !== null ? `${t.times} ${t.times === 1 ? 'time' : 'times'}` : 'Not given'} />
             <RouteFact label="Last led" value={lastLed(t)} />
-            <RouteFact label="Available" value={availabilityLabel(t, first)} />
-            {t.max_altitude_m !== null && <RouteFact label="Top" value={feet(t.max_altitude_m)} />}
-            {t.season_label && <RouteFact label="Season" value={t.season_label} />}
+            <RouteFact
+              label="Available"
+              value={
+                <Link to={t.track ? `/treks/${t.track.slug}` : '/treks'} className="text-brand-700 underline underline-offset-2 hover:text-brand-900">
+                  As per dates published
+                </Link>
+              }
+            />
+            <RouteFact label="Top" value={t.max_altitude_m !== null ? feet(t.max_altitude_m) : 'Not given'} />
           </dl>
           {t.note && (
             <blockquote className="mt-5 border-l-2 border-laterite-400 pl-4 text-stone-700 italic">
               “{t.note}” <span className="not-italic text-stone-500">— {first}</span>
             </blockquote>
           )}
-          {t.track && (
-            <Link to={`/treks/${t.track.slug}`} className="mt-5 inline-block text-sm font-medium text-brand-700 hover:text-brand-900">
-              See the {t.track.name} trek →
-            </Link>
-          )}
+          <Link to={t.track ? `/treks/${t.track.slug}` : '/treks'} className="mt-5 inline-block text-sm font-medium text-brand-700 hover:text-brand-900">
+            {t.track ? `See the ${t.track.name} trek →` : 'See the related treks →'}
+          </Link>
         </div>
       </div>
     </section>
   )
 }
 
-function RouteFact({ label, value }: { label: string; value: string }) {
+function RouteFact({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div>
       <dt className="text-[0.65rem] font-semibold tracking-[0.16em] text-stone-500 uppercase">{label}</dt>

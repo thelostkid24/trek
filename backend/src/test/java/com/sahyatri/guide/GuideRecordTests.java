@@ -75,9 +75,10 @@ class GuideRecordTests extends AuthTestSupport {
                 .andExpect(jsonPath("$.treks[1].times").value(nullValue()))
                 .andExpect(jsonPath("$.treks[1].most_recent").value(true))
                 .andExpect(jsonPath("$.treks[2].season_from_month").value(3))
-                .andExpect(jsonPath("$.stats[*].value", contains("New", "21", "4 yrs", "3", "2", "0", "4×")))
-                .andExpect(jsonPath("$.stats[4].label").value("peak climbs led (Yunam, Friendship)"))
-                .andExpect(jsonPath("$.stats[6].brief").value(trackName(kedarkantha) + " 4×"))
+                // The rating stat is hidden until the first review.
+                .andExpect(jsonPath("$.stats[*].value", contains("21", "4 yrs", "3", "2", "0", "4×")))
+                .andExpect(jsonPath("$.stats[3].label").value("peak climbs led (Yunam, Friendship)"))
+                .andExpect(jsonPath("$.stats[5].brief").value(trackName(kedarkantha) + " 4×"))
                 .andExpect(jsonPath("$.trained_at", contains("NIM", "ABVIMAS")));
         mockMvc.perform(get("/api/public/guides/" + guideId + "/credentials"))
                 .andExpect(jsonPath("$.items[*].status", contains("PENDING", "VERIFIED", "IN_COURSE")))
@@ -121,8 +122,8 @@ class GuideRecordTests extends AuthTestSupport {
                 .andExpect(jsonPath("$.stats[1].label").value("treks led in 3 years"))
                 .andExpect(jsonPath("$.stats[0].value").value(nullValue()));
         mockMvc.perform(get("/api/public/guides/" + guideId))
-                .andExpect(jsonPath("$.stats[*].value", contains("New", "21")))
-                .andExpect(jsonPath("$.stats[1].label").value("treks led in 3 years"));
+                .andExpect(jsonPath("$.stats[*].value", contains("21")))
+                .andExpect(jsonPath("$.stats[0].label").value("treks led in 3 years"));
         authed(get(path), admin, null)
                 .andExpect(jsonPath("$.stats[1].value").value("21"))
                 .andExpect(jsonPath("$.stats[1].label").value("treks led in 3 years"));

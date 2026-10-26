@@ -252,6 +252,8 @@ export type GuideProfile = GuideCredentials & {
   })[]
   upcoming: DepartureSummary[]
   /** The numbers an admin picked, worked out on read; null when none are picked (the default row shows). */
+  /** When their account was made: "Joined The Empty Valley in Oct 2026". */
+  joined_at: string
   stats: GuideStat[] | null
   /** Short names of the institutes of their mountaineering courses ("NIM", "ABVIMAS"), basic first. */
   trained_at: string[]

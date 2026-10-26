@@ -211,6 +211,8 @@ export type GuideDetails = {
   quote: string | null
   /** Shows "Route verified" on the guides list whatever their treks led (docs/TRD.md §7.17). */
   route_verified: boolean
+  /** "Batches led" on Our Guides and their page; null = worked out from their routes and treks with us (§7.17). */
+  batches_led: number | null
   /** Catalog treks with times led before Sahyātri, most-led first (read-only; set in the record). */
   prior_treks: { track_id: string; times: number }[]
 }

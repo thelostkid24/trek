@@ -10,6 +10,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -138,6 +139,33 @@ class GuideListTests extends AuthTestSupport {
         // A save that leaves it out turns it off, like every other field.
         authed(put("/api/admin/guides/" + guideId + "/details"), admin, """
                 {"languages":"Hindi"}""").andExpect(jsonPath("$.route_verified").value(false));
+    }
+
+    @Test
+    void anAdminSetsAGuidesBatchesLed() throws Exception {
+        String admin = adminToken();
+        UUID track = createTrack(admin, 2);
+        UUID guideId = guideUser();
+        authed(put("/api/admin/guides/" + guideId + "/record"), admin, """
+                {"routes":[{"track_id":"%s","times_led":40}]}""".formatted(track)).andExpect(status().isOk());
+        mockMvc.perform(get("/api/public/guides"))
+                .andExpect(jsonPath(guide(guideId) + ".treks_led", contains(40)));
+
+        authed(put("/api/admin/guides/" + guideId + "/details"), admin, """
+                {"batches_led":12}""")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.batches_led").value(12));
+        mockMvc.perform(get("/api/public/guides"))
+                .andExpect(jsonPath(guide(guideId) + ".treks_led", contains(12)));
+        mockMvc.perform(get("/api/public/guides/" + guideId)).andExpect(jsonPath("$.treks_led").value(12));
+
+        // Cleared, it's worked out from their routes again.
+        authed(put("/api/admin/guides/" + guideId + "/details"), admin, "{}")
+                .andExpect(jsonPath("$.batches_led").value(nullValue()));
+        mockMvc.perform(get("/api/public/guides"))
+                .andExpect(jsonPath(guide(guideId) + ".treks_led", contains(40)));
+        authed(put("/api/admin/guides/" + guideId + "/details"), admin, """
+                {"batches_led":-1}""").andExpect(status().isBadRequest());
     }
 
     @Test

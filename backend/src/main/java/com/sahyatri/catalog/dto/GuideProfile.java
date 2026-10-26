@@ -6,6 +6,7 @@ import com.sahyatri.guide.entity.GuideStatKey;
 import com.sahyatri.guide.entity.RouteAvailability;
 import com.sahyatri.review.dto.PublicReview;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
@@ -18,7 +19,8 @@ import java.util.UUID;
  * {@link #RETURN_RATE_MIN_TREKKERS} trekkers (§7.21.2). {@code stats}: the numbers an admin picked, worked out now;
  * null when none are picked (the page shows its default row). {@code trainedAt}: short names of the institutes of the
  * mountaineering courses on record ("NIM", "ABVIMAS"), basic first (§7.21.8). {@code certified}: a verified
- * certificate still valid today, the same rule as the credentials' {@code verified} (§7.21.3).
+ * certificate still valid today, the same rule as the credentials' {@code verified} (§7.21.3). {@code joinedAt}: when
+ * their account was made, for "Joined The Empty Valley in Oct 2026".
  */
 public record GuideProfile(
         UUID id,
@@ -49,7 +51,8 @@ public record GuideProfile(
         List<DepartureSummary> upcoming,
         List<Stat> stats,
         List<String> trainedAt,
-        boolean certified) {
+        boolean certified,
+        Instant joinedAt) {
 
     public static final int RETURN_RATE_MIN_TREKKERS = 10;
 

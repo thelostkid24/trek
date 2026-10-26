@@ -71,7 +71,8 @@ export const router = createBrowserRouter([
               { path: PROFILE_PATH, lazy: page(() => import('./pages/trekker/ProfilePage.tsx'), 'ProfilePage') },
               { path: '/account/bookings', lazy: page(() => import('./pages/trekker/BookingsPage.tsx'), 'BookingsPage') },
               { path: '/account/bookings/:id', lazy: page(() => import('./pages/trekker/BookingDetailPage.tsx'), 'BookingDetailPage') },
-              { path: '/account/gear', lazy: page(() => import('./pages/trekker/GearPage.tsx'), 'GearPage') },
+              // Gear rental is hidden until it has photos and prices; GearPage comes back here then.
+              { path: '/account/gear', element: <Navigate to="/account/bookings" replace /> },
               { path: '/account/questions/:id?', lazy: page(() => import('./pages/trekker/QuestionsPage.tsx'), 'QuestionsPage') },
               { path: '/account/saved-guides', lazy: page(() => import('./pages/trekker/SavedGuidesPage.tsx'), 'SavedGuidesPage') },
             ],
