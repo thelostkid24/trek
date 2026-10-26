@@ -1459,6 +1459,7 @@ Added 2026-10-26. Supersedes the header part of §7.22.
 - Home "This season" cards: "Booking open" is a solid laterite pill with a pulsing white dot (still with `prefers-reduced-motion`).
 - Guide page: Upcoming departures is tinted green with a green outline and shadow; Book is a filled button.
 - `/treks` Month filter lists every month from this one through the next March, plus any later month with dates; a month with no dates yet says "Dates for <Mon YYYY> open soon."
+- Guide page gallery (`MediaSection`): the big photo shows whole (`object-contain`) over a blurred, dimmed copy of itself, so portrait photos aren't cropped top or bottom. Thumbnails stay cropped squares.
 - Tests: `GuideMediaTests.anAdminManagesAGuidesGallery`.
 
 ## 8. Running locally

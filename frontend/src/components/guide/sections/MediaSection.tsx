@@ -75,7 +75,11 @@ function Gallery({ items }: { items: GuideMediaItem[] }) {
     <div className="space-y-2">
       <div className="relative aspect-video overflow-hidden rounded-xl bg-ink-900">
         {item.kind === 'PHOTO' ? (
-          <img src={item.url ?? undefined} alt={item.caption ?? 'Photo from the guide'} className="h-full w-full object-cover" />
+          // The whole photo, never cropped: portrait shots sit centred over a blurred copy of themselves.
+          <>
+            <img src={item.url ?? undefined} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full scale-110 object-cover opacity-60 blur-2xl" />
+            <img src={item.url ?? undefined} alt={item.caption ?? 'Photo from the guide'} className="relative h-full w-full object-contain" />
+          </>
         ) : playing === item.id && item.youtube_id && youTubeEmbedUrl(item.youtube_id) ? (
           <iframe
             key={item.id}
