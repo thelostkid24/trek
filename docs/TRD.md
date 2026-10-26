@@ -237,15 +237,15 @@ NULL everywhere = not captured (rows made before V11, or nothing sent). Tracking
 ### 6.29 Review approval — `V38__review_approval.sql`
 - **`reviews`** — adds `approved_at TIMESTAMPTZ NULL` (null = an OWN_TREKKER review waiting for an admin; BOOKING rows are approved as written, `reviews_approved_shape`; every earlier row was set to its `created_at`) and `other_tag TEXT NULL 1..60` (the reviewer's own "What stood out?" answer). `reviews_source_shape` now lets OWN_TREKKER rows carry no contact (at most one of `reviewer_email` / `reviewer_phone`; new ones have neither). Index `reviews_waiting (created_at DESC) WHERE approved_at IS NULL`.
 
-### 6.30 Route verified override — `V39__guide_route_verified.sql`
-- **`guide_profiles`** — adds `route_verified BOOLEAN NOT NULL DEFAULT false`: an admin marks the guide "Route verified" on `/guides` whatever their treks led (§7.12, §7.17).
-
 ### 6.28 Trek state — `V36__track_state.sql`
 - **`tracks`** — adds `state TEXT NULL CHECK 1..60 chars`: the Indian state or union territory the trek is in. Null until an admin picks one in the trek form (`INDIAN_STATES` in `lib/trek.ts`). Carried on `TrackResponse` and `TrackBrief`; `/guides` filters by it (§7.17).
 
 ### 6.30 Trek seasons and home order — `V39__track_seasons.sql`
 - **`track_seasons`** — `(track_id → tracks ON DELETE CASCADE, season TEXT CHECK IN ('WINTER','SPRING','SUMMER','MONSOON','AUTUMN'))`, primary key on both: the seasons a trek runs in (`Season` enum, mapped as an `@ElementCollection` on `Track`). Feeds the Season filter on `/treks` (§7.9).
 - **`tracks`** — adds `home_order INT NULL CHECK 1..99`: the trek's place in the home page's "This season" row, 1 first; null keeps it off the home page. Both are set in the admin trek form and carried on `TrackRequest`, `TrackResponse` and `CatalogTrek` (`seasons` in enum order, `home_order`).
+
+### 6.31 Route verified override — `V40__guide_route_verified.sql`
+- **`guide_profiles`** — adds `route_verified BOOLEAN NOT NULL DEFAULT false`: an admin marks the guide "Route verified" on `/guides` whatever their treks led (§7.12, §7.17).
 
 ## 7. Feature log
 Each feature appends: scope, endpoints, tables, screens, tests.
@@ -1142,7 +1142,7 @@ Google renders the SPA, so there's no SSR. It needs a sitemap, robots.txt and pe
 |---|---|---|---|---|
 | `GET /api/public/guides` | — | — | `200 { items: GuideListItem[] }` | — |
 
-- `GuideListItem` = `{ id, full_name, avatar_url, home_city, years_leading, languages, certification, certification_number, bmc_institute, bmc_certificate_number, amc_institute, amc_certificate_number, quote, treks_led, rating, review_count, treks: TrackBrief[], upcoming, routes: string[], certified, route_verified }`. `treks` (catalog treks, most led first) count completed departures plus treks led before Sahyātri (§7.12). `treks_led` also adds the times of routes we don't list, so it matches the guide page (§7.21.8). `routes`: every route's name in the guide's order, then catalog treks completed with us that aren't routes. `certified`: a verified certificate still valid today (§7.21.3; `GuideCard` and `GuideProfile` carry the same flag). `upcoming` counts upcoming published departures. `route_verified`: an admin ticked "Route verified" in Admin → Guides → Credentials (§7.12, §6.30). Rating as in §7.14.
+- `GuideListItem` = `{ id, full_name, avatar_url, home_city, years_leading, languages, certification, certification_number, bmc_institute, bmc_certificate_number, amc_institute, amc_certificate_number, quote, treks_led, rating, review_count, treks: TrackBrief[], upcoming, routes: string[], certified, route_verified }`. `treks` (catalog treks, most led first) count completed departures plus treks led before Sahyātri (§7.12). `treks_led` also adds the times of routes we don't list, so it matches the guide page (§7.21.8). `routes`: every route's name in the guide's order, then catalog treks completed with us that aren't routes. `certified`: a verified certificate still valid today (§7.21.3; `GuideCard` and `GuideProfile` carry the same flag). `upcoming` counts upcoming published departures. `route_verified`: an admin ticked "Route verified" in Admin → Guides → Credentials (§7.12, §6.31). Rating as in §7.14.
 - Order: guides leading upcoming dates first, then most treks led, then name. Computed on each read, never stored (law 8).
 - Frontend: `/guides` (`pages/GuidesPage.tsx`, titled "Our mountain heroes"): a search panel (name search and a trek filter and a state filter built from every guide's `treks` and their `state`, each option with its guide count, a filter shown only when it has options; "Showing 1–12 of N", or "N matches" with "Clear all" while filtering), then a grid of 12 cards a page with numbered pages. Filters and page live in the URL (`q`, `trek`, `state`, `page`), filtered on the client. Each card: photo, name, home, tags "Certified" when `certified` and "Route verified" when `treks_led` > 7 or `route_verified` (the "i" then reads "has led more than 7 treks with us", or for an admin-marked guide "knows the routes they lead. Our team has checked them."), each with an "i" that opens its explanation on hover, focus or tap; a Years · Batches led · Reviews row ("—" when none; no reviews reads "New", as on the guide page); and "View <first name> →". The name and the button open `/guides/:id`. No matches shows "No one matches those filters" with "Clear all". Header gains "Our Guides" after "All Treks". In the sitemap (§7.16).
 - Tests: `GuideListTests`.
