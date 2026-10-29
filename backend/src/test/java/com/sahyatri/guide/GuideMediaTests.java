@@ -55,6 +55,21 @@ class GuideMediaTests extends AuthTestSupport {
         assertThat(stored.getWidth()).isEqualTo(2000);
         assertThat(stored.getHeight()).isEqualTo(1000);
 
+        // The strip's thumbnail is a small copy, made on first request and the same after.
+        String thumbUrl = JsonPath.read(body, "$.thumbnail_url");
+        assertThat(thumbUrl).isEqualTo(url.replace(".jpg", "-thumb.jpg"));
+        byte[] thumb = mockMvc.perform(get(path(thumbUrl)))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.CONTENT_TYPE, "image/jpeg"))
+                .andReturn().getResponse().getContentAsByteArray();
+        BufferedImage small = ImageIO.read(new ByteArrayInputStream(thumb));
+        assertThat(small.getWidth()).isEqualTo(480);
+        assertThat(small.getHeight()).isEqualTo(240);
+        assertThat(mockMvc.perform(get(path(thumbUrl))).andReturn().getResponse().getContentAsByteArray())
+                .isEqualTo(thumb);
+        mockMvc.perform(get(path(url.replace(url.substring(url.lastIndexOf('/') + 1), UUID.randomUUID() + "-thumb.jpg"))))
+                .andExpect(status().isNotFound());
+
         mockMvc.perform(get("/api/public/guides/" + guideId + "/media"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items", hasSize(1)))

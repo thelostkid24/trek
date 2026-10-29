@@ -208,7 +208,8 @@ public class CatalogService {
         Map<UUID, GuideCard> guides = guideCards(listed);
         List<TrekDeparture> rows = listed.stream()
                 .map(d -> new TrekDeparture(d.getId(), d.getStartDate(), d.getEndDate(), d.getPricePaise(),
-                        d.getMaxGroupSize(), d.seatsLeft(), isBookable(d), guides.get(d.getGuide().getId())))
+                        d.getMaxGroupSize(), d.seatsLeft(), isBookable(d), d.isFounderCoLeads(),
+                        guides.get(d.getGuide().getId())))
                 .toList();
         Set<LocalDate> starts = listed.stream().map(Departure::getStartDate).collect(Collectors.toSet());
         return new TrekPage(TrackDetail.of(track, photoFiles), rows,

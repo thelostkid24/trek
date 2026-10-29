@@ -3,7 +3,7 @@ package com.sahyatri.catalog.dto;
 import java.time.LocalDate;
 import java.util.UUID;
 
-/** One dated run on the trek page. Each can have its own guide. */
+/** One dated run on the trek page. Each can have its own guide; the founder may co-lead it. */
 public record TrekDeparture(
         UUID id,
         LocalDate startDate,
@@ -12,5 +12,6 @@ public record TrekDeparture(
         int maxGroupSize,
         int seatsLeft,
         boolean bookable,
+        boolean founderCoLeads,
         GuideCard guide) {
 }

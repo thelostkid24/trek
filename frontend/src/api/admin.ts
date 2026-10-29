@@ -92,6 +92,7 @@ export type AdminDeparture = {
   cancelled_at: string | null
   cancel_reason_code: CancelReason | null
   cancel_reason_note: string | null
+  founder_co_leads: boolean
   created_at: string
   updated_at: string
 }
@@ -165,6 +166,10 @@ export const publishDeparture = (token: string, id: string) =>
   apiFetch<AdminDeparture>(`/api/admin/departures/${id}/publish`, { method: 'POST', token })
 
 /** Published and not started yet; bookings already made keep the price they were made at. */
+/** Shows or hides "Founder co-leads the batch" on the date; any status, it changes no booking. */
+export const setDepartureFounder = (token: string, id: string, founderCoLeads: boolean) =>
+  apiFetch<AdminDeparture>(`/api/admin/departures/${id}/founder`, { method: 'PUT', token, body: { founder_co_leads: founderCoLeads } })
+
 export const changeDeparturePrice = (token: string, id: string, pricePaise: number) =>
   apiFetch<AdminDeparture>(`/api/admin/departures/${id}/price`, { method: 'PUT', token, body: { price_paise: pricePaise } })
 

@@ -32,6 +32,7 @@ import { TextField } from '../../components/auth/TextField.tsx'
 import { Avatar } from '../../components/Avatar.tsx'
 import { TextAreaField } from '../../components/profile/fields.tsx'
 import { shrinkPhoto } from '../../lib/photos.ts'
+import { SITE_ORIGIN } from '../../lib/siteLinks.ts'
 
 type PanelKind = 'profile' | 'credentials' | 'certificates' | 'record' | 'gallery'
 
@@ -291,6 +292,36 @@ function ProfileForm({ guideId, onDone }: { guideId: string; onDone: () => void 
   return <ProfileFields guideId={guideId} initial={profile.data} onDone={onDone} />
 }
 
+/**
+ * The "How was your trek?" link (/r/{slug}, docs/TRD.md §7.21.5) to send the guide, so they can share it with people
+ * they trekked with. The same link they see under Reviews in their console.
+ */
+function ReviewLink({ slug }: { slug: string }) {
+  const [copied, setCopied] = useState(false)
+  const link = `${SITE_ORIGIN}/r/${slug}`
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(link)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      setCopied(false)
+    }
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-stone-50 px-3 py-2.5 text-sm sm:col-span-2">
+      <span className="font-medium text-stone-800">Review link</span>
+      <a href={link} target="_blank" rel="noreferrer" className="min-w-0 break-all text-brand-800 hover:text-brand-950">
+        {link}
+      </a>
+      <button type="button" onClick={() => void copy()} className="font-medium text-brand-800 hover:text-brand-950">
+        {copied ? 'Copied' : 'Copy'}
+      </button>
+      <span className="w-full text-xs text-stone-500">Send it to the guide to share with people they trekked with.</span>
+    </div>
+  )
+}
+
 function ProfileFields({ guideId, initial, onDone }: { guideId: string; initial: GuideProfile; onDone: () => void }) {
   const { withAuth } = useAuth()
   const queryClient = useQueryClient()
@@ -439,6 +470,7 @@ function ProfileFields({ guideId, initial, onDone }: { guideId: string; initial:
           <ErrorNote error={moveTo.error} />
         </div>
       )}
+      <ReviewLink slug={initial.slug} />
       <TextField label="Name as trekkers see it" name="full_name" required maxLength={100} value={form.full_name}
         onChange={(e) => setForm((f) => ({ ...f, full_name: e.target.value }))} error={errors.full_name} />
       <TextField label="Home town" name="home_city" maxLength={100} value={form.home_city}

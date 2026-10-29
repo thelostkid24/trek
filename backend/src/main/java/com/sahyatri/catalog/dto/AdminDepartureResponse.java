@@ -22,6 +22,7 @@ public record AdminDepartureResponse(
         Instant cancelledAt,
         CancelReason cancelReasonCode,
         String cancelReasonNote,
+        boolean founderCoLeads,
         Instant createdAt,
         Instant updatedAt) {
 

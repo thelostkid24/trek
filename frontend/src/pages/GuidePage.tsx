@@ -18,6 +18,7 @@ import { ReviewsSection } from '../components/guide/sections/ReviewsSection.tsx'
 import { TierBadge } from '../components/guide/sections/TierBadge.tsx'
 import { feet, rupees, shortRange, weekdaysAndYear } from '../lib/format.ts'
 import { lastLed, milestoneDate } from '../lib/guideRecord.ts'
+import { isNewHere } from '../lib/trek.ts'
 import { Seo } from '../components/Seo.tsx'
 import { SITE_ORIGIN } from '../lib/siteLinks.ts'
 
@@ -209,9 +210,10 @@ function Header({ guide: g, owner, name, url }: { guide: GuideProfile; owner: bo
           ) : (
             <Avatar url={null} name={name} size="lg" className="size-28! rounded-full! text-4xl! ring-4! ring-paper-50! sm:size-40! sm:text-5xl!" />
           )}
-          {g.review_count === 0 && (
+          {isNewHere(g) && (
             <>
-              <span className="-mt-4 rounded-full bg-brand-900 px-3 py-1 text-[11px] font-bold tracking-[0.12em] text-white uppercase ring-2 ring-paper-50">
+              {/* Positioned so it stays over the photo, whose hover filter would otherwise paint on top of it. */}
+              <span className="relative z-10 -mt-4 rounded-full bg-brand-900 px-3 py-1 text-[11px] font-bold tracking-[0.12em] text-white uppercase ring-2 ring-paper-50">
                 New here
               </span>
               <span className="mt-1.5 text-xs text-stone-500">Joined The Empty Valley in {joinedFormat.format(new Date(g.joined_at))}</span>
@@ -414,7 +416,7 @@ function Routes({ treks, first }: { treks: GuideProfile['treks']; first: string 
             <RouteFact
               label="Available"
               value={
-                <Link to={t.track ? `/treks/${t.track.slug}` : '/treks'} className="text-brand-700 underline underline-offset-2 hover:text-brand-900">
+                <Link to={t.track ? `/treks/${t.track.slug}` : '/treks'} className="text-brand-700 hover:text-brand-900">
                   As per dates published
                 </Link>
               }

@@ -90,6 +90,17 @@ public final class Images {
         return out;
     }
 
+    /** A stored photo scaled down so its long edge is at most {@code maxEdge}, re-encoded as JPEG. */
+    public static byte[] shrink(byte[] photo, int maxEdge) {
+        BufferedImage source = decode(photo);
+        int w = source.getWidth();
+        int h = source.getHeight();
+        double scale = Math.min(1.0, (double) maxEdge / Math.max(w, h));
+        int width = Math.max(1, (int) Math.round(w * scale));
+        int height = Math.max(1, (int) Math.round(h * scale));
+        return encodeJpeg(draw(source, 0, 0, w, h, width, height));
+    }
+
     public static byte[] encodeJpeg(BufferedImage image) {
         ImageWriter writer = ImageIO.getImageWritersByFormatName("jpeg").next();
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();

@@ -191,6 +191,59 @@ export function VisionPage() {
   )
 }
 
+/** Linked from "How we verify →" under the Our Guides cards: what we check before a guide is listed. */
+export function HowWeVerifyPage() {
+  return (
+    <InfoPage
+      title="How we verify"
+      path={SITE_LINKS.howWeVerify}
+      intro="Every guide on The Empty Valley is checked by our team before you can book them. This is what we look at."
+      description="How The Empty Valley checks every local guide before listing them: mountaineering certificates against the originals, the routes they lead, their pledges, and reviews from real trekkers."
+    >
+      <Section title="Certificates, checked against the originals">
+        <p>
+          Each guide uploads their mountaineering certificates: a Basic or Advanced Mountaineering Course from a
+          recognised institute like NIM, ABVIMAS, HMI or JIM&amp;WS, and first aid, rescue or first-responder training.
+          We check every document ourselves, its institute, number and year, before it shows as Verified on their
+          page. A guide is “Certified” only while a verified certificate is still valid.
+        </p>
+        <p>
+          A course still in progress shows as “In course”, and an expired one as “Renewal needed”. Neither counts until
+          it’s done or renewed.
+        </p>
+      </Section>
+      <Section title="The routes they lead">
+        <p>
+          We go through each route a guide leads with them: how many times they have led it and when they last did.
+          A guide is “Route verified” once our team has checked their routes, or after they have led more than seven
+          treks with us.
+        </p>
+      </Section>
+      <Section title="Their pledges">
+        <p>
+          Guides pledge no alcohol or intoxicants on trek, and can declare that no one has been seriously injured or
+          evacuated on any trek they have led. Their page shows what they have agreed to.
+        </p>
+      </Section>
+      <Section title="Reviews from real trekkers">
+        <p>
+          Only trekkers who completed a trek with a guide through us can rate them, and only those ratings make up
+          their score. Reviews from groups a guide led on their own are marked “Group verified” after we check them,
+          and never count towards the rating.
+        </p>
+      </Section>
+      <Section title="Choose with all of it in front of you">
+        <p>
+          All of this is on each guide’s page before you pay, so you know who you’re going with.{' '}
+          <Link to="/guides" className={linkClass}>
+            Meet our guides →
+          </Link>
+        </p>
+      </Section>
+    </InfoPage>
+  )
+}
+
 export function ContactPage() {
   return (
     <InfoPage

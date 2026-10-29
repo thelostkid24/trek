@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../../auth/useAuth.ts'
 import { messageFor } from '../../../auth/errorMessages.ts'
@@ -23,9 +23,9 @@ import type { GuideSectionProps } from './types.ts'
 const OWN_KEY = ['guide-media-own']
 
 /**
- * Photos and YouTube videos (§7.21.4): a large stage with the picked item and a strip of thumbnails. A video shows
- * YouTube's still until it's played, then plays embedded from youtube-nocookie.com, so nothing loads from YouTube
- * before the visitor asks. Visitors see nothing until there is media; the owner adds, captions, reorders and
+ * The Gallery (§7.21.4): photos and YouTube videos on a large stage with ‹ › to slide, and a strip of thumbnails. A
+ * video shows YouTube's still until it's played, then plays embedded from youtube-nocookie.com, so nothing loads from
+ * YouTube before the visitor asks. Visitors see nothing until there is media; the owner adds, captions, reorders and
  * removes it here.
  */
 export function MediaSection({ guide, owner }: GuideSectionProps) {
@@ -42,9 +42,9 @@ export function MediaSection({ guide, owner }: GuideSectionProps) {
   if (!owner && all.length === 0) return null
 
   return (
-    <section className="space-y-3" aria-label="Photos and videos">
+    <section className="space-y-3" aria-label="Gallery">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-serif text-2xl text-ink-900">Photos and videos</h2>
+        <h2 className="font-serif text-2xl text-ink-900">Gallery</h2>
         {owner && all.length > 0 && (
           <button
             type="button"
@@ -67,9 +67,16 @@ function Gallery({ items }: { items: GuideMediaItem[] }) {
   const index = Math.min(picked, items.length - 1)
   const item = items[index]
   const pick = (i: number) => {
-    setPicked(i)
+    setPicked((i + items.length) % items.length)
     setPlaying(null)
   }
+
+  // Fetch the photos either side of the stage, so sliding to them shows them at once.
+  useEffect(() => {
+    for (const m of [items[(index + 1) % items.length], items[(index - 1 + items.length) % items.length]]) {
+      if (m.kind === 'PHOTO' && m.url) new Image().src = m.url
+    }
+  }, [items, index])
 
   return (
     <div className="space-y-2">
@@ -77,8 +84,16 @@ function Gallery({ items }: { items: GuideMediaItem[] }) {
         {item.kind === 'PHOTO' ? (
           // The whole photo, never cropped: portrait shots sit centred over a blurred copy of themselves.
           <>
-            <img src={item.url ?? undefined} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full scale-110 object-cover opacity-60 blur-2xl" />
-            <img src={item.url ?? undefined} alt={item.caption ?? 'Photo from the guide'} className="relative h-full w-full object-contain" />
+            {/* The backdrop is blurred anyway, so the small thumbnail does; it's there before the full photo. */}
+            <img src={thumb(item) ?? undefined} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full scale-110 object-cover opacity-60 blur-2xl" />
+            <img
+              key={item.id}
+              src={item.url ?? undefined}
+              alt={item.caption ?? 'Photo from the guide'}
+              fetchPriority="high"
+              decoding="async"
+              className="relative h-full w-full object-contain"
+            />
           </>
         ) : playing === item.id && item.youtube_id && youTubeEmbedUrl(item.youtube_id) ? (
           <iframe
@@ -116,6 +131,12 @@ function Gallery({ items }: { items: GuideMediaItem[] }) {
             </span>
           </div>
         )}
+        {items.length > 1 && playing !== item.id && (
+          <>
+            <SlideButton side="left" label="Previous" onClick={() => pick(index - 1)} />
+            <SlideButton side="right" label="Next" onClick={() => pick(index + 1)} />
+          </>
+        )}
       </div>
       {items.length > 1 && (
         <ul className="flex gap-2 overflow-x-auto pb-1">
@@ -137,6 +158,22 @@ function Gallery({ items }: { items: GuideMediaItem[] }) {
         </ul>
       )}
     </div>
+  )
+}
+
+/** A round "‹" or "›" on the stage's edge that slides to the previous or next item, wrapping round. */
+function SlideButton({ side, label, onClick }: { side: 'left' | 'right'; label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      className={`absolute top-1/2 ${side === 'left' ? 'left-3' : 'right-3'} flex size-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 text-ink-900 shadow-lg backdrop-blur transition hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white`}
+    >
+      <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d={side === 'left' ? 'M15 6l-6 6 6 6' : 'M9 6l6 6-6 6'} />
+      </svg>
+    </button>
   )
 }
 
@@ -338,6 +375,7 @@ function IconButton({ label, disabled, onClick, children }: { label: string; dis
   )
 }
 
+/** The small copy: a photo's thumbnail (its full size from before thumbnails), or a video's YouTube still. */
 function thumb(m: GuideMediaItem) {
-  return m.kind === 'PHOTO' ? m.url : m.thumbnail_url
+  return m.thumbnail_url ?? m.url
 }

@@ -82,6 +82,7 @@ ADMIN=<access_token of an admin>
 | DELETE | `/api/admin/departures/{id}` | ADMIN | Delete a draft |
 | POST | `/api/admin/departures/{id}/publish` | ADMIN | Publish (makes it bookable) |
 | POST | `/api/admin/departures/{id}/cancel` | ADMIN | Force-majeure cancel + full refunds |
+| PUT | `/api/admin/departures/{id}/founder` | ADMIN | Mark the founder co-leading the batch (display only) |
 | GET | `/api/admin/guides` | ADMIN | All guides |
 | POST | `/api/admin/guides` | ADMIN | Promote a trekker to guide |
 | GET | `/api/admin/insights` | ADMIN | Funnel, sources and business numbers |

@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
-import { useEffect, useMemo, type ReactNode } from 'react'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useEffect, type ReactNode } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   getBlogCategory,
   getBlogPost,
@@ -38,34 +38,10 @@ const categoryHref = (c: BlogCategoryRef) => (c.parent ? `/blog/${c.parent.slug}
 const notFound = (error: unknown) => error instanceof ApiError && error.status === 404
 const noRetryOn404 = (count: number, error: unknown) => !notFound(error) && count < 2
 
-/** /blog — every article, filtered by category and sub-category, laid out like /treks. */
+/** /blog — every article, newest first, laid out like /treks. No category filters until there are enough posts. */
 export function BlogPage() {
-  const [params, setParams] = useSearchParams()
-  const categories = useQuery({ queryKey: ['blog-categories'], queryFn: listBlogCategories })
   const posts = useQuery({ queryKey: ['blog-posts'], queryFn: () => listBlogPosts() })
-  const all = useMemo(() => posts.data?.items ?? [], [posts.data])
-
-  const tops = categories.data?.items ?? []
-  const picked = tops.find((c) => c.slug === params.get('category')) ?? null
-  const subs = (picked?.subcategories ?? []).filter((s) => s.published_posts > 0)
-  const sub = subs.find((s) => s.slug === params.get('topic')) ?? null
-
-  /** Picking a category clears its topic; picking the same one again clears both. */
-  const pickCategory = (slug: string | null) => {
-    const next = new URLSearchParams()
-    if (slug && slug !== picked?.slug) next.set('category', slug)
-    setParams(next, { replace: true })
-  }
-  const pickTopic = (slug: string | null) => {
-    const next = new URLSearchParams(params)
-    if (slug) next.set('topic', slug)
-    else next.delete('topic')
-    setParams(next, { replace: true })
-  }
-
-  const matching = all.filter((p) =>
-    sub ? p.category.slug === sub.slug : !picked || (p.category.parent ?? p.category).slug === picked.slug,
-  )
+  const all = posts.data?.items ?? []
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:py-10">
@@ -77,38 +53,6 @@ export function BlogPage() {
           with.
         </p>
       </header>
-
-      {tops.length > 0 && (
-        // All ten categories on one line: it fits the page width on a desktop and scrolls sideways on a phone.
-        <div
-          className="-mx-4 mt-6 flex gap-1.5 overflow-x-auto px-4 py-px [scrollbar-width:none] xl:justify-between [&::-webkit-scrollbar]:hidden"
-          role="group"
-          aria-label="Categories"
-        >
-          <FilterChip on={!picked} onClick={() => pickCategory(null)}>
-            All
-          </FilterChip>
-          {tops.map((c) => (
-            <FilterChip key={c.id} on={c.id === picked?.id} onClick={() => pickCategory(c.slug)}>
-              {c.name}
-            </FilterChip>
-          ))}
-        </div>
-      )}
-      {subs.length > 0 && (
-        <div className="mt-3">
-          <FilterSelect label="Topic" value={sub?.slug ?? null} onChange={pickTopic}>
-            {subs.map((s) => (
-              <option key={s.id} value={s.slug}>
-                {s.name}
-              </option>
-            ))}
-          </FilterSelect>
-        </div>
-      )}
-
-      {picked?.description && !sub && <p className="mt-4 max-w-2xl text-sm text-stone-600">{picked.description}</p>}
-      {sub?.description && <p className="mt-4 max-w-2xl text-sm text-stone-600">{sub.description}</p>}
 
       {posts.isPending ? (
         <ul className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true" aria-label="Loading articles">
@@ -124,17 +68,13 @@ export function BlogPage() {
             Try again
           </button>
         </Note>
-      ) : matching.length === 0 ? (
+      ) : all.length === 0 ? (
         <Note>
-          <p className="font-display text-xl text-stone-900">
-            {all.length === 0 ? 'Stories are on their way' : `Nothing in ${(sub ?? picked)?.name ?? 'here'} yet`}
-          </p>
-          <p className="mt-1 text-sm text-stone-600">
-            {all.length === 0 ? "We're writing up the trail. Check back soon." : 'Try another category.'}
-          </p>
+          <p className="font-display text-xl text-stone-900">Stories are on their way</p>
+          <p className="mt-1 text-sm text-stone-600">We're writing up the trail. Check back soon.</p>
         </Note>
       ) : (
-        <PostGrid posts={matching} />
+        <PostGrid posts={all} />
       )}
     </div>
   )
@@ -409,44 +349,6 @@ function Chip({ to, active, children }: { to: string; active: boolean; children:
     >
       {children}
     </Link>
-  )
-}
-
-function FilterChip({ on, onClick, children }: { on: boolean; onClick: () => void; children: ReactNode }) {
-  return (
-    <button
-      type="button"
-      aria-pressed={on}
-      onClick={onClick}
-      className={`shrink-0 rounded-full px-3 py-1.5 text-[13px] whitespace-nowrap transition ${
-        on ? 'bg-brand-900 text-white' : 'bg-white text-stone-700 ring-1 ring-stone-300 hover:ring-brand-400'
-      }`}
-    >
-      {children}
-    </button>
-  )
-}
-
-/** The sub-category dropdown, styled like the chips (as on /treks). Empty value = the whole category. */
-function FilterSelect({ label, value, onChange, children }: { label: string; value: string | null; onChange: (value: string | null) => void; children: ReactNode }) {
-  const on = value !== null
-  return (
-    <span className="relative inline-flex">
-      <select
-        aria-label={label}
-        value={value ?? ''}
-        onChange={(e) => onChange(e.target.value || null)}
-        className={`cursor-pointer appearance-none rounded-full py-1.5 pr-8 pl-3 text-sm transition ${
-          on ? 'bg-brand-900 text-white' : 'bg-white text-stone-700 ring-1 ring-stone-300 hover:ring-brand-400'
-        }`}
-      >
-        <option value="">{label}</option>
-        {children}
-      </select>
-      <svg viewBox="0 0 12 12" className={`pointer-events-none absolute top-1/2 right-3 size-3 -translate-y-1/2 ${on ? 'text-white' : 'text-stone-500'}`} fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-        <path d="M3 4.5 6 7.5 9 4.5" />
-      </svg>
-    </span>
   )
 }
 
