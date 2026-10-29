@@ -253,6 +253,9 @@ NULL everywhere = not captured (rows made before V11, or nothing sent). Tracking
 ### 6.33 Batches led override — `V42__guide_batches_led.sql`
 - **`guide_profiles`** — adds `batches_led INT NULL CHECK 0..10000`: the "Batches led" number an admin sets for a guide. Null = worked out from their routes and completed departures, as before (§7.12, §7.17, §7.22).
 
+### 6.34 Founder co-leads — `V43__departure_founder_co_leads.sql`
+- **`departures`** — adds `founder_co_leads BOOLEAN NOT NULL DEFAULT false`: an admin marks a departure the founder walks with the guide. Display only: it changes no booking or money (§7.24).
+
 ## 7. Feature log
 Each feature appends: scope, endpoints, tables, screens, tests.
 
@@ -1461,6 +1464,24 @@ Added 2026-10-26. Supersedes the header part of §7.22.
 - `/treks` Month filter lists every month from this one through the next March, plus any later month with dates; a month with no dates yet says "Dates for <Mon YYYY> open soon."
 - Guide page gallery (`MediaSection`): the big photo shows whole (`object-contain`) over a blurred, dimmed copy of itself, so portrait photos aren't cropped top or bottom. Thumbnails stay cropped squares.
 - Tests: `GuideMediaTests.anAdminManagesAGuidesGallery`.
+
+### 7.24 28 Oct changes: founder co-leads, gallery speed, smaller trek cards, How we verify
+Added 2026-10-29, from Notion "28 oct changes" (item 3, reposition and zoom while uploading a photo, is left for later). Supersedes the parts of §7.19, §7.21.4, §7.22 and §7.23 it names.
+
+| Method & path | Auth | Request | Success | Errors |
+|---|---|---|---|---|
+| `PUT /api/admin/departures/{id}/founder` | ADMIN | `{ founder_co_leads: boolean }` | `200 AdminDeparture` | `400 VALIDATION_FAILED`, `404` |
+| `GET /api/public/files/guide-media/{id}-thumb.jpg` | public | — | `200 image/jpeg` (long edge ≤ 480, cached a year) | `404` |
+
+- Founder co-leads (§6.34): Admin → Departures has a "Founder co-leads this batch" tick on draft and published rows, any time. `TrekDeparture.founder_co_leads` and `AdminDeparture.founder_co_leads` carry it. On the trek page (`TrekDepartures.tsx`) the date card shows a dark "★ Founder co-leads the batch" chip first, with an "i" (shared `components/InfoTag.tsx`, moved out of `GuidesPage.tsx`): "Our founder walks the whole trek with you in this batch. If anything isn't right, the person who answers for it is walking beside you."; the month row shows a "Founder co-leads" tag when any of its dates has it.
+- Gallery (`MediaSection`, titled "Gallery", was "Photos and videos"): ‹ › buttons on the stage slide to the previous and next item, wrapping round; the photos either side are fetched ahead. Photos now have a `thumbnail_url` (`GuideMediaFiles.thumbKey`: `guide-media/<id>-thumb.jpg`), made from the stored photo on its first request and kept, so photos uploaded before this get one too; it's removed with the photo. The strip and the stage's blurred backdrop use it instead of the full 2000 px photo.
+- `/treks` cards: four to a row from `lg`, a shorter 8:5 photo, then the start region, the name with its grade, days · height and `season_label`. No summary, dates or price on the card; they live on the trek page.
+- `/blog`: no category chips or Topic filter; every post shows, newest first. Category pages stay at their addresses.
+- Home "This season": the "Booking open" pill is smaller.
+- Our Guides cards: Years | Batches led sit side by side with a "|" between, no lines around them; the name no longer underlines on hover; "NEW" shows while `review_count` < 30 (`NEW_HERE_UNTIL_REVIEWS` in `lib/trek.ts`), as does the guide page's "NEW HERE" badge, which now stays in front of the photo while it's hovered. "How we verify →" opens `/how-we-verify` (`HowWeVerifyPage` in `InfoPages.tsx`, in the sitemap): certificates checked against the originals, the routes they lead, their pledges, and reviews from real trekkers.
+- Guide page: "As per dates published" is no longer underlined.
+- Admin → Guides → Profile shows the guide's review link (`/r/{slug}`, §7.21.5) with Copy, to send to the guide.
+- Tests: `CatalogTests.founderCoLeadsShowsOnTheTrekPageDate`, `GuideMediaTests.photoIsReencodedServedAndListedPublicly` (thumbnail).
 
 ## 8. Running locally
 

@@ -151,7 +151,8 @@ export type DepartureDetail = Omit<DepartureSummary, 'track' | 'guide'> & {
   guide: GuideCard
 }
 
-export type TrekDeparture = Omit<DepartureSummary, 'track' | 'guide'> & { guide: GuideCard }
+/** `founder_co_leads`: an admin marked the founder walking this batch with the guide (docs/TRD.md §7.20). */
+export type TrekDeparture = Omit<DepartureSummary, 'track' | 'guide'> & { guide: GuideCard; founder_co_leads: boolean }
 
 /** The lists on a trek page (docs/TRD.md §7.11). Shared items come first. */
 export type ContentKind = 'INCLUDED' | 'NOT_INCLUDED' | 'SAFETY' | 'SAFETY_CALLOUT' | 'SAFETY_NOTE' | 'FAQ' | 'WHY_US'

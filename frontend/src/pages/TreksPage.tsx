@@ -5,7 +5,6 @@ import {
   DIFFICULTY_LABEL,
   SEASON_LABEL,
   listCatalog,
-  type CatalogDeparture,
   type CatalogTrek,
   type Difficulty,
   type Season,
@@ -13,7 +12,7 @@ import {
 import { messageFor } from '../auth/errorMessages.ts'
 import { DifficultyPill } from '../components/catalog/DeparturePieces.tsx'
 import { Ridgeline } from '../components/Ridgeline.tsx'
-import { feet, monthKey, monthLabel, rupees, shortRange } from '../lib/format.ts'
+import { feet, monthKey, monthLabel } from '../lib/format.ts'
 import { Seo } from '../components/Seo.tsx'
 
 /** The grade filter's options, easiest first. The catalog's "moderate" reads as "Difficult" here. */
@@ -98,9 +97,9 @@ export function TreksPage() {
       </div>
 
       {catalog.isPending ? (
-        <ul className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true" aria-label="Loading treks">
-          {[0, 1, 2].map((i) => (
-            <li key={i} className="h-80 animate-pulse rounded-2xl bg-stone-100" />
+        <ul className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4" aria-busy="true" aria-label="Loading treks">
+          {[0, 1, 2, 3].map((i) => (
+            <li key={i} className="h-72 animate-pulse rounded-2xl bg-stone-100" />
           ))}
         </ul>
       ) : catalog.isError ? (
@@ -128,7 +127,7 @@ export function TreksPage() {
           </p>
         </Note>
       ) : (
-        <ul className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {matching.map((t) => (
             <TrekCard key={t.slug} trek={t} />
           ))}
@@ -158,86 +157,44 @@ function seasonMonths(today: Date): string[] {
   return keys
 }
 
+/**
+ * A small card, four to a row on wide screens: the photo, where it starts, the name and grade, days and height, and
+ * when to go. Dates, price and the full story live on the trek page.
+ */
 function TrekCard({ trek }: { trek: CatalogTrek }) {
-  const from = trek.departures.length > 0 ? Math.min(...trek.departures.map((d) => d.price_paise)) : null
-  const dates = trek.departures.slice(0, 3)
-
   return (
-    <li className="group relative flex flex-col overflow-hidden rounded-2xl bg-white ring-1 ring-stone-200 transition hover:-translate-y-1 hover:shadow-lg hover:shadow-stone-900/5">
+    <li className="group relative flex flex-col overflow-hidden rounded-xl bg-white ring-1 ring-stone-200 transition hover:-translate-y-1 hover:shadow-lg hover:shadow-stone-900/5">
       {/* Shares its name with the trek page hero, so the cover grows into it (see index.css). */}
       <div
-        className="relative aspect-[4/3] overflow-hidden bg-brand-950"
+        className="relative aspect-[8/5] overflow-hidden bg-brand-950"
         style={{ viewTransitionName: `trek-cover-${trek.slug}`, viewTransitionClass: 'trek-cover' }}
       >
         {trek.cover_url ? (
-          <img src={trek.cover_url} alt="" className="size-full object-cover transition-transform duration-700 group-hover:scale-105" />
+          <img src={trek.cover_url} alt="" loading="lazy" className="size-full object-cover transition-transform duration-700 group-hover:scale-105" />
         ) : (
           <Ridgeline className="absolute inset-0 size-full transition-transform duration-700 group-hover:scale-105" />
         )}
       </div>
 
       <div className="flex flex-1 flex-col p-4">
-        <div className="flex items-center justify-between gap-2">
-          <span className="truncate text-xs text-stone-500">{trek.region}</span>
+        <span className="truncate text-xs text-stone-500">{trek.region}</span>
+        <div className="mt-1.5 flex items-center justify-between gap-2">
+          <h2 className="min-w-0 font-display text-lg font-semibold leading-snug text-brand-950">
+            {/* The whole card opens the trek through this link's overlay. */}
+            <Link to={`/treks/${trek.slug}`} viewTransition className="after:absolute after:inset-0">
+              {trek.name}
+            </Link>
+          </h2>
           <DifficultyPill difficulty={trek.difficulty} />
         </div>
-        <h2 className="mt-2 font-display text-xl font-semibold leading-snug text-brand-950">
-          {/* The card is clickable through this link's overlay; the dates below sit above it. */}
-          <Link to={`/treks/${trek.slug}`} viewTransition className="after:absolute after:inset-0">
-            {trek.name}
-          </Link>
-        </h2>
-        <p className="mt-1 line-clamp-2 text-sm text-stone-600">{trek.summary}</p>
-        <p className="mt-2 text-xs text-stone-500">
+        <p className="mt-1 text-sm text-stone-700">
           {trek.duration_days} {trek.duration_days === 1 ? 'day' : 'days'}
           {trek.max_altitude_m ? ` · ${feet(trek.max_altitude_m)}` : ''}
-          {from !== null ? ` · from ${rupees(from)}` : ''}
         </p>
-
-        <div className="relative z-10 mt-4">
-          {dates.length === 0 ? (
-            <p className="text-sm text-stone-500">{trek.season_label ?? 'Dates open soon'}</p>
-          ) : (
-            <ul className="flex flex-wrap gap-2">
-              {dates.map((d) => (
-                <li key={d.id}>
-                  <Link
-                    to={`/departures/${d.id}`}
-                    viewTransition
-                    className={`block rounded-full px-3 py-1.5 text-xs font-medium ring-1 transition ${
-                      d.bookable
-                        ? 'text-brand-800 ring-brand-300 hover:bg-brand-50'
-                        : 'text-stone-500 ring-stone-200 hover:bg-stone-50'
-                    }`}
-                  >
-                    {shortRange(d.start_date, d.end_date)}
-                    <span className="ml-1.5 font-normal">{seatNote(d)}</span>
-                  </Link>
-                </li>
-              ))}
-              {trek.departures.length > dates.length && (
-                <li>
-                  <Link
-                    to={`/treks/${trek.slug}`}
-                    viewTransition
-                    className="block rounded-full px-3 py-1.5 text-xs font-medium text-stone-600 ring-1 ring-stone-200 hover:bg-stone-50"
-                  >
-                    +{trek.departures.length - dates.length} more
-                  </Link>
-                </li>
-              )}
-            </ul>
-          )}
-        </div>
+        {trek.season_label && <p className="mt-1.5 text-sm text-stone-500">{trek.season_label}</p>}
       </div>
     </li>
   )
-}
-
-function seatNote(d: CatalogDeparture) {
-  if (d.seats_left === 0) return '· full'
-  if (!d.bookable) return '· closed'
-  return ''
 }
 
 /** A season, month or grade dropdown that looks like the chips: no native box, our own chevron. Empty value = no filter. */

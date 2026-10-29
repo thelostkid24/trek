@@ -10,6 +10,7 @@ import {
   listGuides,
   listTracks,
   publishDeparture,
+  setDepartureFounder,
   updateDeparture,
   type AdminDeparture,
   type CancelReason,
@@ -76,6 +77,10 @@ function DepartureRow({ departure: d, onEdit }: { departure: AdminDeparture; onE
     mutationFn: () => withAuth((token) => deleteDeparture(token, d.id)),
     onSuccess: refresh,
   })
+  const founder = useMutation({
+    mutationFn: (on: boolean) => withAuth((token) => setDepartureFounder(token, d.id, on)),
+    onSuccess: refresh,
+  })
 
   return (
     <li className="py-4">
@@ -88,6 +93,18 @@ function DepartureRow({ departure: d, onEdit }: { departure: AdminDeparture; onE
             {dateRange(d.start_date, d.end_date)} · {rupees(d.price_paise)} · {d.seats_taken}/{d.max_group_size} seats
           </p>
           <p className="text-sm text-stone-500">Guide: {d.guide.full_name ?? d.guide.email}</p>
+          {(d.status === 'DRAFT' || d.status === 'PUBLISHED') && (
+            <label className="mt-1 inline-flex items-center gap-2 text-sm text-stone-700">
+              <input
+                type="checkbox"
+                checked={founder.isPending ? founder.variables : d.founder_co_leads}
+                disabled={founder.isPending}
+                onChange={(e) => founder.mutate(e.target.checked)}
+                className="size-4 accent-brand-800"
+              />
+              Founder co-leads this batch
+            </label>
+          )}
           {d.status === 'CANCELLED' && d.cancel_reason_code && (
             <p className="mt-1 text-sm text-laterite-600">
               {CANCEL_REASON_LABEL[d.cancel_reason_code]}: {d.cancel_reason_note}
@@ -131,7 +148,7 @@ function DepartureRow({ departure: d, onEdit }: { departure: AdminDeparture; onE
         </div>
       </div>
       <div className="mt-2 space-y-2">
-        <ErrorNote error={publish.error ?? remove.error} />
+        <ErrorNote error={publish.error ?? remove.error ?? founder.error} />
         {cancelling && <CancelForm departure={d} onDone={() => setCancelling(false)} onCancelled={refresh} />}
         {repricing && <PriceForm departure={d} onDone={() => setRepricing(false)} onChanged={refresh} />}
       </div>

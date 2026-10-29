@@ -65,6 +65,8 @@ public class Departure {
 
     private String cancelReasonNote;
 
+    private boolean founderCoLeads;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -91,6 +93,15 @@ public class Departure {
     /** New per-seat price for bookings made from now on; existing bookings keep the price they were made at. */
     public void reprice(long pricePaise) {
         this.pricePaise = pricePaise;
+    }
+
+    /** Whether the founder walks this batch with the guide; shown on its date, never a booking term. */
+    public void setFounderCoLeads(boolean founderCoLeads) {
+        this.founderCoLeads = founderCoLeads;
+    }
+
+    public boolean isFounderCoLeads() {
+        return founderCoLeads;
     }
 
     /** Draft fields. The end date follows from the track's duration. */

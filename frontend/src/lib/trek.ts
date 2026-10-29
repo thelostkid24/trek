@@ -22,3 +22,8 @@ export function trekTagline(track: TrackDetail): string {
 export function isCertified(g: GuideCredentials) {
   return g.certified
 }
+
+/** Guides show "New here" until they have this many reviews. */
+export const NEW_HERE_UNTIL_REVIEWS = 30
+
+export const isNewHere = (g: { review_count: number }) => g.review_count < NEW_HERE_UNTIL_REVIEWS

@@ -1,11 +1,13 @@
 import { useQuery } from '@tanstack/react-query'
-import { useId, useMemo, useState, type ReactNode } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { guidePath, listGuides, type GuideListItem } from '../api/catalog.ts'
 import { messageFor } from '../auth/errorMessages.ts'
 import { Avatar } from '../components/Avatar.tsx'
+import { InfoTag } from '../components/InfoTag.tsx'
 import { Seo } from '../components/Seo.tsx'
 import { SITE_LINKS } from '../lib/siteLinks.ts'
+import { isNewHere } from '../lib/trek.ts'
 
 /** Cards per page. */
 const PAGE_SIZE = 12
@@ -177,7 +179,7 @@ function GuideCard({ guide: g }: { guide: GuideListItem }) {
   return (
     // The whole card opens the profile through the name link's overlay; the tags' "i" buttons sit above it.
     <li className="group relative flex cursor-pointer flex-col items-center gap-3.5 rounded-xl bg-white px-4 pt-[26px] pb-[18px] text-center ring-1 ring-stone-200 transition hover:-translate-y-0.5 hover:shadow-lg hover:shadow-stone-900/5 hover:ring-brand-800 has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-brand-600">
-      {g.review_count === 0 && (
+      {isNewHere(g) && (
         <span className="absolute top-3 left-3 rounded-md bg-laterite-100 px-2 py-0.5 text-[11px] font-bold tracking-[0.08em] text-laterite-600 uppercase">
           New
         </span>
@@ -185,7 +187,7 @@ function GuideCard({ guide: g }: { guide: GuideListItem }) {
       <Avatar url={g.avatar_url} name={name} size="lg" />
       <div className="flex flex-col gap-0.5">
         <h2 className="font-display text-xl leading-[26px] font-semibold tracking-[-0.01em] text-stone-900">
-          <Link to={guidePath(g)} viewTransition className="underline-offset-[3px] outline-none group-hover:underline after:absolute after:inset-0 after:rounded-xl">
+          <Link to={guidePath(g)} viewTransition className="outline-none after:absolute after:inset-0 after:rounded-xl">
             {name}
           </Link>
         </h2>
@@ -203,8 +205,11 @@ function GuideCard({ guide: g }: { guide: GuideListItem }) {
         </InfoTag>
       </div>
 
-      <dl className="grid w-full grid-cols-2 divide-x divide-stone-200 border-y border-stone-200">
+      <dl className="flex w-full items-center justify-center gap-4">
         <Stat label="Years" value={g.years_leading} />
+        <span aria-hidden="true" className="text-xl font-light text-stone-300">
+          |
+        </span>
         <Stat label="Batches led" value={g.treks_led || null} />
       </dl>
 
@@ -240,7 +245,7 @@ function JoiningSoon() {
         <p className="font-display text-lg font-semibold text-stone-900">More mountain heroes are joining soon</p>
         <p className="text-sm text-stone-600">We’re checking their certificates and routes ourselves right now.</p>
       </div>
-      <Link to={SITE_LINKS.vision} viewTransition className="shrink-0 text-sm font-semibold text-brand-800 underline underline-offset-4 hover:text-brand-950">
+      <Link to={SITE_LINKS.howWeVerify} viewTransition className="shrink-0 text-sm font-semibold text-brand-800 underline underline-offset-4 hover:text-brand-950">
         How we verify →
       </Link>
     </div>
@@ -249,53 +254,12 @@ function JoiningSoon() {
 
 function Stat({ label, value }: { label: string; value: number | string | null }) {
   return (
-    <div className="flex flex-col-reverse gap-px py-2">
+    <div className="flex flex-col-reverse gap-px">
       <dt className="text-[10px] leading-[14px] font-semibold tracking-[0.06em] whitespace-nowrap text-stone-600 uppercase">{label}</dt>
       <dd className={`font-mono text-[17px] leading-[22px] font-medium tabular-nums ${value === null ? 'text-stone-500' : 'text-stone-900'}`}>
         {value ?? '—'}
       </dd>
     </div>
-  )
-}
-
-/**
- * A small tag whose "i" explains it in a tip above: shown while the pointer is over the tag or the "i" has keyboard
- * focus, and toggled by a tap on a phone. Moving the pointer away closes it, even after a click.
- */
-function InfoTag({ icon, label, children }: { icon: ReactNode; label: string; children: ReactNode }) {
-  const [open, setOpen] = useState(false)
-  const tipId = useId()
-  return (
-    <span
-      onMouseLeave={() => setOpen(false)}
-      className="group/tip relative inline-flex shrink-0 items-center gap-1 rounded whitespace-nowrap bg-brand-50 px-1.5 text-[11px] leading-5 font-semibold text-brand-800"
-    >
-      {icon}
-      {label}
-      <button
-        type="button"
-        aria-label={`What does ${label} mean?`}
-        aria-describedby={tipId}
-        aria-expanded={open}
-        onClick={(e) => {
-          e.preventDefault()
-          setOpen((o) => !o)
-        }}
-        onBlur={() => setOpen(false)}
-        className="ml-0.5 inline-flex size-[15px] cursor-help items-center justify-center rounded-full border-[1.2px] border-current font-serif text-[10px] leading-none font-bold italic hover:border-brand-800 hover:bg-brand-800 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
-      >
-        i
-      </button>
-      <span
-        id={tipId}
-        role="tooltip"
-        className={`pointer-events-none absolute bottom-[calc(100%+10px)] left-1/2 z-20 w-59 -translate-x-1/2 rounded-lg bg-stone-950 px-3 py-2.5 text-left text-xs leading-[18px] font-normal whitespace-normal text-stone-100 transition-opacity after:absolute after:top-full after:left-1/2 after:-ml-1.5 after:border-6 after:border-transparent after:border-t-stone-950 group-hover/tip:opacity-100 group-has-[:focus-visible]/tip:opacity-100 ${
-          open ? 'opacity-100' : 'opacity-0'
-        }`}
-      >
-        {children}
-      </span>
-    </span>
   )
 }
 

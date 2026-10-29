@@ -133,6 +133,7 @@ public class GuideMediaService {
         media.delete(item);
         if (item.getKind() == GuideMediaKind.PHOTO) {
             deleteQuietly(GuideMediaFiles.photoKey(item.getId()));
+            deleteQuietly(GuideMediaFiles.thumbKey(item.getId()));
         }
     }
 

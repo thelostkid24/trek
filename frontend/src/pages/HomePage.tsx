@@ -382,10 +382,10 @@ function DestinationCard({
         {/* A listed trek without dates yet carries no badge; the empty span keeps the words at the bottom. */}
         {next ? (
           // Solid and bright so it reads against snow photos, with a pulsing dot like a live sign.
-          <span className="inline-flex items-center gap-2 self-start rounded-full bg-laterite-500 px-3.5 py-1.5 whitespace-nowrap text-[0.7rem] font-semibold tracking-[0.16em] text-white uppercase shadow-lg shadow-ink-950/30 ring-1 ring-white/40">
-            <span className="relative flex size-2" aria-hidden="true">
+          <span className="inline-flex items-center gap-1.5 self-start rounded-full bg-laterite-500 px-2.5 py-1 whitespace-nowrap text-[0.6rem] font-semibold tracking-[0.14em] text-white uppercase shadow-md shadow-ink-950/30 ring-1 ring-white/40">
+            <span className="relative flex size-1.5" aria-hidden="true">
               <span className="absolute inline-flex size-full animate-ping rounded-full bg-white/80 motion-reduce:animate-none" />
-              <span className="relative inline-flex size-2 rounded-full bg-white" />
+              <span className="relative inline-flex size-1.5 rounded-full bg-white" />
             </span>
             Booking open
           </span>

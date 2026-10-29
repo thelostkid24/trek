@@ -6,6 +6,7 @@ import com.sahyatri.auth.repository.UserRepository;
 import com.sahyatri.auth.service.CurrentUser;
 import com.sahyatri.catalog.dto.AdminDepartureResponse;
 import com.sahyatri.catalog.dto.CancelDepartureRequest;
+import com.sahyatri.catalog.dto.DepartureFounderRequest;
 import com.sahyatri.catalog.dto.DeparturePriceRequest;
 import com.sahyatri.catalog.dto.DepartureRequest;
 import com.sahyatri.catalog.entity.Departure;
@@ -116,6 +117,16 @@ public class DepartureAdminService {
         return toResponse(departure);
     }
 
+    /** Marks or unmarks the founder co-leading the batch; any status, since it changes no booking. */
+    @Transactional
+    public AdminDepartureResponse setFounderCoLeads(UUID adminId, UUID id, DepartureFounderRequest req) {
+        currentUser.require(adminId);
+        Departure departure = lock(id);
+        departure.setFounderCoLeads(req.founderCoLeads());
+        departures.saveAndFlush(departure);
+        return toResponse(departure);
+    }
+
     /** Force majeure (law 4). The booking feature cancels and fully refunds every booking in this transaction. */
     @Transactional
     public AdminDepartureResponse cancel(UUID adminId, UUID id, CancelDepartureRequest req) {
@@ -177,6 +188,7 @@ public class DepartureAdminService {
                         avatars.url(g.getAvatarKey())),
                 d.getStartDate(), d.getEndDate(), d.getPricePaise(), d.getMaxGroupSize(), d.getSeatsTaken(),
                 d.getStatus(), d.getGuideShareBps(), d.getPublishedAt(), d.getCancelledAt(),
-                d.getCancelReasonCode(), d.getCancelReasonNote(), d.getCreatedAt(), d.getUpdatedAt());
+                d.getCancelReasonCode(), d.getCancelReasonNote(), d.isFounderCoLeads(), d.getCreatedAt(),
+                d.getUpdatedAt());
     }
 }

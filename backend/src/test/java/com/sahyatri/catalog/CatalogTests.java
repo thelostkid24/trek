@@ -196,6 +196,35 @@ class CatalogTests extends AuthTestSupport {
     }
 
     @Test
+    void founderCoLeadsShowsOnTheTrekPageDate() throws Exception {
+        String admin = adminToken();
+        UUID id = publishedDeparture();
+        UUID booking = hold(bookingTrekker(), id, 1);
+        String slug = jdbc.queryForObject(
+                "SELECT t.slug FROM departures d JOIN tracks t ON t.id = d.track_id WHERE d.id = ?", String.class, id);
+
+        mockMvc.perform(get("/api/public/tracks/" + slug))
+                .andExpect(jsonPath("$.departures[0].founder_co_leads").value(false));
+        authed(put(ADMIN + "/" + id + "/founder"), admin, """
+                {"founder_co_leads":true}""")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.founder_co_leads").value(true))
+                .andExpect(jsonPath("$.status").value("PUBLISHED"));
+        mockMvc.perform(get("/api/public/tracks/" + slug))
+                .andExpect(jsonPath("$.departures[0].founder_co_leads").value(true));
+        // Not a booking term: the hold is untouched.
+        assertThat(jdbc.queryForObject("SELECT price_paise_per_seat FROM bookings WHERE id = ?", Long.class, booking))
+                .isEqualTo(219_900L);
+
+        authed(put(ADMIN + "/" + id + "/founder"), admin, "{}")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.details.fields.founder_co_leads").exists());
+        authed(put(ADMIN + "/" + id + "/founder"), bookingTrekker(), """
+                {"founder_co_leads":false}""")
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void lifecycleJobExpiresUnsoldAndCompletesFinished() throws Exception {
         UUID unsold = publishedDeparture();
         UUID sold = publishedDeparture();

@@ -4,6 +4,7 @@ import type { GuideCard, PlannedDate, TrekDeparture, TrekPage } from '../../api/
 import { monthKey, parseDate, rupees, shortRange } from '../../lib/format.ts'
 import { isCertified } from '../../lib/trek.ts'
 import { Avatar } from '../Avatar.tsx'
+import { InfoTag } from '../InfoTag.tsx'
 import { SectionLabel } from './TrekSections.tsx'
 
 const COUNT_WORDS = ['No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten']
@@ -88,6 +89,11 @@ export function TrekDepartures({ trek }: { trek: TrekPage }) {
                       {parseDate(`${m}-01`).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}
                     </span>
                     <span className="flex items-center gap-3 text-sm text-stone-500">
+                      {inMonth.some((r) => r.departure?.founder_co_leads) && (
+                        <span className="hidden rounded-full bg-laterite-100 px-2.5 py-0.5 text-xs font-semibold text-laterite-600 min-[380px]:inline">
+                          Founder co-leads
+                        </span>
+                      )}
                       {inMonth.length} {inMonth.length === 1 ? 'date' : 'dates'}
                       <svg viewBox="0 0 20 20" className={`size-4 text-stone-700 transition-transform ${on ? 'rotate-180' : ''}`} fill="currentColor" aria-hidden="true">
                         <path d="M5.5 7.5 10 12l4.5-4.5z" />
@@ -129,7 +135,7 @@ function DepartureCard({ departure: d }: { departure: TrekDeparture }) {
           {g.languages && <p className="text-sm text-stone-600">Speaks {g.languages}</p>}
         </div>
       </div>
-      <GuideHighlights guide={g} />
+      <GuideHighlights guide={g} founder={d.founder_co_leads} />
       {status ? (
         <p className="mt-4 text-sm font-medium text-stone-500">{status}</p>
       ) : (
@@ -165,11 +171,21 @@ function GuidePhoto({ guide: g }: { guide: GuideCard }) {
   )
 }
 
-/** Years guiding, certified, rating. No badge for guides without reviews yet. */
-function GuideHighlights({ guide: g }: { guide: GuideCard }) {
+/** The founder co-leading (with its "i"), years guiding, certified, rating. No badge for guides without reviews yet. */
+function GuideHighlights({ guide: g, founder }: { guide: GuideCard; founder: boolean }) {
   const chip = 'rounded-full px-2.5 py-1 text-xs font-medium'
   return (
     <p className="mt-3 flex flex-wrap gap-1.5">
+      {founder && (
+        <InfoTag
+          icon={<span aria-hidden="true">★</span>}
+          label="Founder co-leads the batch"
+          className="rounded-full bg-brand-900 px-2.5 py-1 text-xs font-semibold text-laterite-100"
+        >
+          Our founder walks the whole trek with you in this batch. If anything isn’t right, the person who answers for
+          it is walking beside you.
+        </InfoTag>
+      )}
       {g.years_leading !== null && g.years_leading > 0 && (
         <span className={`${chip} bg-brand-50 text-brand-900`}>
           {g.years_leading} {g.years_leading === 1 ? 'yr' : 'yrs'} guiding

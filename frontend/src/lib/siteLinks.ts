@@ -4,6 +4,7 @@ export const SITE_ORIGIN = 'https://theemptyvalley.com'
 /** Info pages linked from the header, footer and landing page (pages/InfoPages.tsx). */
 export const SITE_LINKS = {
   vision: '/vision',
+  howWeVerify: '/how-we-verify',
   faqs: '/faqs',
   cancellations: '/cancellations',
   contact: '/contact',

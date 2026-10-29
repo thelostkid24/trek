@@ -2,6 +2,7 @@ package com.sahyatri.catalog.controller;
 
 import com.sahyatri.catalog.dto.AdminDepartureResponse;
 import com.sahyatri.catalog.dto.CancelDepartureRequest;
+import com.sahyatri.catalog.dto.DepartureFounderRequest;
 import com.sahyatri.catalog.dto.DeparturePriceRequest;
 import com.sahyatri.catalog.dto.DepartureRequest;
 import com.sahyatri.catalog.service.DepartureAdminService;
@@ -64,6 +65,12 @@ public class AdminDepartureController {
     public AdminDepartureResponse changePrice(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id,
                                               @Valid @RequestBody DeparturePriceRequest req) {
         return departures.changePrice(adminId(jwt), id, req);
+    }
+
+    @PutMapping("/{id}/founder")
+    public AdminDepartureResponse setFounderCoLeads(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id,
+                                                    @Valid @RequestBody DepartureFounderRequest req) {
+        return departures.setFounderCoLeads(adminId(jwt), id, req);
     }
 
     @PostMapping("/{id}/cancel")
