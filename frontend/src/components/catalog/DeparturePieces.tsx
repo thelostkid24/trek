@@ -9,7 +9,7 @@ const DIFFICULTY_TONE: Record<Difficulty, string> = {
 
 export function DifficultyPill({ difficulty }: { difficulty: Difficulty }) {
   return (
-    <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${DIFFICULTY_TONE[difficulty]}`}>
+    <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap ${DIFFICULTY_TONE[difficulty]}`}>
       {DIFFICULTY_LABEL[difficulty]}
     </span>
   )

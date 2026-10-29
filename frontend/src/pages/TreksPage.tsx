@@ -178,8 +178,9 @@ function TrekCard({ trek }: { trek: CatalogTrek }) {
 
       <div className="flex flex-1 flex-col p-4">
         <span className="truncate text-xs text-stone-500">{trek.region}</span>
-        <div className="mt-1.5 flex items-center justify-between gap-2">
-          <h2 className="min-w-0 font-display text-lg font-semibold leading-snug text-brand-950">
+        {/* The grade drops under the name when both don't fit, rather than squeezing it. */}
+        <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+          <h2 className="font-display text-lg font-semibold leading-snug text-brand-950">
             {/* The whole card opens the trek through this link's overlay. */}
             <Link to={`/treks/${trek.slug}`} viewTransition className="after:absolute after:inset-0">
               {trek.name}
